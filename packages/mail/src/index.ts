@@ -21,14 +21,14 @@ export class SmtpMailer implements Mailer {
   #client: nodemailer.Transporter
   #from: string
 
-  constructor(server: string, email: string, password: string) {
+  constructor(server: string, email: string, password: string, from: string) {
     this.#client = nodemailer.createTransport({
       host: server,
       port: 587,
       secure: false,
       auth: { user: email, pass: password },
     })
-    this.#from = email
+    this.#from = from
   }
 
   async send(mail: Mail) {
@@ -38,10 +38,10 @@ export class SmtpMailer implements Mailer {
 
 export function createMailer(env: NodeJS.ProcessEnv = process.env): Mailer {
   if (env.MAIL_DRIVER === 'smtp') {
-    if (!env.SMTP_SERVER || !env.SMTP_EMAIL || !env.SMTP_PASSWORD) {
-      throw new Error('SMTP_SERVER, SMTP_EMAIL and SMTP_PASSWORD are required')
+    if (!env.SMTP_SERVER || !env.SMTP_EMAIL || !env.SMTP_PASSWORD || !env.MAIL_FROM) {
+      throw new Error('SMTP_SERVER, SMTP_EMAIL, SMTP_PASSWORD and MAIL_FROM are required')
     }
-    return new SmtpMailer(env.SMTP_SERVER, env.SMTP_EMAIL, env.SMTP_PASSWORD)
+    return new SmtpMailer(env.SMTP_SERVER, env.SMTP_EMAIL, env.SMTP_PASSWORD, env.MAIL_FROM)
   }
   return new ConsoleMailer()
 }

@@ -58,6 +58,7 @@ if ! ssh -i "$KEY" "wortwerk@$HOST" 'test -f ~/app/.env'; then
     echo "SMTP_SERVER=$(local_env SMTP_SERVER)"
     echo "SMTP_EMAIL=$(local_env SMTP_EMAIL)"
     echo "SMTP_PASSWORD=$(local_env SMTP_PASSWORD)"
+    echo "MAIL_FROM=$(local_env MAIL_FROM)"
     echo "OPENROUTER_API_KEY=$(local_env OPENROUTER_API_KEY)"
     echo "MT_MODEL=openai/gpt-6-luna"
     echo "BACKUP_DIR=/home/wortwerk/backups"
