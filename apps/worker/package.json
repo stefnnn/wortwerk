@@ -10,6 +10,7 @@
   "dependencies": {
     "@wortwerk/core": "workspace:*",
     "@wortwerk/db": "workspace:*",
+    "@wortwerk/git": "workspace:*",
     "@wortwerk/jobs": "workspace:*",
     "@wortwerk/mail": "workspace:*",
     "@wortwerk/storage": "workspace:*",

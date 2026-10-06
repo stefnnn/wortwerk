@@ -6,6 +6,8 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().min(16),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
+  MT_MODEL: z.string().default('openai/gpt-6-luna'),
 })
 
 export const env = schema.parse(process.env)

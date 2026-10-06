@@ -26,6 +26,7 @@ import { formatFromPath } from '@wortwerk/formats'
 import { enqueueProjectJob } from '@wortwerk/jobs'
 import { requireProject, type Env } from './context.ts'
 import { getBoss } from '../services.ts'
+import { projectGit } from './git.ts'
 
 const maxUploadBytes = 20 * 1024 * 1024
 
@@ -115,6 +116,7 @@ const project = new Hono<Env>()
     })
     return c.json(run, 202)
   })
+  .route('/', projectGit)
   .get('/runs', async (c) => c.json(await listSyncRuns(c.get('ctx'), c.get('project').id)))
   .get('/runs/:runId', async (c) => {
     const run = await getSyncRun(c.get('ctx'), c.req.param('runId'))

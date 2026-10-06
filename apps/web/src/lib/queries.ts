@@ -80,4 +80,27 @@ export const queries = {
       queryKey: ['tenant', tenant, 'key', keyId, 'screenshots'],
       queryFn: () => unwrap(t.keys[':keyId'].screenshots.$get({ param: { tenant, keyId } })),
     }),
+  gitConnections: (tenant: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'git', 'connections'],
+      queryFn: () => unwrap(t.git.connections.$get({ param: { tenant } })),
+    }),
+  gitRepos: (tenant: string, connectionId: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'git', 'connections', connectionId, 'repos'],
+      queryFn: () =>
+        unwrap(t.git.connections[':connectionId'].repos.$get({ param: { tenant, connectionId } })),
+      enabled: Boolean(connectionId),
+      staleTime: 60_000,
+    }),
+  repo: (tenant: string, project: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'project', project, 'repo'],
+      queryFn: () => unwrap(t.projects[':project'].repo.$get({ param: { tenant, project } })),
+    }),
+  tokens: (tenant: string, project: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'project', project, 'tokens'],
+      queryFn: () => unwrap(t.projects[':project'].tokens.$get({ param: { tenant, project } })),
+    }),
 }

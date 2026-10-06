@@ -1,0 +1,139 @@
+import { afterAll, describe, expect, it } from 'vitest'
+import { createMemoryRepo } from '@wortwerk/git'
+import { findDueExports, pullFromRepo, pushToRepo, saveConnection, saveRepoLink } from '../src/git.ts'
+import { createProject, upsertFile } from '../src/projects.ts'
+import { listKeys } from '../src/keys.ts'
+import { setTranslation } from '../src/translations.ts'
+import { createProjectToken, resolveProjectToken, revokeProjectToken } from '../src/tokens.ts'
+import { openSecret, sealSecret } from '../src/secrets.ts'
+import { createTenant, db } from './helpers.ts'
+
+afterAll(() => db.pool.end())
+
+process.env.BETTER_AUTH_SECRET ??= 'test-secret-test-secret'
+
+async function setup() {
+  const ctx = await createTenant()
+  const project = await createProject(ctx, {
+    name: 'App',
+    slug: 'app',
+    sourceLocale: 'en',
+    locales: ['de-CH'],
+  })
+  await upsertFile(ctx, project.id, { path: 'locales/%locale%.json', format: 'json' })
+  const connection = await saveConnection(ctx, {
+    provider: 'github',
+    externalId: crypto.randomUUID(),
+    accountName: 'acme',
+  })
+  await saveRepoLink(ctx, project.id, {
+    connectionId: connection.id,
+    repo: 'acme/app',
+    branch: 'main',
+    localeAliases: { 'de-CH': 'de' },
+  })
+  return { ctx, project }
+}
+
+describe('git sync', () => {
+  it('pulls source keys, pushes translations to a PR branch and tracks obsolete keys', async () => {
+    const { ctx, project } = await setup()
+    const repo = createMemoryRepo({
+      'locales/en.json': '{\n  "hello": "Hello",\n  "bye": "Bye"\n}\n',
+      'locales/de.json': '{\n  "hello": "Grüezi"\n}\n',
+    })
+
+    const first = await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(first.files).toEqual([expect.objectContaining({ path: 'locales/en.json', keysAdded: 2 })])
+    expect(await pullFromRepo(ctx, repo.client, { projectId: project.id })).toMatchObject({ skipped: true })
+
+    const onboarding = await pullFromRepo(ctx, repo.client, {
+      projectId: project.id,
+      importTranslations: true,
+    })
+    expect(onboarding.files[1]).toMatchObject({
+      path: 'locales/de.json',
+      locale: 'de-CH',
+      translationsChanged: 1,
+    })
+
+    const keys = await listKeys(ctx, project.id, { locale: 'de-CH' })
+    const bye = keys.items.find((k) => k.name === 'bye')!
+    await setTranslation(ctx, bye.id, 'de-CH', { value: 'Tschüss' })
+
+    const pushed = await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(pushed).toMatchObject({ diff: true, updated: true, files: ['locales/de.json'] })
+    expect(repo.file('wortwerk/translations', 'locales/de.json')).toBe(
+      '{\n  "hello": "Grüezi",\n  "bye": "Tschüss"\n}\n',
+    )
+    expect(repo.pulls).toHaveLength(1)
+
+    expect(await pushToRepo(ctx, repo.client, { projectId: project.id })).toMatchObject({ updated: false })
+
+    repo.push({ 'locales/en.json': '{\n  "hello": "Hello"\n}\n' })
+    const removed = await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(removed).toMatchObject({ changed: true, files: [expect.objectContaining({ keysObsoleted: 1 })] })
+
+    expect(await pushToRepo(ctx, repo.client, { projectId: project.id })).toMatchObject({ diff: false })
+
+    const [hello] = (await listKeys(ctx, project.id, { locale: 'de-CH' })).items
+    await setTranslation(ctx, hello!.id, 'de-CH', { value: 'Hoi' })
+    const again = await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(again).toMatchObject({ updated: true, pullRequestUrl: repo.pulls[0]!.url })
+    expect(repo.file('wortwerk/translations', 'locales/de.json')).toBe('{\n  "hello": "Hoi"\n}\n')
+    expect(repo.pulls).toHaveLength(1)
+  })
+
+  it('finds projects with unexported edits after the quiet period', async () => {
+    const { ctx, project } = await setup()
+    const repo = createMemoryRepo({ 'locales/en.json': '{ "a": "A" }' })
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    const [key] = (await listKeys(ctx, project.id, { locale: 'de-CH' })).items
+    await setTranslation(ctx, key!.id, 'de-CH', { value: 'A!' })
+
+    const mine = (rows: Array<{ projectId: string }>) => rows.filter((r) => r.projectId === project.id)
+    expect(mine(await findDueExports(db, 60))).toHaveLength(0)
+    expect(mine(await findDueExports(db, 0))).toHaveLength(1)
+    await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(mine(await findDueExports(db, 0))).toHaveLength(0)
+  })
+
+  it('refuses identical tracked and export branches', async () => {
+    const { ctx, project } = await setup()
+    const link = await saveRepoLink(ctx, project.id, {
+      connectionId: (await saveConnection(ctx, { provider: 'github', externalId: 'x', accountName: 'x' })).id,
+      repo: 'acme/app',
+      branch: 'main',
+    })
+    expect(link.link.exportBranch).toBe('wortwerk/translations')
+    await expect(
+      saveRepoLink(ctx, project.id, {
+        connectionId: link.link.connectionId,
+        repo: 'acme/app',
+        branch: 'x',
+        exportBranch: 'x',
+      }),
+    ).rejects.toThrow(/must differ/)
+  })
+})
+
+describe('project tokens and secrets', () => {
+  it('resolves tokens by hash and forgets revoked ones', async () => {
+    const { ctx, project } = await setup()
+    const created = await createProjectToken(ctx, project.id, { name: 'CI' })
+    expect(created.token).toMatch(/^ww_/)
+    expect(await resolveProjectToken(db, created.token)).toEqual({
+      tenantId: ctx.tenantId,
+      projectId: project.id,
+    })
+    expect(await resolveProjectToken(db, 'ww_nope')).toBeNull()
+    await revokeProjectToken(ctx, project.id, created.id)
+    expect(await resolveProjectToken(db, created.token)).toBeNull()
+  })
+
+  it('round-trips sealed secrets', () => {
+    const sealed = sealSecret({ accessToken: 'a', n: 1 })
+    expect(sealed).not.toContain('accessToken')
+    expect(openSecret(sealed)).toEqual({ accessToken: 'a', n: 1 })
+  })
+})

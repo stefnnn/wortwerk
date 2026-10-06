@@ -108,9 +108,8 @@ function ProjectFiles() {
               <TableBody>
                 {runs.data.map((run) => (
                   <TableRow key={run.id}>
-                    <TableCell className="font-mono text-xs">
-                      {String(run.params.filename ?? '')}{' '}
-                      <span className="text-muted-foreground">→ {String(run.params.locale ?? '')}</span>
+                    <TableCell className="text-xs">
+                      <RunLabel kind={run.kind} params={run.params} />
                     </TableCell>
                     <TableCell>
                       <RunStatus status={run.status} />
@@ -119,7 +118,7 @@ function ProjectFiles() {
                       {run.error ? (
                         <span className="text-destructive">{run.error}</span>
                       ) : run.result ? (
-                        <RunSummary result={run.result} />
+                        <RunSummary kind={run.kind} result={run.result} />
                       ) : (
                         '—'
                       )}
@@ -160,7 +159,94 @@ function RunStatus({ status }: { status: string }) {
   )
 }
 
-function RunSummary({ result }: { result: Record<string, unknown> }) {
+function RunLabel({ kind, params }: { kind: string; params: Record<string, unknown> }) {
+  const trigger = params.trigger ? String(params.trigger) : ''
+  const label: Record<string, string> = {
+    import: m.run_kind_import(),
+    export: m.run_kind_import(),
+    pull: m.run_kind_pull(),
+    push: m.run_kind_push(),
+    machine: m.run_kind_machine(),
+  }
+  return (
+    <span className="grid gap-0.5">
+      <span className="font-medium">{label[kind] ?? kind}</span>
+      <span className="text-muted-foreground font-mono">
+        {kind === 'import' && `${String(params.filename ?? '')} → ${String(params.locale ?? '')}`}
+        {kind === 'machine' && String(params.locale ?? '')}
+        {(kind === 'pull' || kind === 'push') && trigger && runTrigger(trigger)}
+        {kind === 'pull' && params.importTranslations === true && ` · ${m.run_with_translations()}`}
+      </span>
+    </span>
+  )
+}
+
+function runTrigger(trigger: string) {
+  const labels: Record<string, () => string> = {
+    manual: m.run_trigger_manual,
+    webhook: m.run_trigger_webhook,
+    ci: m.run_trigger_ci,
+    connect: m.run_trigger_connect,
+    auto: m.run_trigger_auto,
+    pull: m.run_trigger_auto,
+  }
+  return labels[trigger]?.() ?? trigger
+}
+
+type FileResult = {
+  keysAdded?: number
+  translationsChanged?: number
+  keysObsoleted?: number
+  skipped?: number
+}
+
+function RunSummary({ kind, result }: { kind: string; result: Record<string, unknown> }) {
+  if (kind === 'pull') {
+    if (result.skipped) return <>{m.run_up_to_date()}</>
+    const files = (result.files ?? []) as FileResult[]
+    const sum = (key: keyof FileResult) => files.reduce((n, f) => n + Number(f[key] ?? 0), 0)
+    return (
+      <>
+        <code>{String(result.sha ?? '').slice(0, 7)}</code> ·{' '}
+        {m.run_summary({
+          added: sum('keysAdded'),
+          changed: sum('translationsChanged'),
+          obsoleted: sum('keysObsoleted'),
+          skipped: sum('skipped'),
+        })}
+      </>
+    )
+  }
+  if (kind === 'push') {
+    if (!result.diff) return <>{m.run_nothing_to_export()}</>
+    const url = result.pullRequestUrl ? String(result.pullRequestUrl) : null
+    return (
+      <>
+        {result.updated
+          ? m.run_exported({ count: ((result.files ?? []) as unknown[]).length })
+          : m.run_up_to_date()}
+        {url && (
+          <>
+            {' · '}
+            <a href={url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              {m.repo_pull_request()}
+            </a>
+          </>
+        )}
+      </>
+    )
+  }
+  if (kind === 'machine') {
+    return (
+      <>
+        {m.run_machine_summary({
+          translated: Number(result.translated ?? 0),
+          requested: Number(result.requested ?? 0),
+          failed: ((result.failed ?? []) as unknown[]).length,
+        })}
+      </>
+    )
+  }
   const n = (key: string) => Number(result[key] ?? 0)
   return (
     <>

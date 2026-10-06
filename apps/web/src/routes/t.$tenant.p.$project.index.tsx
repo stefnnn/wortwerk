@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { Languages } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Languages, Sparkles } from 'lucide-react'
+import { useEffect } from 'react'
 import { PageBody } from '#/components/app/page.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
-import { buttonVariants } from '#/components/ui/button.tsx'
+import { Button, buttonVariants } from '#/components/ui/button.tsx'
 import { Skeleton } from '#/components/ui/skeleton.tsx'
 import { formatNumber, localeName, percent } from '#/lib/format.ts'
+import { t, unwrap } from '#/lib/api.ts'
+import { useAction } from '#/lib/mutations.ts'
 import { queries } from '#/lib/queries.ts'
 import { m } from '#/paraglide/messages.js'
 
@@ -18,6 +21,23 @@ function ProjectOverview() {
   const { tenant, project } = Route.useParams()
   const details = useQuery(queries.project(tenant, project))
   const stats = useQuery(queries.stats(tenant, project))
+  const tenantInfo = useQuery(queries.tenant(tenant))
+  const runs = useQuery(queries.runs(tenant, project))
+  const queryClient = useQueryClient()
+  const machineRunning = runs.data?.some(
+    (r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'),
+  )
+  useEffect(() => {
+    if (machineRunning === false)
+      void queryClient.invalidateQueries({ queryKey: queries.stats(tenant, project).queryKey })
+  }, [machineRunning, queryClient, tenant, project])
+
+  const pretranslate = useAction(
+    (locale: string) =>
+      unwrap(t.projects[':project'].machine.$post({ param: { tenant, project }, json: { locale } })),
+    { invalidate: [queries.runs(tenant, project).queryKey], success: m.machine_queued() },
+  )
+  const canMachine = tenantInfo.data?.features.machineTranslation ?? false
 
   if (!stats.data || !details.data) {
     return (
@@ -61,6 +81,17 @@ function ProjectOverview() {
                   <span>{m.overview_untranslated({ count: formatNumber(s.untranslated) })}</span>
                 </p>
               </div>
+              {!isSource && canMachine && s.untranslated > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={pretranslate.isPending || machineRunning}
+                  onClick={() => pretranslate.mutate(s.locale)}
+                >
+                  <Sparkles className={machineRunning ? 'animate-pulse' : undefined} />{' '}
+                  {m.machine_pretranslate()}
+                </Button>
+              )}
               {!isSource && (
                 <Link
                   to="/t/$tenant/p/$project/editor"

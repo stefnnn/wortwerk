@@ -21,7 +21,14 @@ export type ImportResult = {
 
 export async function importFileContent(
   ctx: Ctx,
-  input: { projectId: string; fileId: string; locale: string; content: string; overwrite?: boolean },
+  input: {
+    projectId: string
+    fileId: string
+    locale: string
+    content: string
+    overwrite?: boolean
+    source?: 'import' | 'git'
+  },
 ): Promise<ImportResult> {
   const project = await getProject(ctx, { id: input.projectId })
   const file = await getFile(ctx, input.fileId)
@@ -190,7 +197,7 @@ export async function importFileContent(
           translationId: t.id,
           value: t.value,
           status: t.status,
-          source: 'import' as const,
+          source: input.source ?? 'import',
           userId: ctx.userId,
         })),
       )
@@ -269,5 +276,5 @@ export async function exportFileContent(ctx: Ctx, input: { fileId: string; local
     template,
     options: file.options as never,
   })
-  return { path: filePathFor(file.path, input.locale), content }
+  return { path: filePathFor(file.path, input.locale), content, count: entries.length }
 }

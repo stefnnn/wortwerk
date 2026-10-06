@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Check, CornerDownLeft, Eye, ImagePlus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, CornerDownLeft, Eye, ImagePlus, Sparkles, Trash2 } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import {
   buildPluralIcu,
@@ -72,6 +72,11 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
     queries.stats(tenant, project).queryKey,
     queries.revisions(tenant, item.id, locale).queryKey,
   ]
+  const tenantInfo = useQuery(queries.tenant(tenant))
+  const machine = useAction(
+    () => unwrap(t.keys[':keyId'].machine.$post({ param: { tenant, keyId: item.id }, json: { locale } })),
+    { onSuccess: (result) => setDraft(result.value) },
+  )
   const save = useAction(
     ({ status }: { status?: Status; advance?: boolean }) =>
       unwrap(
@@ -215,6 +220,17 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
               >
                 <Eye /> {m.editor_flag_review()}
               </Button>
+              {tenantInfo.data?.features.machineTranslation && item.source && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="ml-auto"
+                  disabled={machine.isPending}
+                  onClick={() => machine.mutate(undefined)}
+                >
+                  <Sparkles className={cn(machine.isPending && 'animate-pulse')} /> {m.editor_machine()}
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -291,6 +307,16 @@ function Suggestions({
   )
 }
 
+function revisionLabel(source: string) {
+  const labels: Record<string, () => string> = {
+    editor: m.revision_editor,
+    import: m.revision_import,
+    git: m.revision_git,
+    machine: m.revision_machine,
+  }
+  return labels[source]?.() ?? source
+}
+
 function History({
   tenant,
   keyId,
@@ -310,7 +336,7 @@ function History({
       {revisions.data.map((r) => (
         <li key={r.id} className="grid gap-1 border-l-2 pl-3 text-sm">
           <span className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-            {formatDateTime(r.createdAt)} · {r.user?.name ?? m.editor_system()} · {r.source}
+            {formatDateTime(r.createdAt)} · {r.user?.name ?? m.editor_system()} · {revisionLabel(r.source)}
             <StatusBadge status={r.status as Status} />
           </span>
           <span className={cn('whitespace-pre-wrap', !r.value && 'text-muted-foreground italic')}>

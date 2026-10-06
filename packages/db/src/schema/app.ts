@@ -26,7 +26,8 @@ export const translationStatus = pgEnum('translation_status', [
   'approved',
 ])
 export const revisionSource = pgEnum('revision_source', ['editor', 'import', 'git', 'machine'])
-export const syncRunKind = pgEnum('sync_run_kind', ['import', 'export'])
+export const syncRunKind = pgEnum('sync_run_kind', ['import', 'export', 'pull', 'push', 'machine'])
+export const gitProvider = pgEnum('git_provider', ['github', 'bitbucket'])
 export const syncRunStatus = pgEnum('sync_run_status', ['queued', 'running', 'succeeded', 'failed'])
 
 export const project = pgTable(
@@ -132,6 +133,7 @@ export const translation = pgTable(
   (t) => [
     unique().on(t.keyId, t.locale),
     index().on(t.tenantId, t.locale),
+    index().on(t.tenantId, t.updatedAt),
     index('translation_value_trgm_idx').using('gin', sql`${t.value} gin_trgm_ops`),
   ],
 )
@@ -207,7 +209,72 @@ export const syncRun = pgTable(
   (t) => [index().on(t.projectId, t.createdAt)],
 )
 
-export const projectRelations = relations(project, ({ many }) => ({
+export const gitConnection = pgTable(
+  'git_connection',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    provider: gitProvider().notNull(),
+    externalId: text().notNull(),
+    accountName: text().notNull(),
+    credentials: text(),
+    createdById: userRef(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique().on(t.tenantId, t.provider, t.externalId), index().on(t.provider, t.externalId)],
+)
+
+export const projectRepo = pgTable(
+  'project_repo',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: text()
+      .notNull()
+      .unique()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    connectionId: text()
+      .notNull()
+      .references(() => gitConnection.id, { onDelete: 'cascade' }),
+    repo: text().notNull(),
+    branch: text().notNull(),
+    exportBranch: text().default('wortwerk/translations').notNull(),
+    localeAliases: jsonb().$type<Record<string, string>>().default({}).notNull(),
+    autoExport: boolean().default(true).notNull(),
+    webhookId: text(),
+    webhookSecret: text(),
+    lastPulledSha: text(),
+    lastPulledAt: timestamp({ withTimezone: true }),
+    lastPushedSha: text(),
+    lastPushedAt: timestamp({ withTimezone: true }),
+    pullRequestUrl: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index().on(t.connectionId, t.repo)],
+)
+
+export const projectToken = pgTable(
+  'project_token',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: text()
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    tokenHash: text().notNull().unique(),
+    tokenPrefix: text().notNull(),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    createdById: userRef(),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.projectId)],
+)
+
+export const projectRelations = relations(project, ({ one, many }) => ({
+  repo: one(projectRepo),
   locales: many(projectLocale),
   files: many(projectFile),
   keys: many(translationKey),
@@ -254,4 +321,13 @@ export const keyCommentRelations = relations(keyComment, ({ one }) => ({
 
 export const keyScreenshotRelations = relations(keyScreenshot, ({ one }) => ({
   key: one(translationKey, { fields: [keyScreenshot.keyId], references: [translationKey.id] }),
+}))
+
+export const gitConnectionRelations = relations(gitConnection, ({ many }) => ({
+  repos: many(projectRepo),
+}))
+
+export const projectRepoRelations = relations(projectRepo, ({ one }) => ({
+  project: one(project, { fields: [projectRepo.projectId], references: [project.id] }),
+  connection: one(gitConnection, { fields: [projectRepo.connectionId], references: [gitConnection.id] }),
 }))

@@ -5,10 +5,12 @@ import { ZodError } from 'zod'
 import { DomainError, countActiveKeys, getPlan } from '@wortwerk/core'
 import { schema } from '@wortwerk/db'
 import { auth } from '../auth.ts'
-import { db } from '../services.ts'
+import { db, translator } from '../services.ts'
 import { requireSession, requireTenant, type Env } from './context.ts'
 import { comments, keys, projectKeys, screenshots } from './keys.ts'
+import { integrations, tenantGit, webhooks } from './git.ts'
 import { projects } from './projects.ts'
+import { v1 } from './v1.ts'
 
 const statusFor = { not_found: 404, conflict: 409, invalid: 400, limit_reached: 402 } as const
 
@@ -23,10 +25,12 @@ const tenant = new Hono<Env>()
     return c.json({
       ...t,
       plan: getPlan(t.plan),
+      features: { machineTranslation: getPlan(t.plan).machineTranslation && Boolean(translator) },
       usage: { keys: await countActiveKeys(c.get('ctx')), members: members?.n ?? 0 },
     })
   })
   .route('/projects', projects)
+  .route('/git', tenantGit)
   .route('/projects/:project/keys', projectKeys)
   .route('/keys', keys)
   .route('/comments', comments)
@@ -37,6 +41,9 @@ export const api = new Hono<Env>()
   .on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
   .get('/health', (c) => c.json({ ok: true }))
   .route('/t/:tenant', tenant)
+  .route('/webhooks', webhooks)
+  .route('/integrations', integrations)
+  .route('/v1', v1)
   .onError((error, c) => {
     if (error instanceof DomainError)
       return c.json({ error: error.code, message: error.message }, statusFor[error.code])

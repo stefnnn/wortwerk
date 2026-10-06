@@ -1,0 +1,191 @@
+import { and, eq, sql } from 'drizzle-orm'
+import { schema } from '@wortwerk/db'
+import { icuArguments, localePluralCategories, parsePluralIcu, validateIcu } from '@wortwerk/formats'
+import { DomainError, chunks, type Ctx } from './context.ts'
+import { assertMachineTranslation } from './limits.ts'
+import { getProject } from './projects.ts'
+import { getKeyInTenant, setTranslation } from './translations.ts'
+
+const { translation, translationKey } = schema
+
+export type MtItem = { id: string; text: string; key: string; description?: string }
+
+export type Translator = (input: {
+  sourceLocale: string
+  targetLocale: string
+  items: MtItem[]
+}) => Promise<Record<string, string>>
+
+export function normalizeModel(model: string) {
+  return model.includes('/') ? model : `openai/${model}`
+}
+
+function systemPrompt(sourceLocale: string, targetLocale: string) {
+  const categories = localePluralCategories(targetLocale).join(', ')
+  return `You are a professional software localizer translating UI strings from ${sourceLocale} to ${targetLocale}.
+The strings use ICU MessageFormat. Rules:
+- Translate only human-readable text. Never translate or rename anything inside {curly braces} that is an argument name, a format keyword (number, date, plural, select, selectordinal, other, one, few, many, two, zero) or a select key.
+- Keep every {argument}, every # inside plural branches, every HTML/XML tag and every markdown marker exactly as in the source.
+- For plural messages, output the plural form with exactly these categories for ${targetLocale}: ${categories}. Keep explicit =N branches.
+- A literal apostrophe before { or } escapes it in ICU; keep such escapes intact.
+- Preserve leading/trailing whitespace and line breaks.
+- Follow the regional conventions of ${targetLocale} (for example de-CH uses "ss" instead of "ß"). Use the informal "du" form for German unless the source is clearly formal.
+- The key name and description are context only, do not translate them.
+Answer with a single JSON object mapping each input id to its translated string, nothing else.`
+}
+
+export function openRouterTranslator(config: { apiKey: string; model: string; appUrl?: string }): Translator {
+  return async ({ sourceLocale, targetLocale, items }) => {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${config.apiKey}`,
+        'content-type': 'application/json',
+        ...(config.appUrl ? { 'http-referer': config.appUrl, 'x-title': 'wortwerk' } : {}),
+      },
+      body: JSON.stringify({
+        model: normalizeModel(config.model),
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt(sourceLocale, targetLocale) },
+          {
+            role: 'user',
+            content: JSON.stringify(
+              items.map((i) => ({
+                id: i.id,
+                key: i.key,
+                description: i.description || undefined,
+                text: i.text,
+              })),
+            ),
+          },
+        ],
+      }),
+    })
+    if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`)
+    const body = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
+    const content = body.choices?.[0]?.message?.content ?? ''
+    const json = content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1)
+    const parsed = JSON.parse(json) as Record<string, unknown>
+    return Object.fromEntries(
+      Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === 'string'),
+    )
+  }
+}
+
+const tags = (s: string) => (s.match(/<\/?[a-zA-Z][^<>]*>/g) ?? []).sort().join('')
+
+export function checkMachineOutput(source: string, output: string, targetLocale: string): string | null {
+  if (!output.trim()) return 'empty output'
+  const issue = validateIcu(output)
+  if (issue) return `invalid ICU: ${issue.message}`
+  const want = [...icuArguments(source)].sort().join(',')
+  const got = [...icuArguments(output)].sort().join(',')
+  if (want !== got) return `placeholders changed (${want || 'none'} → ${got || 'none'})`
+  if (tags(source) !== tags(output)) return 'markup changed'
+  const plural = parsePluralIcu(source)
+  if (plural) {
+    const out = parsePluralIcu(output)
+    if (!out) return 'plural structure lost'
+    const missing = localePluralCategories(targetLocale).filter((c) => !(c in out.branches))
+    if (missing.length) return `missing plural forms: ${missing.join(', ')}`
+  }
+  return null
+}
+
+async function translateChecked(
+  translator: Translator,
+  sourceLocale: string,
+  targetLocale: string,
+  items: MtItem[],
+) {
+  const accepted = new Map<string, string>()
+  const failures = new Map<string, string>()
+  let pending = items
+  for (let attempt = 0; attempt < 2 && pending.length; attempt++) {
+    const out = await translator({ sourceLocale, targetLocale, items: pending })
+    for (const item of pending) {
+      const value = out[item.id]
+      const issue =
+        value === undefined ? 'missing in response' : checkMachineOutput(item.text, value, targetLocale)
+      if (issue) failures.set(item.id, issue)
+      else {
+        accepted.set(item.id, value!)
+        failures.delete(item.id)
+      }
+    }
+    pending = pending.filter((i) => failures.has(i.id))
+  }
+  return { accepted, failures }
+}
+
+export async function suggestMachineTranslation(
+  ctx: Ctx,
+  translator: Translator,
+  keyId: string,
+  locale: string,
+) {
+  await assertMachineTranslation(ctx)
+  const key = await getKeyInTenant(ctx, keyId)
+  const source = await ctx.db.query.translation.findFirst({
+    where: and(eq(translation.keyId, keyId), eq(translation.locale, key.project.sourceLocale)),
+  })
+  if (!source?.value) throw new DomainError('invalid', 'The key has no source text to translate')
+  const { accepted, failures } = await translateChecked(translator, key.project.sourceLocale, locale, [
+    { id: '1', text: source.value, key: key.name, description: key.description },
+  ])
+  const value = accepted.get('1')
+  if (!value) throw new DomainError('invalid', `Machine translation was rejected: ${failures.get('1')}`)
+  return { value }
+}
+
+export async function machineTranslateProject(
+  ctx: Ctx,
+  translator: Translator,
+  input: { projectId: string; locale: string; keyIds?: string[]; batchSize?: number },
+) {
+  await assertMachineTranslation(ctx)
+  const project = await getProject(ctx, { id: input.projectId })
+  if (input.locale === project.sourceLocale) throw new DomainError('invalid', 'Pick a target locale')
+  if (!project.locales.some((l) => l.code === input.locale)) {
+    throw new DomainError('invalid', `Locale ${input.locale} is not part of this project`)
+  }
+
+  const rows = await ctx.db.execute<{ id: string; name: string; description: string; text: string }>(sql`
+    select k.id, k.name, k.description, src.value as text
+    from ${translationKey} k
+    join ${translation} src on src.key_id = k.id and src.locale = ${project.sourceLocale}
+    left join ${translation} tgt on tgt.key_id = k.id and tgt.locale = ${input.locale}
+    where k.tenant_id = ${ctx.tenantId}
+      and k.project_id = ${project.id}
+      and k.obsolete_at is null
+      and src.value <> ''
+      and (tgt.id is null or tgt.status = 'untranslated' or tgt.value = '')
+      ${input.keyIds?.length ? sql`and k.id in ${input.keyIds}` : sql``}
+    order by k.position
+  `)
+
+  const result = {
+    requested: rows.rows.length,
+    translated: 0,
+    failed: [] as Array<{ key: string; reason: string }>,
+  }
+  for (const batch of chunks(rows.rows, input.batchSize ?? 40)) {
+    const items = batch.map((r) => ({ id: r.id, text: r.text, key: r.name, description: r.description }))
+    const { accepted, failures } = await translateChecked(
+      translator,
+      project.sourceLocale,
+      input.locale,
+      items,
+    )
+    for (const [keyId, value] of accepted) {
+      await setTranslation(ctx, keyId, input.locale, { value, status: 'needs_review' }, 'machine')
+      result.translated++
+    }
+    for (const [keyId, reason] of failures) {
+      result.failed.push({ key: batch.find((r) => r.id === keyId)!.name, reason })
+    }
+  }
+  return result
+}

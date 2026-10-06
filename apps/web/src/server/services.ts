@@ -1,10 +1,16 @@
-import type { Ctx } from '@wortwerk/core'
+import { openRouterTranslator, type Ctx } from '@wortwerk/core'
 import { getDb } from '@wortwerk/db'
+import { providersFromEnv } from '@wortwerk/git'
 import { createBoss, ensureQueues, type PgBoss } from '@wortwerk/jobs'
 import { createStorage } from '@wortwerk/storage'
+import { env } from './env.ts'
 
 export const db = getDb()
 export const storage = createStorage()
+export const providers = providersFromEnv()
+export const translator = env.OPENROUTER_API_KEY
+  ? openRouterTranslator({ apiKey: env.OPENROUTER_API_KEY, model: env.MT_MODEL, appUrl: env.APP_URL })
+  : null
 
 let boss: Promise<PgBoss> | undefined
 
@@ -19,6 +25,6 @@ export function getBoss() {
   return boss
 }
 
-export function tenantCtx(tenantId: string, userId: string): Ctx {
+export function tenantCtx(tenantId: string, userId: string | null = null): Ctx {
   return { db, tenantId, userId, storage }
 }

@@ -10,7 +10,7 @@
     "build": "node --env-file-if-exists=../../.env node_modules/vite/bin/vite.js build",
     "start": "node --env-file-if-exists=../../.env .output/server/index.mjs",
     "preview": "vite preview",
-    "typecheck": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide && tsr generate && tsc"
+    "typecheck": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy url cookie preferredLanguage baseLocale --silent && tsr generate && tsc"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -25,6 +25,7 @@
     "@wortwerk/core": "workspace:*",
     "@wortwerk/db": "workspace:*",
     "@wortwerk/formats": "workspace:*",
+    "@wortwerk/git": "workspace:*",
     "@wortwerk/jobs": "workspace:*",
     "@wortwerk/mail": "workspace:*",
     "@wortwerk/storage": "workspace:*",

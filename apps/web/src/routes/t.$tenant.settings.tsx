@@ -1,10 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { MailPlus, Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { GitBranch, MailPlus, Trash2 } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
+import { z } from 'zod'
 import { PageBody, PageHeader } from '#/components/app/page.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
-import { Button } from '#/components/ui/button.tsx'
+import { t, unwrap } from '#/lib/api.ts'
+import { Button, buttonVariants } from '#/components/ui/button.tsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { Progress } from '#/components/ui/progress.tsx'
@@ -17,6 +20,7 @@ import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/t/$tenant/settings')({
   head: () => ({ meta: [{ title: `${m.nav_settings()} · wortwerk` }] }),
+  validateSearch: z.object({ connect: z.string().optional() }),
   component: TenantSettings,
 })
 
@@ -95,6 +99,8 @@ function TenantSettings() {
           </CardContent>
         </Card>
 
+        <ConnectionsCard tenant={slug} />
+
         <Card>
           <CardHeader>
             <CardTitle>{m.members_title()}</CardTitle>
@@ -150,6 +156,81 @@ function TenantSettings() {
         </Card>
       </PageBody>
     </>
+  )
+}
+
+function ConnectionsCard({ tenant }: { tenant: string }) {
+  const connections = useQuery(queries.gitConnections(tenant))
+  const { connect } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const remove = useAction(
+    (connectionId: string) =>
+      unwrap(t.git.connections[':connectionId'].$delete({ param: { tenant, connectionId } })),
+    { invalidate: [queries.gitConnections(tenant).queryKey] },
+  )
+
+  useEffect(() => {
+    if (!connect) return
+    if (connect === 'github' || connect === 'bitbucket') toast.success(m.git_connected())
+    else if (connect === 'requested') toast.info(m.git_requested())
+    void navigate({ search: {}, replace: true })
+  }, [connect, navigate])
+
+  const available = connections.data?.available
+  const providers = [
+    { id: 'github', name: 'GitHub', enabled: available?.github },
+    { id: 'bitbucket', name: 'Bitbucket', enabled: available?.bitbucket },
+  ] as const
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{m.git_title()}</CardTitle>
+        <CardDescription>{m.git_subtitle()}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {connections.data && connections.data.connections.length > 0 && (
+          <ul className="divide-y rounded-lg border">
+            {connections.data.connections.map((c) => (
+              <li key={c.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                <GitBranch className="text-muted-foreground size-4" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{c.accountName}</p>
+                  <p className="text-muted-foreground">
+                    {c.provider === 'github' ? 'GitHub' : 'Bitbucket'} · {formatDateTime(c.createdAt)}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={m.action_remove()}
+                  onClick={() => remove.mutate(c.id)}
+                >
+                  <Trash2 />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {providers.map((p) =>
+            p.enabled ? (
+              <a
+                key={p.id}
+                href={`/api/t/${tenant}/git/connect/${p.id}`}
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                {m.git_connect({ provider: p.name })}
+              </a>
+            ) : (
+              <Button key={p.id} variant="outline" disabled title={m.git_not_configured()}>
+                {m.git_connect({ provider: p.name })}
+              </Button>
+            ),
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

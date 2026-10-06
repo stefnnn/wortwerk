@@ -19,11 +19,14 @@ import {
   setKeysObsolete,
   setTranslation,
   setTranslationInput,
+  suggestMachineTranslation,
+  DomainError,
   tmSuggestions,
   updateKey,
   updateKeyInput,
 } from '@wortwerk/core'
 import { requireProject, type Env } from './context.ts'
+import { translator } from '../services.ts'
 
 const locale = z.object({ locale: z.string() })
 
@@ -63,6 +66,17 @@ export const keys = new Hono<Env>()
   .get('/:keyId/suggestions', validate('query', locale), async (c) =>
     c.json(await tmSuggestions(c.get('ctx'), c.req.param('keyId'), c.req.valid('query').locale)),
   )
+  .post('/:keyId/machine', validate('json', locale), async (c) => {
+    if (!translator) throw new DomainError('invalid', 'Machine translation is not configured')
+    return c.json(
+      await suggestMachineTranslation(
+        c.get('ctx'),
+        translator,
+        c.req.param('keyId'),
+        c.req.valid('json').locale,
+      ),
+    )
+  })
   .get('/:keyId/comments', async (c) => c.json(await listComments(c.get('ctx'), c.req.param('keyId'))))
   .post('/:keyId/comments', validate('json', commentInput), async (c) =>
     c.json(await addComment(c.get('ctx'), c.req.param('keyId'), c.req.valid('json')), 201),
