@@ -14,6 +14,8 @@ export const Route = createFileRoute('/onboarding')({
   beforeLoad: async ({ location }) => {
     const viewer = await getViewer()
     if (!viewer) throw redirect({ to: '/sign-in', search: { redirect: location.href } })
+    const owned = viewer.tenants.find((t) => t.role === 'owner')
+    if (owned) throw redirect({ to: '/t/$tenant', params: { tenant: owned.slug } })
     return { viewer }
   },
   head: () => ({ meta: [{ title: `${m.onboarding_title()} · wortwerk` }] }),

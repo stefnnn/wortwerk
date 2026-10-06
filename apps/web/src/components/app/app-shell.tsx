@@ -9,6 +9,7 @@ import { Button } from '#/components/ui/button.tsx'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -136,19 +137,25 @@ function TenantSwitcher({ viewer, tenant }: { viewer: Viewer; tenant: Tenant }) 
         <ChevronsUpDown className="text-muted-foreground size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">
-        <DropdownMenuLabel>{m.nav_workspaces()}</DropdownMenuLabel>
-        {viewer.tenants.map((t) => (
-          <DropdownMenuItem
-            key={t.id}
-            onClick={() => navigate({ to: '/t/$tenant', params: { tenant: t.slug } })}
-          >
-            {t.name}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate({ to: '/onboarding' })}>
-          <Plus /> {m.nav_new_workspace()}
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{m.nav_workspaces()}</DropdownMenuLabel>
+          {viewer.tenants.map((t) => (
+            <DropdownMenuItem
+              key={t.id}
+              onClick={() => navigate({ to: '/t/$tenant', params: { tenant: t.slug } })}
+            >
+              {t.name}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+        {!viewer.tenants.some((t) => t.role === 'owner') && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate({ to: '/onboarding' })}>
+              <Plus /> {m.nav_new_workspace()}
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

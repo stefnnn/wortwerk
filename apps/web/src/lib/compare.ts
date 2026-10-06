@@ -26,13 +26,13 @@ export const wortwerkValues: Record<CompareRow, Localized> = {
     de: 'JSON, YAML und gettext PO, Struktur bleibt erhalten',
   },
   pricing: {
-    en: 'Free for 1 project and 1,000 keys, flat yearly plans from CHF 450',
-    de: 'Gratis für 1 Projekt und 1000 Keys, Pauschalpläne ab CHF 450 / Jahr',
+    en: 'Free for 1 project and 500 keys, flat yearly plans from CHF 450',
+    de: 'Gratis für 1 Projekt und 500 Keys, Pauschalpläne ab CHF 450 / Jahr',
   },
   hosting: { en: 'Hosted service', de: 'Gehosteter Dienst' },
   mt: {
-    en: 'AI pre-translation on the Agency plan, placeholders validated',
-    de: 'KI-Vorübersetzung im Agency-Plan, Platzhalter werden geprüft',
+    en: 'AI pre-translation on paid plans, placeholders validated',
+    de: 'KI-Vorübersetzung in bezahlten Plänen, Platzhalter werden geprüft',
   },
   origin: { en: 'Switzerland', de: 'Schweiz' },
 }

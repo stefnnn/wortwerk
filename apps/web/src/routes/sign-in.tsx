@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { MailCheck } from 'lucide-react'
@@ -8,21 +8,25 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '#/components/ui/field
 import { Input } from '#/components/ui/input.tsx'
 import { authClient } from '#/lib/auth-client.ts'
 import { redirectSearch } from '#/lib/redirect.ts'
+import { getViewer } from '#/lib/viewer.ts'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/sign-in')({
   validateSearch: redirectSearch,
+  beforeLoad: async ({ search }) => {
+    if (await getViewer()) throw redirect({ href: search.redirect ?? '/app' })
+  },
   head: () => ({ meta: [{ title: `${m.sign_in_title()} · wortwerk` }] }),
   component: SignIn,
 })
 
 function SignIn() {
-  const { redirect } = Route.useSearch()
+  const { redirect: redirectTo } = Route.useSearch()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'magic' | 'password'>('magic')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const target = redirect ?? '/app'
+  const target = redirectTo ?? '/app'
 
   const magic = useMutation({
     mutationFn: async () => {
@@ -97,7 +101,7 @@ function SignIn() {
         {m.sign_in_no_account()}{' '}
         <Link
           to="/sign-up"
-          search={{ redirect }}
+          search={{ redirect: redirectTo }}
           className="text-foreground font-medium underline-offset-4 hover:underline"
         >
           {m.sign_up_title()}

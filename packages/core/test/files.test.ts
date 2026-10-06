@@ -107,11 +107,11 @@ describe('file import / export', () => {
     const project = await createProject(ctx, { name: 'Big', slug: 'big', sourceLocale: 'en' })
     const file = await upsertFile(ctx, project.id, { path: '%locale%.json', format: 'json' })
     const content = JSON.stringify(
-      Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`k${i}`, `v${i}`])),
+      Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`k${i}`, `v${i}`])),
     )
     await expect(
       importFileContent(ctx, { projectId: project.id, fileId: file.id, locale: 'en', content }),
-    ).rejects.toThrow(/allows 1000 keys/)
+    ).rejects.toThrow(/allows 500 keys/)
   })
 
   it('enforces the plan project limit', async () => {

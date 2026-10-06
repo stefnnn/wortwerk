@@ -3,7 +3,7 @@ import { getRequestHeaders } from '@tanstack/react-start/server'
 
 export type Viewer = {
   user: { id: string; name: string; email: string; image?: string | null }
-  tenants: Array<{ id: string; name: string; slug: string; plan: string }>
+  tenants: Array<{ id: string; name: string; slug: string; plan: string; role: string }>
 }
 
 export const getViewer = createServerFn({ method: 'GET' }).handler(async (): Promise<Viewer | null> => {
@@ -21,6 +21,7 @@ export const getViewer = createServerFn({ method: 'GET' }).handler(async (): Pro
       name: schema.tenant.name,
       slug: schema.tenant.slug,
       plan: schema.tenant.plan,
+      role: schema.member.role,
     })
     .from(schema.tenant)
     .innerJoin(schema.member, eq(schema.member.organizationId, schema.tenant.id))

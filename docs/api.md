@@ -39,7 +39,7 @@ Used by the admin UI through the typed Hono client (`apps/web/src/lib/api.ts`). 
 /api/t/:tenant/projects/:project/repo               GET, PUT { connectionId, repo, branch, exportBranch, localeAliases, autoExport }, DELETE
 /api/t/:tenant/projects/:project/repo/sync          POST { importTranslations, overwrite } -> 202 pull run
 /api/t/:tenant/projects/:project/repo/export        POST -> 202 push run
-/api/t/:tenant/projects/:project/machine            POST { locale, keyIds? } -> 202 machine run (agency plan)
+/api/t/:tenant/projects/:project/machine            POST { locale, keyIds? } -> 202 machine run (paid plans)
 /api/t/:tenant/projects/:project/tokens             GET, POST { name } -> { token } (shown once)
 /api/t/:tenant/projects/:project/tokens/:id         DELETE
 

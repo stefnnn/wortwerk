@@ -35,6 +35,14 @@ export const auth = betterAuth({
       },
     }),
     organization({
+      allowUserToCreateOrganization: async (user) => {
+        const [owned] = await getDb()
+          .select({ id: schema.member.id })
+          .from(schema.member)
+          .where(and(eq(schema.member.userId, user.id), eq(schema.member.role, 'owner')))
+          .limit(1)
+        return !owned
+      },
       schema: {
         organization: {
           modelName: 'tenant',

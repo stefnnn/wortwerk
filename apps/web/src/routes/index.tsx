@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   ArrowRight,
   Check,
@@ -10,13 +10,14 @@ import {
   Sparkles,
   Terminal,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { GeometricBackground } from '#/components/marketing/background.tsx'
 import { Faq, faqJsonLd } from '#/components/marketing/faq.tsx'
 import { BitbucketLogo, GitHubLogo, StackChip, formats, frameworks } from '#/components/marketing/logos.tsx'
 import { ProcessSteps } from '#/components/marketing/process.tsx'
 import { MarketingLayout } from '#/components/marketing/site.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
+import { authClient } from '#/lib/auth-client.ts'
 import { formatNumber } from '#/lib/format.ts'
 import { cn } from '#/lib/utils.ts'
 import { planIds, plans, type Plan } from '@wortwerk/core/plans'
@@ -34,6 +35,13 @@ export const Route = createFileRoute('/')({
 })
 
 function Landing() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    authClient.getSession().then(({ data }) => {
+      if (data) navigate({ to: '/app', replace: true })
+    })
+  }, [navigate])
+
   const features = [
     { icon: GitPullRequest, title: m.feature_git_title(), body: m.feature_git_body() },
     { icon: FileCode2, title: m.feature_formats_title(), body: m.feature_formats_body() },

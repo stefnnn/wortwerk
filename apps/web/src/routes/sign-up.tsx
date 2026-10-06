@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { AuthLayout } from '#/components/auth-layout.tsx'
@@ -7,16 +7,20 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '#/c
 import { Input } from '#/components/ui/input.tsx'
 import { authClient } from '#/lib/auth-client.ts'
 import { redirectSearch } from '#/lib/redirect.ts'
+import { getViewer } from '#/lib/viewer.ts'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/sign-up')({
   validateSearch: redirectSearch,
+  beforeLoad: async ({ search }) => {
+    if (await getViewer()) throw redirect({ href: search.redirect ?? '/app' })
+  },
   head: () => ({ meta: [{ title: `${m.sign_up_title()} · wortwerk` }] }),
   component: SignUp,
 })
 
 function SignUp() {
-  const { redirect } = Route.useSearch()
+  const { redirect: redirectTo } = Route.useSearch()
   const navigate = useNavigate()
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
@@ -27,7 +31,7 @@ function SignUp() {
       const { error } = await authClient.signUp.email(form)
       if (error) throw new Error(error.message ?? m.error_generic())
     },
-    onSuccess: () => navigate({ href: redirect ?? '/onboarding' }),
+    onSuccess: () => navigate({ href: redirectTo ?? '/onboarding' }),
   })
 
   const submit = (event: FormEvent) => {
@@ -77,7 +81,7 @@ function SignUp() {
         {m.sign_up_have_account()}{' '}
         <Link
           to="/sign-in"
-          search={{ redirect }}
+          search={{ redirect: redirectTo }}
           className="text-foreground font-medium underline-offset-4 hover:underline"
         >
           {m.sign_in_title()}

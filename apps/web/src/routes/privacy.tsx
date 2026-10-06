@@ -71,7 +71,7 @@ const en: Section[] = [
         </li>
         <li>
           <strong>OpenRouter</strong> and the model provider it routes to receive source texts when someone on
-          the Agency plan starts a machine translation. Nothing is sent otherwise.
+          a paid plan starts a machine translation. Nothing is sent otherwise.
         </li>
         <li>
           <strong>GitHub</strong> and <strong>Bitbucket</strong> when you connect a repository.
@@ -183,7 +183,7 @@ const de: Section[] = [
         </li>
         <li>
           <strong>OpenRouter</strong> und der dort gewählte Modellanbieter erhalten Quelltexte, wenn jemand im
-          Agency-Plan eine maschinelle Übersetzung startet. Sonst wird nichts übermittelt.
+          einem bezahlten Plan eine maschinelle Übersetzung startet. Sonst wird nichts übermittelt.
         </li>
         <li>
           <strong>GitHub</strong> und <strong>Bitbucket</strong>, wenn du ein Repository verbindest.
