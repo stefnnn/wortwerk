@@ -2,9 +2,10 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { count, eq } from 'drizzle-orm'
 import { ZodError } from 'zod'
-import { DomainError, countActiveKeys, getPlan } from '@wortwerk/core'
+import { DomainError, countActiveKeys, countProjects, getPlan } from '@wortwerk/core'
 import { schema } from '@wortwerk/db'
 import { auth } from '../auth.ts'
+import { env } from '../env.ts'
 import { db, translator } from '../services.ts'
 import { requireSession, requireTenant, type Env } from './context.ts'
 import { comments, keys, projectKeys, screenshots } from './keys.ts'
@@ -26,7 +27,12 @@ const tenant = new Hono<Env>()
       ...t,
       plan: getPlan(t.plan),
       features: { machineTranslation: getPlan(t.plan).machineTranslation && Boolean(translator) },
-      usage: { keys: await countActiveKeys(c.get('ctx')), members: members?.n ?? 0 },
+      usage: {
+        projects: await countProjects(c.get('ctx')),
+        keys: await countActiveKeys(c.get('ctx')),
+        members: members?.n ?? 0,
+      },
+      contact: env.ADMIN_EMAIL ?? null,
     })
   })
   .route('/projects', projects)

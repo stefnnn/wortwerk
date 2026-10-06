@@ -121,6 +121,23 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+  :is(
+    button,
+    [role='button'],
+    [role='menuitem'],
+    [role='menuitemradio'],
+    [role='option'],
+    [role='tab'],
+    [role='checkbox'],
+    [role='switch'],
+    summary,
+    select,
+    label:has(input[type='file']),
+    input[type='checkbox'],
+    input[type='file']
+  ):not(:disabled, [aria-disabled='true'], [data-disabled]) {
+    cursor: pointer;
+  }
 }
 
 .geo-grid {

@@ -107,15 +107,23 @@ describe('file import / export', () => {
     const project = await createProject(ctx, { name: 'Big', slug: 'big', sourceLocale: 'en' })
     const file = await upsertFile(ctx, project.id, { path: '%locale%.json', format: 'json' })
     const content = JSON.stringify(
-      Object.fromEntries(Array.from({ length: 5001 }, (_, i) => [`k${i}`, `v${i}`])),
+      Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`k${i}`, `v${i}`])),
     )
     await expect(
       importFileContent(ctx, { projectId: project.id, fileId: file.id, locale: 'en', content }),
-    ).rejects.toThrow(/allows 5000 keys/)
+    ).rejects.toThrow(/allows 1000 keys/)
+  })
+
+  it('enforces the plan project limit', async () => {
+    const ctx = await createTenant()
+    await createProject(ctx, { name: 'One', slug: 'one', sourceLocale: 'en' })
+    await expect(createProject(ctx, { name: 'Two', slug: 'two', sourceLocale: 'en' })).rejects.toThrow(
+      /allows 1 project/,
+    )
   })
 
   it('suggests translations from memory', async () => {
-    const ctx = await createTenant()
+    const ctx = await createTenant('agency')
     const a = await createProject(ctx, { name: 'A', slug: 'a', sourceLocale: 'en', locales: ['de'] })
     const b = await createProject(ctx, { name: 'B', slug: 'b', sourceLocale: 'en', locales: ['de'] })
     const fa = await upsertFile(ctx, a.id, { path: '%locale%.json', format: 'json' })

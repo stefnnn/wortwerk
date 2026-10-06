@@ -19,6 +19,25 @@ export async function countActiveKeys(ctx: Ctx) {
   return row?.n ?? 0
 }
 
+export async function countProjects(ctx: Ctx) {
+  const [row] = await ctx.db
+    .select({ n: count() })
+    .from(schema.project)
+    .where(eq(schema.project.tenantId, ctx.tenantId))
+  return row?.n ?? 0
+}
+
+export async function assertProjectCapacity(ctx: Ctx) {
+  const plan = await getTenantPlan(ctx)
+  if (plan.maxProjects === null) return
+  if ((await countProjects(ctx)) >= plan.maxProjects) {
+    throw new DomainError(
+      'limit_reached',
+      `The ${plan.id} plan allows ${plan.maxProjects} ${plan.maxProjects === 1 ? 'project' : 'projects'}`,
+    )
+  }
+}
+
 export async function assertKeyCapacity(ctx: Ctx, additional: number) {
   if (additional <= 0) return
   const plan = await getTenantPlan(ctx)

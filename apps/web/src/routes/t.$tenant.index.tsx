@@ -31,7 +31,10 @@ export const Route = createFileRoute('/t/$tenant/')({
 function Projects() {
   const { tenant } = Route.useParams()
   const projects = useQuery(queries.projects(tenant))
+  const details = useQuery(queries.tenant(tenant))
   const [open, setOpen] = useState(false)
+  const maxProjects = details.data?.plan.maxProjects
+  const atLimit = maxProjects != null && (projects.data?.length ?? 0) >= maxProjects
 
   return (
     <>
@@ -39,9 +42,16 @@ function Projects() {
         title={m.nav_projects()}
         description={m.projects_subtitle()}
         actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus /> {m.projects_new()}
-          </Button>
+          <div className="flex items-center gap-3">
+            {atLimit && (
+              <span className="text-muted-foreground text-sm max-sm:hidden">
+                {m.projects_limit_reached({ count: maxProjects })}
+              </span>
+            )}
+            <Button onClick={() => setOpen(true)} disabled={atLimit}>
+              <Plus /> {m.projects_new()}
+            </Button>
+          </div>
         }
       />
       <PageBody>

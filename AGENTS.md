@@ -3,7 +3,7 @@
 wortwerk is a translation management system with git flow.
 
 - multi-tenant, stripe payment (phase 2), public website in en / de localized. admin ui in en / de
-- plans: free / agency (CHF 500 / year). free: 1 user, up to 5k keys, no machine translation. agency: up to 10 users, 500k keys, machine translation included
+- plans: free / project (CHF 450 / year) / agency (CHF 900 / year). free: 1 project, 1 user, 1k keys. project: 1 project, 3 users, 5k keys. agency: unlimited projects, 10 users, 500k keys, machine translation (agency only)
 - hono / drizzleORM / postgres / pg-boss / tanstack start / tanstack query / zod / pnpm / oxlint / oxfmt
 - lucide icons / tailwind4 / shadcdn/ui with base-ui / light/dark theme system with tokens
 - git integration: github + bitbucket cloud, behind an abstraction

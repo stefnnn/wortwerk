@@ -3,6 +3,7 @@ import { schema } from '@wortwerk/db'
 import { formatFromPath } from '@wortwerk/formats'
 import { z } from 'zod'
 import { DomainError, notFound, type Ctx } from './context.ts'
+import { assertProjectCapacity } from './limits.ts'
 
 const { project, projectLocale, projectFile } = schema
 
@@ -56,6 +57,7 @@ export async function createProject(ctx: Ctx, input: z.input<typeof createProjec
     columns: { id: true },
   })
   if (existing) throw new DomainError('conflict', 'A project with this slug already exists')
+  await assertProjectCapacity(ctx)
   const [created] = await ctx.db
     .insert(project)
     .values({ tenantId: ctx.tenantId, name: data.name, slug: data.slug, sourceLocale: data.sourceLocale })

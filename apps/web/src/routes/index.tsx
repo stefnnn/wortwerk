@@ -17,7 +17,9 @@ import { BitbucketLogo, GitHubLogo, StackChip, formats, frameworks } from '#/com
 import { ProcessSteps } from '#/components/marketing/process.tsx'
 import { MarketingLayout } from '#/components/marketing/site.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
+import { formatNumber } from '#/lib/format.ts'
 import { cn } from '#/lib/utils.ts'
+import { planIds, plans, type Plan } from '@wortwerk/core/plans'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/')({
@@ -127,18 +129,10 @@ function Landing() {
 
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-4 px-6 pb-24">
         <SectionTitle title={m.pricing_title()} />
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
-          <PlanCard
-            name="Free"
-            price={m.pricing_free_price()}
-            items={[m.pricing_free_keys(), m.pricing_free_users(), m.pricing_git(), m.pricing_formats()]}
-          />
-          <PlanCard
-            name="Agency"
-            price={m.pricing_agency_price()}
-            highlight
-            items={[m.pricing_agency_keys(), m.pricing_agency_users(), m.pricing_git(), m.pricing_mt()]}
-          />
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {planIds.map((id) => (
+            <PlanCard key={id} plan={plans[id]} highlight={id === 'agency'} />
+          ))}
         </div>
       </section>
 
@@ -191,22 +185,35 @@ function IntegrationCard({
   )
 }
 
-function PlanCard({
-  name,
-  price,
-  items,
-  highlight,
-}: {
-  name: string
-  price: string
-  items: string[]
-  highlight?: boolean
-}) {
+const planNames = { free: 'Free', project: 'Project', agency: 'Agency' } as const
+
+function PlanCard({ plan, highlight }: { plan: Plan; highlight?: boolean }) {
+  const items = [
+    plan.maxProjects === null
+      ? m.pricing_projects_unlimited()
+      : m.pricing_projects({ count: formatNumber(plan.maxProjects) }),
+    m.pricing_keys({ count: formatNumber(plan.maxKeys) }),
+    plan.maxMembers === 1
+      ? m.pricing_users_one()
+      : m.pricing_users({ count: formatNumber(plan.maxMembers ?? 0) }),
+    m.pricing_git(),
+    ...(plan.machineTranslation ? [m.pricing_mt()] : []),
+  ]
   return (
-    <div className={cn('rounded-xl border bg-card p-8', highlight && 'border-primary ring-1 ring-primary')}>
-      <h3 className="font-medium">{name}</h3>
-      <p className="mt-2 text-3xl font-semibold tracking-tight">{price}</p>
-      <ul className="mt-6 space-y-3 text-sm">
+    <div
+      className={cn(
+        'flex flex-col rounded-xl border bg-card p-8',
+        highlight && 'border-primary ring-1 ring-primary',
+      )}
+    >
+      <h3 className="font-medium">{planNames[plan.id]}</h3>
+      <p className="mt-2 text-3xl font-semibold tracking-tight">
+        {m.pricing_price({ price: formatNumber(plan.priceChfPerYear) })}
+        {plan.priceChfPerYear > 0 && (
+          <span className="text-muted-foreground text-base font-normal"> {m.pricing_per_year()}</span>
+        )}
+      </p>
+      <ul className="mt-6 mb-8 space-y-3 text-sm">
         {items.map((item) => (
           <li key={item} className="flex gap-2">
             <Check className="text-primary size-4 shrink-0" /> {item}
@@ -215,7 +222,7 @@ function PlanCard({
       </ul>
       <Link
         to="/sign-up"
-        className={cn(buttonVariants({ variant: highlight ? 'default' : 'outline' }), 'mt-8 w-full')}
+        className={cn(buttonVariants({ variant: highlight ? 'default' : 'outline' }), 'mt-auto w-full')}
       >
         {m.cta_start_free()}
       </Link>

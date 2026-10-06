@@ -84,16 +84,19 @@ function TenantSettings() {
             <CardTitle className="flex items-center gap-2">
               {m.plan_title()} {plan && <Badge className="capitalize">{plan.id}</Badge>}
             </CardTitle>
-            <CardDescription>{m.plan_billing_soon()}</CardDescription>
+            <CardDescription>
+              {m.plan_billing_soon()} <ContactLink email={tenant.data?.contact} subject={tenant.data?.name} />
+            </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6 sm:grid-cols-2">
+          <CardContent className="grid gap-6 sm:grid-cols-3">
             {!plan || !usage ? (
-              <Skeleton className="h-12 sm:col-span-2" />
+              <Skeleton className="h-12 sm:col-span-3" />
             ) : (
               <>
+                <Usage label={m.plan_projects()} used={usage.projects} limit={plan.maxProjects} />
                 <Usage label={m.plan_keys()} used={usage.keys} limit={plan.maxKeys} />
                 <Usage label={m.plan_members()} used={usage.members} limit={plan.maxMembers} />
-                <p className="text-muted-foreground text-sm sm:col-span-2">
+                <p className="text-muted-foreground text-sm sm:col-span-3">
                   {plan.machineTranslation ? m.plan_mt_included() : m.plan_mt_upgrade()}
                 </p>
               </>
@@ -111,7 +114,8 @@ function TenantSettings() {
           <CardContent className="grid gap-6">
             {atMemberLimit ? (
               <p className="text-muted-foreground rounded-lg border border-dashed px-4 py-3 text-sm">
-                {m.members_limit_reached({ count: plan.maxMembers ?? 0 })}
+                {m.members_limit_reached({ count: plan.maxMembers ?? 0 })}{' '}
+                <ContactLink email={tenant.data?.contact} subject={tenant.data?.name} />
               </p>
             ) : (
               <form onSubmit={submit} className="flex gap-2">
@@ -239,6 +243,16 @@ function ConnectionsCard({ tenant }: { tenant: string }) {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function ContactLink({ email, subject }: { email?: string | null; subject?: string }) {
+  if (!email) return null
+  const query = subject ? `?subject=${encodeURIComponent(`wortwerk upgrade: ${subject}`)}` : ''
+  return (
+    <a href={`mailto:${email}${query}`} className="text-primary underline-offset-4 hover:underline">
+      {m.plan_contact({ email })}
+    </a>
   )
 }
 

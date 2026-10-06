@@ -26,8 +26,8 @@ export const wortwerkValues: Record<CompareRow, Localized> = {
     de: 'JSON, YAML und gettext PO, Struktur bleibt erhalten',
   },
   pricing: {
-    en: 'Free up to 5,000 keys, Agency CHF 500 / year flat',
-    de: 'Gratis bis 5000 Keys, Agency pauschal CHF 500 / Jahr',
+    en: 'Free for 1 project and 1,000 keys, flat yearly plans from CHF 450',
+    de: 'Gratis für 1 Projekt und 1000 Keys, Pauschalpläne ab CHF 450 / Jahr',
   },
   hosting: { en: 'Hosted service', de: 'Gehosteter Dienst' },
   mt: {
@@ -52,8 +52,8 @@ export const competitors: Competitor[] = [
     ],
     weDiffer: [
       {
-        en: 'One flat yearly price instead of tiers and seats',
-        de: 'Ein Pauschalpreis pro Jahr statt Stufen und Sitzplätzen',
+        en: 'Flat yearly prices instead of per-seat tiers',
+        de: 'Pauschale Jahrespreise statt Stufen pro Sitzplatz',
       },
       {
         en: 'Git is the source of truth, no upload or download step',
@@ -145,7 +145,10 @@ export const competitors: Competitor[] = [
         en: 'No sales call, start for free in a minute',
         de: 'Kein Verkaufsgespräch, in einer Minute gratis starten',
       },
-      { en: 'One product, one price, no add-ons', de: 'Ein Produkt, ein Preis, keine Zusatzmodule' },
+      {
+        en: 'One product, flat yearly prices, no add-ons',
+        de: 'Ein Produkt, pauschale Jahrespreise, keine Zusatzmodule',
+      },
       { en: 'Pull requests with clean, reviewable diffs', de: 'Pull Requests mit sauberen, prüfbaren Diffs' },
     ],
     values: {
