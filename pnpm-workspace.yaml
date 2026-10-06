@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+  lightningcss: true
+
+minimumReleaseAgeExclude:
+  - pg-boss@12.37.0
+  - resend@6.32.1
+  - vite@8.3.3

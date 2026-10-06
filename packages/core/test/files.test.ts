@@ -1,0 +1,150 @@
+import { afterAll, describe, expect, it } from 'vitest'
+import { createProject, upsertFile } from '../src/projects.ts'
+import { exportFileContent, importFileContent } from '../src/files.ts'
+import { listKeys, localeStats } from '../src/keys.ts'
+import { listRevisions, setTranslation } from '../src/translations.ts'
+import { tmSuggestions } from '../src/tm.ts'
+import { createTenant, db } from './helpers.ts'
+
+afterAll(() => db.pool.end())
+
+const en = (extra = '') => `{
+  "nav": {
+    "home": "Home",
+    "settings": "Settings"${extra}
+  },
+  "items_one": "{{count}} item",
+  "items_other": "{{count}} items"
+}
+`
+
+describe('file import / export', () => {
+  it('imports source and target files and exports a structure-preserving file', async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['de'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'locales/%locale%.json', format: 'json' })
+
+    const source = await importFileContent(ctx, {
+      projectId: project.id,
+      fileId: file.id,
+      locale: 'en',
+      content: en(),
+    })
+    expect(source).toMatchObject({ keysAdded: 3, translationsChanged: 3 })
+
+    const target = await importFileContent(ctx, {
+      projectId: project.id,
+      fileId: file.id,
+      locale: 'de',
+      content: '{ "nav": { "home": "Start", "unknown": "x" } }',
+    })
+    expect(target).toMatchObject({ translationsChanged: 1, skipped: 1 })
+
+    const { items, total } = await listKeys(ctx, project.id, { locale: 'de' })
+    expect(total).toBe(3)
+    expect(items.map((i) => [i.name, i.source, i.value, i.status])).toEqual([
+      ['nav.home', 'Home', 'Start', 'translated'],
+      ['nav.settings', 'Settings', null, 'untranslated'],
+      ['items', '{count, plural, one {# item} other {# items}}', null, 'untranslated'],
+    ])
+
+    await setTranslation(ctx, items.find((i) => i.name === 'items')!.id, 'de', {
+      value: '{count, plural, one {# Eintrag} other {# Einträge}}',
+    })
+    const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'de' })
+    expect(exported.path).toBe('locales/de.json')
+    expect(exported.content).toBe(`{
+  "nav": {
+    "home": "Start"
+  },
+  "items_one": "{{count}} Eintrag",
+  "items_other": "{{count}} Einträge"
+}
+`)
+  })
+
+  it('soft-deletes, restores and flags changed source strings', async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['de'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: '%locale%.json', format: 'json' })
+    const run = (locale: string, content: string) =>
+      importFileContent(ctx, { projectId: project.id, fileId: file.id, locale, content })
+
+    await run('en', en(',\n    "about": "About"'))
+    await run('de', '{ "nav": { "home": "Start", "about": "Über" } }')
+
+    expect(await run('en', en())).toMatchObject({ keysObsoleted: 1 })
+    expect(
+      (await listKeys(ctx, project.id, { locale: 'de', obsolete: true })).items.map((i) => i.name),
+    ).toEqual(['nav.about'])
+
+    expect(await run('en', en(',\n    "about": "About us"').replace('"Home"', '"Homepage"'))).toMatchObject({
+      keysRestored: 1,
+      translationsChanged: 2,
+    })
+    const { items } = await listKeys(ctx, project.id, { locale: 'de', status: 'needs_review' })
+    expect(items.map((i) => i.name).sort()).toEqual(['nav.about', 'nav.home'])
+
+    const home = items.find((i) => i.name === 'nav.home')!
+    expect((await listRevisions(ctx, home.id, 'de')).length).toBe(1)
+
+    const stats = await localeStats(ctx, project.id)
+    expect(stats.find((s) => s.locale === 'de')).toMatchObject({ total: 4, needsReview: 2, untranslated: 2 })
+  })
+
+  it('enforces the plan key limit', async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, { name: 'Big', slug: 'big', sourceLocale: 'en' })
+    const file = await upsertFile(ctx, project.id, { path: '%locale%.json', format: 'json' })
+    const content = JSON.stringify(
+      Object.fromEntries(Array.from({ length: 5001 }, (_, i) => [`k${i}`, `v${i}`])),
+    )
+    await expect(
+      importFileContent(ctx, { projectId: project.id, fileId: file.id, locale: 'en', content }),
+    ).rejects.toThrow(/allows 5000 keys/)
+  })
+
+  it('suggests translations from memory', async () => {
+    const ctx = await createTenant()
+    const a = await createProject(ctx, { name: 'A', slug: 'a', sourceLocale: 'en', locales: ['de'] })
+    const b = await createProject(ctx, { name: 'B', slug: 'b', sourceLocale: 'en', locales: ['de'] })
+    const fa = await upsertFile(ctx, a.id, { path: '%locale%.json', format: 'json' })
+    const fb = await upsertFile(ctx, b.id, { path: '%locale%.json', format: 'json' })
+    await importFileContent(ctx, {
+      projectId: a.id,
+      fileId: fa.id,
+      locale: 'en',
+      content: '{"save":"Save changes"}',
+    })
+    await importFileContent(ctx, {
+      projectId: a.id,
+      fileId: fa.id,
+      locale: 'de',
+      content: '{"save":"Änderungen speichern"}',
+    })
+    await importFileContent(ctx, {
+      projectId: b.id,
+      fileId: fb.id,
+      locale: 'en',
+      content: '{"store":"Save all changes"}',
+    })
+    const { items } = await listKeys(ctx, b.id, { locale: 'de' })
+    const suggestions = await tmSuggestions(ctx, items[0]!.id, 'de')
+    expect(suggestions).toHaveLength(1)
+    expect(suggestions[0]).toMatchObject({
+      value: 'Änderungen speichern',
+      source: 'Save changes',
+      projectName: 'A',
+    })
+  })
+})

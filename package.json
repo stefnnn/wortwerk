@@ -1,0 +1,29 @@
+{
+  "name": "wortwerk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @wortwerk/web --filter @wortwerk/worker dev",
+    "build": "pnpm -r build",
+    "lint": "oxlint",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "db:up": "docker compose up -d postgres",
+    "db:generate": "pnpm --filter @wortwerk/db generate",
+    "db:migrate": "pnpm --filter @wortwerk/db migrate",
+    "db:studio": "pnpm --filter @wortwerk/db studio"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "typescript": "^6.0.2",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.5.2"
+}

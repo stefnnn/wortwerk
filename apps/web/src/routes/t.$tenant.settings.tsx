@@ -1,0 +1,168 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { MailPlus, Trash2 } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { PageBody, PageHeader } from '#/components/app/page.tsx'
+import { Badge } from '#/components/ui/badge.tsx'
+import { Button } from '#/components/ui/button.tsx'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
+import { Input } from '#/components/ui/input.tsx'
+import { Progress } from '#/components/ui/progress.tsx'
+import { Skeleton } from '#/components/ui/skeleton.tsx'
+import { authClient } from '#/lib/auth-client.ts'
+import { formatDateTime, formatNumber, percent } from '#/lib/format.ts'
+import { useAction } from '#/lib/mutations.ts'
+import { queries } from '#/lib/queries.ts'
+import { m } from '#/paraglide/messages.js'
+
+export const Route = createFileRoute('/t/$tenant/settings')({
+  head: () => ({ meta: [{ title: `${m.nav_settings()} · wortwerk` }] }),
+  component: TenantSettings,
+})
+
+function TenantSettings() {
+  const { tenant: slug } = Route.useParams()
+  const { viewer } = Route.useRouteContext()
+  const tenant = useQuery(queries.tenant(slug))
+  const organizationKey = ['tenant', slug, 'organization']
+  const organization = useQuery({
+    queryKey: organizationKey,
+    queryFn: async () => {
+      const { data, error } = await authClient.organization.getFullOrganization({
+        query: { organizationSlug: slug },
+      })
+      if (error) throw new Error(error.message ?? m.error_generic())
+      return data
+    },
+  })
+  const [email, setEmail] = useState('')
+
+  const organizationId = tenant.data?.id ?? ''
+  const invite = useAction(
+    async () => {
+      const { error } = await authClient.organization.inviteMember({ email, role: 'member', organizationId })
+      if (error) throw new Error(error.message ?? m.error_generic())
+    },
+    { invalidate: [organizationKey], success: m.members_invited(), onSuccess: () => setEmail('') },
+  )
+  const cancel = useAction(
+    async (invitationId: string) => {
+      const { error } = await authClient.organization.cancelInvitation({ invitationId })
+      if (error) throw new Error(error.message ?? m.error_generic())
+    },
+    { invalidate: [organizationKey] },
+  )
+  const remove = useAction(
+    async (memberIdOrEmail: string) => {
+      const { error } = await authClient.organization.removeMember({ memberIdOrEmail, organizationId })
+      if (error) throw new Error(error.message ?? m.error_generic())
+    },
+    { invalidate: [organizationKey, queries.tenant(slug).queryKey] },
+  )
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    invite.mutate(undefined)
+  }
+
+  const plan = tenant.data?.plan
+  const usage = tenant.data?.usage
+  const pending = organization.data?.invitations.filter((i) => i.status === 'pending') ?? []
+
+  return (
+    <>
+      <PageHeader title={m.nav_settings()} description={tenant.data?.name} />
+      <PageBody className="grid max-w-4xl gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {m.plan_title()} {plan && <Badge className="capitalize">{plan.id}</Badge>}
+            </CardTitle>
+            <CardDescription>{m.plan_billing_soon()}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 sm:grid-cols-2">
+            {!plan || !usage ? (
+              <Skeleton className="h-12 sm:col-span-2" />
+            ) : (
+              <>
+                <Usage label={m.plan_keys()} used={usage.keys} limit={plan.maxKeys} />
+                <Usage label={m.plan_members()} used={usage.members} limit={plan.maxMembers} />
+                <p className="text-muted-foreground text-sm sm:col-span-2">
+                  {plan.machineTranslation ? m.plan_mt_included() : m.plan_mt_upgrade()}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{m.members_title()}</CardTitle>
+            <CardDescription>{m.members_subtitle()}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6">
+            <form onSubmit={submit} className="flex gap-2">
+              <Input
+                type="email"
+                required
+                placeholder="name@company.ch"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Button type="submit" disabled={invite.isPending || !organizationId}>
+                <MailPlus /> {m.members_invite()}
+              </Button>
+            </form>
+            <ul className="divide-y rounded-lg border">
+              {organization.data?.members.map((member) => (
+                <li key={member.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{member.user.name}</p>
+                    <p className="text-muted-foreground truncate">{member.user.email}</p>
+                  </div>
+                  {member.userId !== viewer.user.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={m.action_remove()}
+                      onClick={() => remove.mutate(member.id)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  )}
+                </li>
+              ))}
+              {pending.map((invitation) => (
+                <li key={invitation.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">{invitation.email}</p>
+                    <p className="text-muted-foreground">
+                      {m.members_pending({ date: formatDateTime(invitation.expiresAt) })}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => cancel.mutate(invitation.id)}>
+                    {m.action_cancel()}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </PageBody>
+    </>
+  )
+}
+
+function Usage({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm">
+        <span>{label}</span>
+        <span className="text-muted-foreground tabular-nums">
+          {formatNumber(used)} / {limit === null ? '∞' : formatNumber(limit)}
+        </span>
+      </div>
+      <Progress className="mt-2" value={limit === null ? 0 : percent(used, limit)} />
+    </div>
+  )
+}

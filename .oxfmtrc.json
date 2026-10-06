@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 110,
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "sortTailwindcss": {},
+  "ignorePatterns": ["**/routeTree.gen.ts", "**/paraglide/**", "packages/db/migrations/**", "pnpm-lock.yaml"]
+}

@@ -1,0 +1,135 @@
+import { and, desc, eq, inArray, ne } from 'drizzle-orm'
+import { schema } from '@wortwerk/db'
+import { parsePluralIcu, validateIcu } from '@wortwerk/formats'
+import { z } from 'zod'
+import { DomainError, notFound, type Ctx } from './context.ts'
+
+const { translation, translationRevision, translationKey } = schema
+
+export const translationStatuses = ['untranslated', 'translated', 'needs_review', 'approved'] as const
+export type TranslationStatus = (typeof translationStatuses)[number]
+export type RevisionSource = (typeof schema.revisionSource.enumValues)[number]
+
+export const setTranslationInput = z.object({
+  value: z.string().max(20_000),
+  status: z.enum(translationStatuses).optional(),
+})
+
+export async function getKeyInTenant(ctx: Ctx, keyId: string) {
+  const key = await ctx.db.query.translationKey.findFirst({
+    where: and(eq(translationKey.tenantId, ctx.tenantId), eq(translationKey.id, keyId)),
+    with: {
+      project: { columns: { id: true, sourceLocale: true }, with: { locales: { columns: { code: true } } } },
+    },
+  })
+  return key ?? notFound('Key')
+}
+
+export async function setTranslation(
+  ctx: Ctx,
+  keyId: string,
+  locale: string,
+  input: z.input<typeof setTranslationInput>,
+  source: RevisionSource = 'editor',
+) {
+  const data = setTranslationInput.parse(input)
+  const key = await getKeyInTenant(ctx, keyId)
+  if (!key.project.locales.some((l) => l.code === locale))
+    throw new DomainError('invalid', `Locale ${locale} is not part of this project`)
+  const issue = data.value ? validateIcu(data.value) : null
+  if (issue) throw new DomainError('invalid', `Invalid ICU message: ${issue.message}`)
+
+  const isSource = key.project.sourceLocale === locale
+  const status: TranslationStatus = !data.value
+    ? 'untranslated'
+    : (data.status ?? (isSource ? 'approved' : 'translated'))
+
+  return ctx.db.transaction(async (tx) => {
+    const existing = await tx.query.translation.findFirst({
+      where: and(eq(translation.keyId, keyId), eq(translation.locale, locale)),
+    })
+    if (existing && existing.value === data.value && existing.status === status) return existing
+
+    const [row] = await tx
+      .insert(translation)
+      .values({ tenantId: ctx.tenantId, keyId, locale, value: data.value, status, updatedById: ctx.userId })
+      .onConflictDoUpdate({
+        target: [translation.keyId, translation.locale],
+        set: { value: data.value, status, updatedById: ctx.userId, updatedAt: new Date() },
+      })
+      .returning()
+
+    await tx.insert(translationRevision).values({
+      tenantId: ctx.tenantId,
+      translationId: row!.id,
+      value: data.value,
+      status,
+      source,
+      userId: ctx.userId,
+    })
+
+    if (isSource) {
+      const isPlural = parsePluralIcu(data.value) !== null
+      if (isPlural !== key.isPlural)
+        await tx.update(translationKey).set({ isPlural }).where(eq(translationKey.id, keyId))
+      if (existing && existing.value !== data.value)
+        await flagDependentsForReview(tx, ctx.tenantId, [keyId], locale)
+    }
+    return row!
+  })
+}
+
+export async function flagDependentsForReview(
+  db: Ctx['db'],
+  tenantId: string,
+  keyIds: string[],
+  sourceLocale: string,
+) {
+  if (!keyIds.length) return
+  await db
+    .update(translation)
+    .set({ status: 'needs_review', updatedAt: new Date() })
+    .where(
+      and(
+        eq(translation.tenantId, tenantId),
+        inArray(translation.keyId, keyIds),
+        ne(translation.locale, sourceLocale),
+        inArray(translation.status, ['translated', 'approved']),
+      ),
+    )
+}
+
+export async function setTranslationStatus(
+  ctx: Ctx,
+  keyId: string,
+  locale: string,
+  status: TranslationStatus,
+) {
+  const existing = await ctx.db.query.translation.findFirst({
+    where: and(
+      eq(translation.tenantId, ctx.tenantId),
+      eq(translation.keyId, keyId),
+      eq(translation.locale, locale),
+    ),
+  })
+  if (!existing) throw new DomainError('invalid', 'Translate the key before changing its status')
+  return setTranslation(ctx, keyId, locale, { value: existing.value, status })
+}
+
+export async function listRevisions(ctx: Ctx, keyId: string, locale: string) {
+  const row = await ctx.db.query.translation.findFirst({
+    where: and(
+      eq(translation.tenantId, ctx.tenantId),
+      eq(translation.keyId, keyId),
+      eq(translation.locale, locale),
+    ),
+    columns: { id: true },
+  })
+  if (!row) return []
+  return ctx.db.query.translationRevision.findMany({
+    where: eq(translationRevision.translationId, row.id),
+    with: { user: { columns: { id: true, name: true, email: true } } },
+    orderBy: desc(translationRevision.createdAt),
+    limit: 100,
+  })
+}

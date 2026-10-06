@@ -1,0 +1,124 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import '@radix-ui/colors/sage.css';
+@import '@radix-ui/colors/sage-dark.css';
+@import '@radix-ui/colors/sage-alpha.css';
+@import '@radix-ui/colors/sage-dark-alpha.css';
+@import '@radix-ui/colors/jade.css';
+@import '@radix-ui/colors/jade-dark.css';
+@import '@radix-ui/colors/amber.css';
+@import '@radix-ui/colors/amber-dark.css';
+@import '@radix-ui/colors/tomato.css';
+@import '@radix-ui/colors/tomato-dark.css';
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant data-horizontal (&[data-orientation='horizontal']);
+@custom-variant data-vertical (&[data-orientation='vertical']);
+
+:root {
+  --background: var(--sage-1);
+  --foreground: var(--sage-12);
+  --card: #fff;
+  --card-foreground: var(--sage-12);
+  --popover: #fff;
+  --popover-foreground: var(--sage-12);
+  --primary: var(--jade-9);
+  --primary-foreground: #fff;
+  --secondary: var(--sage-3);
+  --secondary-foreground: var(--sage-12);
+  --muted: var(--sage-3);
+  --muted-foreground: var(--sage-11);
+  --accent: var(--jade-3);
+  --accent-foreground: var(--jade-11);
+  --destructive: var(--tomato-10);
+  --warning: var(--amber-11);
+  --warning-surface: var(--amber-3);
+  --success: var(--jade-11);
+  --success-surface: var(--jade-3);
+  --border: var(--sage-6);
+  --input: var(--sage-7);
+  --ring: var(--jade-8);
+  --chart-1: var(--jade-9);
+  --chart-2: var(--amber-9);
+  --chart-3: var(--tomato-9);
+  --chart-4: var(--sage-9);
+  --chart-5: var(--jade-6);
+  --radius: 0.625rem;
+  --sidebar: var(--sage-2);
+  --sidebar-foreground: var(--sage-12);
+  --sidebar-primary: var(--jade-9);
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: var(--sage-4);
+  --sidebar-accent-foreground: var(--sage-12);
+  --sidebar-border: var(--sage-6);
+  --sidebar-ring: var(--jade-8);
+}
+
+.dark {
+  --card: var(--sage-2);
+  --popover: var(--sage-3);
+  --primary: var(--jade-9);
+  --primary-foreground: var(--jade-1);
+  --accent: var(--jade-4);
+}
+
+@theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

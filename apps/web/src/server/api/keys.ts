@@ -1,0 +1,98 @@
+import { Hono } from 'hono'
+import { validate } from './validate.ts'
+import { z } from 'zod'
+import {
+  addComment,
+  addScreenshot,
+  commentInput,
+  createKey,
+  createKeyInput,
+  deleteComment,
+  deleteScreenshot,
+  listComments,
+  listKeys,
+  listKeysInput,
+  listRevisions,
+  listScreenshots,
+  purgeObsoleteKeys,
+  readScreenshot,
+  setKeysObsolete,
+  setTranslation,
+  setTranslationInput,
+  tmSuggestions,
+  updateKey,
+  updateKeyInput,
+} from '@wortwerk/core'
+import { requireProject, type Env } from './context.ts'
+
+const locale = z.object({ locale: z.string() })
+
+export const projectKeys = new Hono<Env>()
+  .use(requireProject)
+  .get('/', validate('query', listKeysInput), async (c) =>
+    c.json(await listKeys(c.get('ctx'), c.get('project').id, c.req.valid('query'))),
+  )
+  .post('/', validate('json', createKeyInput), async (c) =>
+    c.json(await createKey(c.get('ctx'), c.get('project').id, c.req.valid('json')), 201),
+  )
+  .post(
+    '/obsolete',
+    validate('json', z.object({ keyIds: z.array(z.string()).max(1000), obsolete: z.boolean() })),
+    async (c) => {
+      const { keyIds, obsolete } = c.req.valid('json')
+      await setKeysObsolete(c.get('ctx'), keyIds, obsolete)
+      return c.body(null, 204)
+    },
+  )
+  .post('/purge', async (c) =>
+    c.json({ deleted: await purgeObsoleteKeys(c.get('ctx'), c.get('project').id) }),
+  )
+
+export const keys = new Hono<Env>()
+  .patch('/:keyId', validate('json', updateKeyInput), async (c) =>
+    c.json(await updateKey(c.get('ctx'), c.req.param('keyId'), c.req.valid('json'))),
+  )
+  .put('/:keyId/translations/:locale', validate('json', setTranslationInput), async (c) =>
+    c.json(
+      await setTranslation(c.get('ctx'), c.req.param('keyId'), c.req.param('locale'), c.req.valid('json')),
+    ),
+  )
+  .get('/:keyId/translations/:locale/revisions', async (c) =>
+    c.json(await listRevisions(c.get('ctx'), c.req.param('keyId'), c.req.param('locale'))),
+  )
+  .get('/:keyId/suggestions', validate('query', locale), async (c) =>
+    c.json(await tmSuggestions(c.get('ctx'), c.req.param('keyId'), c.req.valid('query').locale)),
+  )
+  .get('/:keyId/comments', async (c) => c.json(await listComments(c.get('ctx'), c.req.param('keyId'))))
+  .post('/:keyId/comments', validate('json', commentInput), async (c) =>
+    c.json(await addComment(c.get('ctx'), c.req.param('keyId'), c.req.valid('json')), 201),
+  )
+  .get('/:keyId/screenshots', async (c) => c.json(await listScreenshots(c.get('ctx'), c.req.param('keyId'))))
+  .post('/:keyId/screenshots', validate('form', z.object({ file: z.instanceof(File) })), async (c) => {
+    const { file } = c.req.valid('form')
+    const row = await addScreenshot(c.get('ctx'), c.req.param('keyId'), {
+      name: file.name,
+      type: file.type,
+      bytes: new Uint8Array(await file.arrayBuffer()),
+    })
+    return c.json(row, 201)
+  })
+
+export const comments = new Hono<Env>().delete('/:commentId', async (c) => {
+  await deleteComment(c.get('ctx'), c.req.param('commentId'))
+  return c.body(null, 204)
+})
+
+export const screenshots = new Hono<Env>()
+  .get('/:screenshotId', async (c) => {
+    const shot = await readScreenshot(c.get('ctx'), c.req.param('screenshotId'))
+    return c.body(shot.bytes, 200, {
+      'content-type': shot.mimeType,
+      'cache-control': 'private, max-age=3600',
+      'x-content-type-options': 'nosniff',
+    })
+  })
+  .delete('/:screenshotId', async (c) => {
+    await deleteScreenshot(c.get('ctx'), c.req.param('screenshotId'))
+    return c.body(null, 204)
+  })

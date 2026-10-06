@@ -1,0 +1,18 @@
+{
+  "name": "@wortwerk/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=../../.env src/index.ts",
+    "start": "node src/index.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@wortwerk/core": "workspace:*",
+    "@wortwerk/db": "workspace:*",
+    "@wortwerk/jobs": "workspace:*",
+    "@wortwerk/mail": "workspace:*",
+    "@wortwerk/storage": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}
