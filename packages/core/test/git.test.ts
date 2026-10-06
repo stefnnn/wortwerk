@@ -36,6 +36,30 @@ async function setup() {
 }
 
 describe('git sync', () => {
+  it('fills translations of new keys from the repo without touching existing ones', async () => {
+    const { ctx, project } = await setup()
+    const repo = createMemoryRepo({
+      'locales/en.json': '{\n  "hello": "Hello"\n}\n',
+      'locales/de.json': '{\n  "hello": "Grüezi"\n}\n',
+    })
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    const [hello] = (await listKeys(ctx, project.id, { locale: 'de-CH' })).items
+    await setTranslation(ctx, hello!.id, 'de-CH', { value: 'Hoi' })
+
+    repo.push({
+      'locales/en.json': '{\n  "hello": "Hello",\n  "save": "Save"\n}\n',
+      'locales/de.json': '{\n  "hello": "Hallo",\n  "save": "Speichern"\n}\n',
+    })
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    const items = (await listKeys(ctx, project.id, { locale: 'de-CH' })).items
+    expect(items.find((k) => k.name === 'hello')).toMatchObject({ value: 'Hoi' })
+    expect(items.find((k) => k.name === 'save')).toMatchObject({ value: 'Speichern', status: 'needs_review' })
+
+    repo.push({ 'locales/en.json': '{\n  "hello": "Hello",\n  "save": "Save!"\n}\n' })
+    const unchanged = await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(unchanged.files.map((f) => f.locale)).toEqual(['en'])
+  })
+
   it('pulls source keys, pushes translations to a PR branch and tracks obsolete keys', async () => {
     const { ctx, project } = await setup()
     const repo = createMemoryRepo({
@@ -44,7 +68,15 @@ describe('git sync', () => {
     })
 
     const first = await pullFromRepo(ctx, repo.client, { projectId: project.id })
-    expect(first.files).toEqual([expect.objectContaining({ path: 'locales/en.json', keysAdded: 2 })])
+    expect(first.files).toEqual([
+      expect.objectContaining({ path: 'locales/en.json', keysAdded: 2 }),
+      expect.objectContaining({ path: 'locales/de.json', locale: 'de-CH', translationsChanged: 1 }),
+    ])
+    const imported = (await listKeys(ctx, project.id, { locale: 'de-CH' })).items
+    expect(imported.find((k) => k.name === 'hello')).toMatchObject({
+      value: 'Grüezi',
+      status: 'needs_review',
+    })
     expect(await pullFromRepo(ctx, repo.client, { projectId: project.id })).toMatchObject({ skipped: true })
 
     const onboarding = await pullFromRepo(ctx, repo.client, {
@@ -54,7 +86,7 @@ describe('git sync', () => {
     expect(onboarding.files[1]).toMatchObject({
       path: 'locales/de.json',
       locale: 'de-CH',
-      translationsChanged: 1,
+      translationsUnchanged: 1,
     })
 
     const keys = await listKeys(ctx, project.id, { locale: 'de-CH' })

@@ -232,7 +232,7 @@
   "repo_export_now": "Export now",
   "repo_export_queued": "Export started",
   "repo_import_action": "Import translations",
-  "repo_import_body": "Useful when onboarding a project or after editing translation files by hand. Existing translations are only filled in, unless you overwrite them.",
+  "repo_import_body": "The first sync already does this. Run it again after editing translation files by hand: values are marked for review, and existing translations are only filled in unless you overwrite them.",
   "repo_import_title": "Import translations from the repository",
   "repo_last_pull": "Last sync",
   "repo_last_push": "Last export",

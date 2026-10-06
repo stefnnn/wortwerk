@@ -28,6 +28,8 @@ export async function importFileContent(
     content: string
     overwrite?: boolean
     source?: 'import' | 'git'
+    status?: TranslationStatus
+    keyIds?: ReadonlySet<string>
   },
 ): Promise<ImportResult> {
   const project = await getProject(ctx, { id: input.projectId })
@@ -135,11 +137,12 @@ export async function importFileContent(
         result.skipped++
         continue
       }
+      if (input.keyIds && !input.keyIds.has(k.id)) continue
       const status: TranslationStatus = isSource
         ? 'approved'
         : entry.needsReview
           ? 'needs_review'
-          : 'translated'
+          : (input.status ?? 'translated')
       writes.push({ keyId: k.id, value: entry.value, status })
     }
 

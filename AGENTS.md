@@ -18,7 +18,7 @@ wortwerk is a translation management system with git flow.
 
 - split ownership: git owns keys + source-locale text (repo -> wortwerk), wortwerk owns target translations (wortwerk -> repo)
 - write-back via PR on a wortwerk branch, regenerated from base on every export (force-push, no merging)
-- opt-in "import translations from repo" for onboarding / manual fixes
+- repo translations only fill gaps, marked needs review: all keys on the first pull, afterwards only keys that are new in that pull. explicit "import translations" re-runs the fill (optionally overwriting)
 - one tracked branch per project
 - sync trigger: provider webhooks + manual "sync now"
 - keys missing from source are soft-deleted (obsolete, translations kept, restored if key returns), manual purge only

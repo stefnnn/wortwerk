@@ -232,7 +232,7 @@
   "repo_export_now": "Jetzt exportieren",
   "repo_export_queued": "Export gestartet",
   "repo_import_action": "Übersetzungen importieren",
-  "repo_import_body": "Praktisch beim Einrichten eines Projekts oder nachdem Übersetzungsdateien von Hand bearbeitet wurden. Bestehende Übersetzungen werden nur ergänzt, ausser du überschreibst sie.",
+  "repo_import_body": "Die erste Synchronisation macht das bereits. Führ es erneut aus, nachdem Übersetzungsdateien von Hand bearbeitet wurden: Werte werden zur Prüfung markiert, und bestehende Übersetzungen werden nur ergänzt, ausser du überschreibst sie.",
   "repo_import_title": "Übersetzungen aus dem Repository importieren",
   "repo_last_pull": "Letzter Sync",
   "repo_last_push": "Letzter Export",

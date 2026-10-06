@@ -165,6 +165,16 @@ export async function deleteRepoLink(ctx: Ctx, projectId: string) {
   return row ?? null
 }
 
+async function projectKeyIds(ctx: Ctx, projectId: string) {
+  const rows = await ctx.db
+    .select({ id: schema.translationKey.id })
+    .from(schema.translationKey)
+    .where(
+      and(eq(schema.translationKey.tenantId, ctx.tenantId), eq(schema.translationKey.projectId, projectId)),
+    )
+  return new Set(rows.map((r) => r.id))
+}
+
 const repoLocale = (link: { localeAliases: Record<string, string> }, locale: string) =>
   link.localeAliases[locale] ?? locale
 
@@ -192,27 +202,46 @@ export async function pullFromRepo(
     throw new DomainError('invalid', 'Add a file pattern such as locales/%locale%.json before syncing')
   }
 
-  const locales = input.importTranslations
-    ? [project.sourceLocale, ...project.locales.map((l) => l.code).filter((l) => l !== project.sourceLocale)]
-    : [project.sourceLocale]
+  const firstPull = !link.lastPulledSha
+  const allTargets = firstPull || input.importTranslations
+  const knownKeys = allTargets ? null : await projectKeyIds(ctx, project.id)
   const files: PullFileResult[] = []
-  for (const file of project.files) {
-    for (const locale of locales) {
-      const path = filePathFor(file.path, repoLocale(link, locale))
-      const content = await client.readFile(link.repo, sha, path)
-      if (content === null) {
-        files.push({ path, locale, missing: true })
-        continue
-      }
-      const result = await importFileContent(ctx, {
-        projectId: project.id,
-        fileId: file.id,
-        locale,
-        content,
-        overwrite: input.overwrite,
-        source: 'git',
-      })
-      files.push({ path, locale, ...result })
+  const pull = async (
+    file: (typeof project.files)[number],
+    locale: string,
+    options: { status?: 'needs_review'; keyIds?: ReadonlySet<string> } = {},
+  ) => {
+    const path = filePathFor(file.path, repoLocale(link, locale))
+    const content = await client.readFile(link.repo, sha, path)
+    if (content === null) {
+      files.push({ path, locale, missing: true })
+      return
+    }
+    const result = await importFileContent(ctx, {
+      projectId: project.id,
+      fileId: file.id,
+      locale,
+      content,
+      overwrite: input.overwrite,
+      source: 'git',
+      ...options,
+    })
+    files.push({ path, locale, ...result })
+  }
+
+  for (const file of project.files) await pull(file, project.sourceLocale)
+
+  // Repo values only fill gaps: on the first pull (or an explicit import) for every key, later only
+  // for keys that appeared in this pull. Translations wortwerk already has are never touched.
+  let keyIds: ReadonlySet<string> | undefined
+  if (knownKeys) {
+    const fresh = [...(await projectKeyIds(ctx, project.id))].filter((id) => !knownKeys.has(id))
+    keyIds = new Set(fresh)
+  }
+  if (!keyIds || keyIds.size) {
+    const targets = project.locales.map((l) => l.code).filter((l) => l !== project.sourceLocale)
+    for (const file of project.files) {
+      for (const locale of targets) await pull(file, locale, { status: 'needs_review', keyIds })
     }
   }
   if (files.every((f) => f.missing)) {
