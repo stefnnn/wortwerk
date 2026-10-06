@@ -54,6 +54,12 @@ export async function queueRun(ctx: Ctx, projectId: string, job: Queued) {
   return run
 }
 
+export function assertFilePatterns(project: { files: unknown[] }) {
+  if (!project.files.length) {
+    throw new DomainError('invalid', 'Add a file pattern such as locales/%locale%.json before syncing')
+  }
+}
+
 const publicLink = (link: RepoLink | null) => {
   if (!link) return null
   const { webhookSecret: _secret, ...rest } = link
@@ -118,7 +124,7 @@ export const projectGit = new Hono<Env>()
         webhookError = error instanceof Error ? error.message : String(error)
       }
     }
-    if (moved || previous.branch !== link.branch) {
+    if ((moved || previous.branch !== link.branch) && project.files.length) {
       await queueRun(ctx, project.id, { kind: 'pull', params: { trigger: 'connect', force: true } })
     }
     return c.json({ link: publicLink(await getRepoLink(ctx, project.id)), webhookError })
@@ -139,6 +145,7 @@ export const projectGit = new Hono<Env>()
       const ctx = c.get('ctx')
       if (!(await getRepoLink(ctx, c.get('project').id)))
         throw new DomainError('invalid', 'Connect a repository first')
+      assertFilePatterns(c.get('project'))
       const params = { ...c.req.valid('json'), force: true, trigger: 'manual' as const }
       return c.json(await queueRun(ctx, c.get('project').id, { kind: 'pull', params }), 202)
     },

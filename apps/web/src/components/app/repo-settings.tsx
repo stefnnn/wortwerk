@@ -1,18 +1,23 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
+  CircleAlert,
+  CircleCheck,
   Copy,
   Download,
   ExternalLink,
   GitBranch,
   GitPullRequest,
+  FileQuestion,
   KeyRound,
+  Loader2,
   RefreshCw,
   Trash2,
   Upload,
 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
+import { FilePatternForm } from '#/components/app/file-patterns.tsx'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button } from '#/components/ui/button.tsx'
@@ -48,6 +53,8 @@ const formatAliases = (aliases: Record<string, string>) =>
 export function RepoCard({ tenant, project }: Props) {
   const connections = useQuery(queries.gitConnections(tenant))
   const link = useQuery(queries.repo(tenant, project))
+  const details = useQuery(queries.project(tenant, project))
+  const runs = useQuery(queries.runs(tenant, project))
   const [editing, setEditing] = useState(false)
   const [importOverwrite, setImportOverwrite] = useState(false)
   const param = { tenant, project }
@@ -91,6 +98,8 @@ export function RepoCard({ tenant, project }: Props) {
   }
 
   const repo = link.data
+  const noFiles = details.data?.files.length === 0
+  const lastRun = runs.data?.find((r) => r.kind === 'pull' || r.kind === 'push')
   if (!repo || editing) {
     return (
       <RepoForm
@@ -137,7 +146,8 @@ export function RepoCard({ tenant, project }: Props) {
           <dd>
             {repo.lastPulledAt ? (
               <>
-                <code>{repo.lastPulledSha?.slice(0, 7)}</code> · {formatDateTime(repo.lastPulledAt)}
+                {repo.lastPulledSha && <code>{repo.lastPulledSha.slice(0, 7)} · </code>}
+                {formatDateTime(repo.lastPulledAt)}
               </>
             ) : (
               '—'
@@ -160,14 +170,27 @@ export function RepoCard({ tenant, project }: Props) {
           </dd>
         </dl>
 
+        {noFiles ? (
+          <Alert>
+            <FileQuestion />
+            <AlertTitle>{m.repo_no_files_title()}</AlertTitle>
+            <AlertDescription className="grid gap-3">
+              <p>{m.repo_no_files_body()}</p>
+              <FilePatternForm tenant={tenant} project={project} />
+            </AlertDescription>
+          </Alert>
+        ) : (
+          lastRun && <LastRun run={lastRun} />
+        )}
+
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => sync.mutate(false)} disabled={sync.isPending}>
+          <Button onClick={() => sync.mutate(false)} disabled={sync.isPending || noFiles}>
             <RefreshCw /> {m.repo_sync_now()}
           </Button>
           <Button
             variant="outline"
             onClick={() => exportNow.mutate(undefined)}
-            disabled={exportNow.isPending}
+            disabled={exportNow.isPending || noFiles}
           >
             <Upload /> {m.repo_export_now()}
           </Button>
@@ -199,13 +222,49 @@ export function RepoCard({ tenant, project }: Props) {
             </FieldLabel>
           </Field>
           <div>
-            <Button variant="outline" size="sm" onClick={() => sync.mutate(true)} disabled={sync.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sync.mutate(true)}
+              disabled={sync.isPending || noFiles}
+            >
               <Download /> {m.repo_import_action()}
             </Button>
           </div>
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+type Run = {
+  kind: string
+  status: string
+  error: string | null
+  createdAt: string | Date
+  finishedAt?: string | Date | null
+}
+
+function LastRun({ run }: { run: Run }) {
+  const label = run.kind === 'push' ? m.repo_last_push() : m.repo_last_pull()
+  if (run.status === 'failed') {
+    return (
+      <Alert variant="destructive">
+        <CircleAlert />
+        <AlertTitle>{run.kind === 'push' ? m.repo_export_failed() : m.repo_sync_failed()}</AlertTitle>
+        <AlertDescription>
+          <p>{run.error}</p>
+          <p className="text-muted-foreground mt-1 text-xs">{formatDateTime(run.createdAt)}</p>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  const active = run.status === 'queued' || run.status === 'running'
+  return (
+    <p className="text-muted-foreground flex items-center gap-2 text-sm">
+      {active ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="text-success size-4" />}
+      {label}: {active ? m.run_running() : m.run_succeeded()} · {formatDateTime(run.createdAt)}
+    </p>
   )
 }
 

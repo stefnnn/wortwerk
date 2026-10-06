@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Download, FileUp, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { FilePatternForm } from '#/components/app/file-patterns.tsx'
 import { PageBody } from '#/components/app/page.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
@@ -50,7 +51,7 @@ function ProjectFiles() {
           <CardTitle>{m.files_title()}</CardTitle>
           <CardDescription>{m.files_subtitle()}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid gap-4">
           {files.length === 0 ? (
             <p className="text-muted-foreground text-sm">{m.files_empty()}</p>
           ) : (
@@ -85,6 +86,7 @@ function ProjectFiles() {
               ))}
             </ul>
           )}
+          <FilePatternForm tenant={tenant} project={project} />
         </CardContent>
       </Card>
 

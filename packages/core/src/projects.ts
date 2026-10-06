@@ -1,5 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
+import { formatFromPath } from '@wortwerk/formats'
 import { z } from 'zod'
 import { DomainError, notFound, type Ctx } from './context.ts'
 
@@ -109,12 +110,15 @@ export const fileInput = z.object({
     .min(1)
     .max(300)
     .refine((p) => p.includes('%locale%'), 'Path must contain %locale%'),
-  format: z.enum(['json', 'yaml', 'po']),
+  format: z.enum(['json', 'yaml', 'po']).optional(),
   options: z.record(z.string(), z.unknown()).default({}),
 })
 
 export async function upsertFile(ctx: Ctx, projectId: string, input: z.input<typeof fileInput>) {
-  const data = fileInput.parse(input)
+  const parsed = fileInput.parse(input)
+  const format = parsed.format ?? formatFromPath(parsed.path)
+  if (!format) throw new DomainError('invalid', 'Unsupported file type, use .json, .yml/.yaml or .po')
+  const data = { ...parsed, format }
   const [row] = await ctx.db
     .insert(projectFile)
     .values({ tenantId: ctx.tenantId, projectId, ...data })

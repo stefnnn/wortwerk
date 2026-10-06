@@ -21,12 +21,13 @@ import {
   upsertFile,
   createSyncRun,
   DomainError,
+  getRepoLink,
 } from '@wortwerk/core'
 import { formatFromPath } from '@wortwerk/formats'
 import { enqueueProjectJob } from '@wortwerk/jobs'
 import { requireProject, type Env } from './context.ts'
 import { getBoss } from '../services.ts'
-import { projectGit } from './git.ts'
+import { projectGit, queueRun } from './git.ts'
 
 const maxUploadBytes = 20 * 1024 * 1024
 
@@ -60,9 +61,15 @@ const project = new Hono<Env>()
     await removeLocale(c.get('ctx'), c.get('project').id, c.req.param('code'))
     return c.body(null, 204)
   })
-  .post('/files', validate('json', fileInput), async (c) =>
-    c.json(await upsertFile(c.get('ctx'), c.get('project').id, c.req.valid('json')), 201),
-  )
+  .post('/files', validate('json', fileInput), async (c) => {
+    const ctx = c.get('ctx')
+    const p = c.get('project')
+    const file = await upsertFile(ctx, p.id, c.req.valid('json'))
+    if (!p.files.length && (await getRepoLink(ctx, p.id))) {
+      await queueRun(ctx, p.id, { kind: 'pull', params: { trigger: 'connect', force: true } })
+    }
+    return c.json(file, 201)
+  })
   .delete('/files/:fileId', async (c) => {
     const file = await getFile(c.get('ctx'), c.req.param('fileId'))
     if (file.projectId !== c.get('project').id) throw new DomainError('not_found', 'File not found')
