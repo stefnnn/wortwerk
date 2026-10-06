@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
 export type Mail = {
   to: string
@@ -17,25 +17,31 @@ export class ConsoleMailer implements Mailer {
   }
 }
 
-export class ResendMailer implements Mailer {
-  #client: Resend
+export class SmtpMailer implements Mailer {
+  #client: nodemailer.Transporter
   #from: string
 
-  constructor(apiKey: string, from: string) {
-    this.#client = new Resend(apiKey)
-    this.#from = from
+  constructor(server: string, email: string, password: string) {
+    this.#client = nodemailer.createTransport({
+      host: server,
+      port: 587,
+      secure: false,
+      auth: { user: email, pass: password },
+    })
+    this.#from = email
   }
 
   async send(mail: Mail) {
-    const { error } = await this.#client.emails.send({ from: this.#from, ...mail })
-    if (error) throw new Error(`resend: ${error.message}`)
+    await this.#client.sendMail({ from: this.#from, ...mail })
   }
 }
 
 export function createMailer(env: NodeJS.ProcessEnv = process.env): Mailer {
-  if (env.MAIL_DRIVER === 'resend') {
-    if (!env.RESEND_API_KEY || !env.MAIL_FROM) throw new Error('RESEND_API_KEY and MAIL_FROM are required')
-    return new ResendMailer(env.RESEND_API_KEY, env.MAIL_FROM)
+  if (env.MAIL_DRIVER === 'smtp') {
+    if (!env.SMTP_SERVER || !env.SMTP_EMAIL || !env.SMTP_PASSWORD) {
+      throw new Error('SMTP_SERVER, SMTP_EMAIL and SMTP_PASSWORD are required')
+    }
+    return new SmtpMailer(env.SMTP_SERVER, env.SMTP_EMAIL, env.SMTP_PASSWORD)
   }
   return new ConsoleMailer()
 }
