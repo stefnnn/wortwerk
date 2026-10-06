@@ -10,7 +10,7 @@ export type Plan = {
 }
 
 export const plans: Record<PlanId, Plan> = {
-  free: { id: 'free', maxKeys: 5_000, maxMembers: null, machineTranslation: false, priceChfPerYear: 0 },
+  free: { id: 'free', maxKeys: 5_000, maxMembers: 1, machineTranslation: false, priceChfPerYear: 0 },
   agency: { id: 'agency', maxKeys: 500_000, maxMembers: 10, machineTranslation: true, priceChfPerYear: 500 },
 }
 

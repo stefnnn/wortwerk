@@ -5,7 +5,9 @@ import { organization } from 'better-auth/plugins/organization'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { getPlan } from '@wortwerk/core/plans'
 import { getDb, schema } from '@wortwerk/db'
-import { createMailer, invitationMail, magicLinkMail } from '@wortwerk/mail'
+import { APIError } from 'better-auth/api'
+import { and, count, eq } from 'drizzle-orm'
+import { createMailer, invitationMail, magicLinkMail, mailLocale, noAccountMail } from '@wortwerk/mail'
 import { env } from './env.ts'
 
 const mailer = createMailer()
@@ -21,7 +23,16 @@ export const auth = betterAuth({
       : {},
   plugins: [
     magicLink({
-      sendMagicLink: async ({ email, url }) => mailer.send(magicLinkMail(email, url)),
+      disableSignUp: true,
+      sendMagicLink: async ({ email, url }, ctx) => {
+        const locale = mailLocale(ctx?.request?.headers ?? ctx?.headers)
+        const [user] = await getDb()
+          .select({ id: schema.user.id })
+          .from(schema.user)
+          .where(eq(schema.user.email, email.toLowerCase()))
+        const signUp = `${env.APP_URL}${locale === 'de' ? '/de' : ''}/sign-up`
+        await mailer.send(user ? magicLinkMail(email, url, locale) : noAccountMail(email, signUp, locale))
+      },
     }),
     organization({
       schema: {
@@ -32,12 +43,40 @@ export const auth = betterAuth({
           },
         },
       },
+      organizationHooks: {
+        beforeCreateInvitation: async ({ organization: org }) => {
+          const { maxMembers } = getPlan((org as { plan?: string }).plan)
+          if (maxMembers === null) return
+          const db = getDb()
+          const [[members], [pending]] = await Promise.all([
+            db.select({ n: count() }).from(schema.member).where(eq(schema.member.organizationId, org.id)),
+            db
+              .select({ n: count() })
+              .from(schema.invitation)
+              .where(
+                and(eq(schema.invitation.organizationId, org.id), eq(schema.invitation.status, 'pending')),
+              ),
+          ])
+          if ((members?.n ?? 0) + (pending?.n ?? 0) >= maxMembers) {
+            throw new APIError('FORBIDDEN', {
+              code: 'limit_reached',
+              message: `Your plan allows ${maxMembers} ${maxMembers === 1 ? 'member' : 'members'}`,
+            })
+          }
+        },
+      },
       membershipLimit: (_user, org) =>
         getPlan((org as { plan?: string }).plan).maxMembers ?? Number.MAX_SAFE_INTEGER,
-      sendInvitationEmail: async ({ id, email, organization: org, inviter }) => {
-        const url = `${env.APP_URL}/invitations/${id}`
+      sendInvitationEmail: async ({ id, email, organization: org, inviter }, request) => {
+        const locale = mailLocale(request?.headers)
+        const url = `${env.APP_URL}${locale === 'de' ? '/de' : ''}/invitations/${id}`
         await mailer.send(
-          invitationMail(email, url, { inviter: inviter.user.name || inviter.user.email, team: org.name }),
+          invitationMail(
+            email,
+            url,
+            { inviter: inviter.user.name || inviter.user.email, team: org.name },
+            locale,
+          ),
         )
       },
     }),

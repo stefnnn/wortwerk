@@ -72,6 +72,8 @@ function TenantSettings() {
   const plan = tenant.data?.plan
   const usage = tenant.data?.usage
   const pending = organization.data?.invitations.filter((i) => i.status === 'pending') ?? []
+  const seatsUsed = (organization.data?.members.length ?? 0) + pending.length
+  const atMemberLimit = plan?.maxMembers != null && seatsUsed >= plan.maxMembers
 
   return (
     <>
@@ -107,18 +109,24 @@ function TenantSettings() {
             <CardDescription>{m.members_subtitle()}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-6">
-            <form onSubmit={submit} className="flex gap-2">
-              <Input
-                type="email"
-                required
-                placeholder="name@company.ch"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <Button type="submit" disabled={invite.isPending || !organizationId}>
-                <MailPlus /> {m.members_invite()}
-              </Button>
-            </form>
+            {atMemberLimit ? (
+              <p className="text-muted-foreground rounded-lg border border-dashed px-4 py-3 text-sm">
+                {m.members_limit_reached({ count: plan.maxMembers ?? 0 })}
+              </p>
+            ) : (
+              <form onSubmit={submit} className="flex gap-2">
+                <Input
+                  type="email"
+                  required
+                  placeholder="name@company.ch"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Button type="submit" disabled={invite.isPending || !organizationId}>
+                  <MailPlus /> {m.members_invite()}
+                </Button>
+              </form>
+            )}
             <ul className="divide-y rounded-lg border">
               {organization.data?.members.map((member) => (
                 <li key={member.id} className="flex items-center gap-3 px-4 py-3 text-sm">

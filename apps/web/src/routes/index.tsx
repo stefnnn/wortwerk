@@ -131,7 +131,7 @@ function Landing() {
           <PlanCard
             name="Free"
             price={m.pricing_free_price()}
-            items={[m.pricing_free_keys(), m.pricing_unlimited_users(), m.pricing_git(), m.pricing_formats()]}
+            items={[m.pricing_free_keys(), m.pricing_free_users(), m.pricing_git(), m.pricing_formats()]}
           />
           <PlanCard
             name="Agency"

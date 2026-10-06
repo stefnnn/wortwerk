@@ -3,7 +3,7 @@
 wortwerk is a translation management system with git flow.
 
 - multi-tenant, stripe payment (phase 2), public website in en / de localized. admin ui in en / de
-- plans: free / agency (CHF 500 / year). free: up to 5k keys, no machine translation. agency: up to 10 users, 500k keys, machine translation included
+- plans: free / agency (CHF 500 / year). free: 1 user, up to 5k keys, no machine translation. agency: up to 10 users, 500k keys, machine translation included
 - hono / drizzleORM / postgres / pg-boss / tanstack start / tanstack query / zod / pnpm / oxlint / oxfmt
 - lucide icons / tailwind4 / shadcdn/ui with base-ui / light/dark theme system with tokens
 - git integration: github + bitbucket cloud, behind an abstraction
@@ -31,7 +31,7 @@ wortwerk is a translation management system with git flow.
 - pnpm monorepo: `apps/web` (TanStack Start with Hono mounted at `/api/*`), `apps/worker` (pg-boss consumers), shared `packages/*` (db schema, domain logic, adapters)
 - single Postgres DB, every tenant-owned table has `tenant_id`, all queries scoped through a helper
 - background jobs: pg-boss, web only enqueues, worker processes. per-project serialization via a single `project` queue with pg-boss groups (`groupConcurrency: 1`), idempotent webhook handling
-- auth: Better Auth, path-based tenant (`/t/:tenantSlug/...`), users can belong to multiple tenants
+- auth: Better Auth (magic links never create accounts, sign-up is explicit), path-based tenant (`/t/:tenantSlug/...`), users can belong to multiple tenants
 - plans modeled on the tenant from day one, limits (users, keys, machine translation) enforced in code; stripe only wires into this in phase 2
 - email: Resend behind a mail abstraction (magic links, invites)
 - file storage: local disk behind a storage abstraction (S3-compatible later)
