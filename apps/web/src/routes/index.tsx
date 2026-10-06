@@ -8,9 +8,14 @@ import {
   Languages,
   MessageSquare,
   Sparkles,
+  Terminal,
 } from 'lucide-react'
-import { Logo } from '#/components/brand.tsx'
-import { LocaleSwitch, ThemeToggle } from '#/components/preferences.tsx'
+import type { ReactNode } from 'react'
+import { GeometricBackground } from '#/components/marketing/background.tsx'
+import { Faq, faqJsonLd } from '#/components/marketing/faq.tsx'
+import { BitbucketLogo, GitHubLogo, StackChip, formats, frameworks } from '#/components/marketing/logos.tsx'
+import { ProcessSteps } from '#/components/marketing/process.tsx'
+import { MarketingLayout } from '#/components/marketing/site.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
 import { cn } from '#/lib/utils.ts'
 import { m } from '#/paraglide/messages.js'
@@ -21,6 +26,7 @@ export const Route = createFileRoute('/')({
       { title: `wortwerk — ${m.landing_title()}` },
       { name: 'description', content: m.landing_subtitle() },
     ],
+    scripts: [{ type: 'application/ld+json', children: faqJsonLd() }],
   }),
   component: Landing,
 })
@@ -34,26 +40,12 @@ function Landing() {
     { icon: MessageSquare, title: m.feature_context_title(), body: m.feature_context_body() },
     { icon: Sparkles, title: m.feature_mt_title(), body: m.feature_mt_body() },
   ]
-  const steps = [m.step_connect(), m.step_translate(), m.step_merge()]
 
   return (
-    <div className="min-h-dvh">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Logo className="text-lg" />
-        <nav className="flex items-center gap-1">
-          <a href="#pricing" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-            {m.nav_pricing()}
-          </a>
-          <LocaleSwitch />
-          <ThemeToggle />
-          <Link to="/sign-in" className={buttonVariants({ size: 'sm' })}>
-            {m.nav_sign_in()}
-          </Link>
-        </nav>
-      </header>
-
-      <main>
-        <section className="mx-auto max-w-6xl px-6 pt-16 pb-24 md:pt-28">
+    <MarketingLayout>
+      <section className="relative isolate">
+        <GeometricBackground />
+        <div className="mx-auto max-w-6xl px-6 pt-16 pb-20 md:pt-28">
           <p className="bg-accent text-accent-foreground mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
             <GitPullRequest className="size-3.5" /> {m.landing_kicker()}
           </p>
@@ -65,68 +57,136 @@ function Landing() {
             <Link to="/sign-up" className={buttonVariants({ size: 'lg' })}>
               {m.cta_start_free()} <ArrowRight />
             </Link>
-            <a href="#how" className={buttonVariants({ size: 'lg', variant: 'outline' })}>
+            <a
+              href="#how"
+              className={buttonVariants({ size: 'lg', variant: 'outline', className: 'bg-background' })}
+            >
               {m.cta_how_it_works()}
             </a>
           </div>
           <CodePreview />
-        </section>
-
-        <section id="how" className="bg-card/60 border-y">
-          <div className="mx-auto grid max-w-6xl gap-10 px-6 py-20 md:grid-cols-3">
-            {steps.map((step, i) => (
-              <div key={step} className="flex gap-4">
-                <span className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full font-mono text-sm">
-                  {i + 1}
-                </span>
-                <p className="pt-1.5 text-pretty">{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-6 py-24">
-          <h2 className="text-3xl font-semibold tracking-tight">{m.features_title()}</h2>
-          <div className="bg-border mt-12 grid gap-px overflow-hidden rounded-xl border sm:grid-cols-2 lg:grid-cols-3">
-            {features.map(({ icon: Icon, title, body }) => (
-              <div key={title} className="bg-background p-6">
-                <Icon className="text-primary size-5" />
-                <h3 className="mt-4 font-medium">{title}</h3>
-                <p className="text-muted-foreground mt-2 text-sm">{body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="pricing" className="mx-auto max-w-6xl px-6 pb-28">
-          <h2 className="text-3xl font-semibold tracking-tight">{m.pricing_title()}</h2>
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <PlanCard
-              name="Free"
-              price={m.pricing_free_price()}
-              items={[
-                m.pricing_free_keys(),
-                m.pricing_unlimited_users(),
-                m.pricing_git(),
-                m.pricing_formats(),
-              ]}
-            />
-            <PlanCard
-              name="Agency"
-              price={m.pricing_agency_price()}
-              highlight
-              items={[m.pricing_agency_keys(), m.pricing_agency_users(), m.pricing_git(), m.pricing_mt()]}
-            />
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t">
-        <div className="text-muted-foreground mx-auto flex max-w-6xl items-center justify-between px-6 py-8 text-sm">
-          <Logo />
-          <span>{m.footer_made_in()}</span>
         </div>
-      </footer>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pb-20">
+        <p className="text-muted-foreground text-center text-sm">{m.stack_title()}</p>
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {frameworks.map((item) => (
+            <StackChip key={item.name} item={item} />
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {formats.map((item) => (
+            <StackChip key={item.name} item={item} />
+          ))}
+        </div>
+      </section>
+
+      <section id="how" className="bg-card/60 scroll-mt-4 border-y">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <SectionTitle title={m.process_title()} body={m.process_subtitle()} />
+          <div className="mt-12">
+            <ProcessSteps />
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-24">
+        <SectionTitle title={m.integrations_title()} body={m.integrations_subtitle()} />
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          <IntegrationCard
+            logo={<GitHubLogo className="size-9" />}
+            name="GitHub"
+            body={m.integrations_github_body()}
+            items={[m.integrations_github_1(), m.integrations_github_2(), m.integrations_github_3()]}
+          />
+          <IntegrationCard
+            logo={<BitbucketLogo className="size-9 text-[#2684ff]" />}
+            name="Bitbucket Cloud"
+            body={m.integrations_bitbucket_body()}
+            items={[m.integrations_bitbucket_1(), m.integrations_bitbucket_2(), m.integrations_bitbucket_3()]}
+          />
+        </div>
+        <p className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
+          <Terminal className="size-4 shrink-0" /> {m.integrations_ci()}
+        </p>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pb-24">
+        <SectionTitle title={m.features_title()} />
+        <div className="bg-border mt-12 grid gap-px overflow-hidden rounded-xl border sm:grid-cols-2 lg:grid-cols-3">
+          {features.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="bg-background p-6">
+              <Icon className="text-primary size-5" />
+              <h3 className="mt-4 font-medium">{title}</h3>
+              <p className="text-muted-foreground mt-2 text-sm">{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="pricing" className="mx-auto max-w-6xl scroll-mt-4 px-6 pb-24">
+        <SectionTitle title={m.pricing_title()} />
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          <PlanCard
+            name="Free"
+            price={m.pricing_free_price()}
+            items={[m.pricing_free_keys(), m.pricing_unlimited_users(), m.pricing_git(), m.pricing_formats()]}
+          />
+          <PlanCard
+            name="Agency"
+            price={m.pricing_agency_price()}
+            highlight
+            items={[m.pricing_agency_keys(), m.pricing_agency_users(), m.pricing_git(), m.pricing_mt()]}
+          />
+        </div>
+      </section>
+
+      <section
+        id="faq"
+        className="mx-auto grid max-w-6xl scroll-mt-4 gap-10 px-6 pb-28 lg:grid-cols-[1fr_2fr]"
+      >
+        <SectionTitle title={m.faq_title()} body={m.faq_subtitle()} />
+        <Faq />
+      </section>
+    </MarketingLayout>
+  )
+}
+
+function SectionTitle({ title, body }: { title: string; body?: string }) {
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-3xl font-semibold tracking-tight text-balance">{title}</h2>
+      {body && <p className="text-muted-foreground mt-3 text-pretty">{body}</p>}
+    </div>
+  )
+}
+
+function IntegrationCard({
+  logo,
+  name,
+  body,
+  items,
+}: {
+  logo: ReactNode
+  name: string
+  body: string
+  items: string[]
+}) {
+  return (
+    <div className="bg-card rounded-xl border p-8">
+      <div className="flex items-center gap-4">
+        {logo}
+        <h3 className="text-xl font-semibold tracking-tight">{name}</h3>
+      </div>
+      <p className="text-muted-foreground mt-4 text-pretty">{body}</p>
+      <ul className="mt-6 space-y-3 text-sm">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <Check className="text-primary size-4 shrink-0" /> {item}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

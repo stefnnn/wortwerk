@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as CompareIndexRouteImport } from './routes/compare.index'
+import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as InvitationsIdRouteImport } from './routes/invitations.$id'
 import { Route as TTenantRouteImport } from './routes/t.$tenant'
 import { Route as TTenantIndexRouteImport } from './routes/t.$tenant.index'
@@ -39,6 +42,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -47,6 +55,16 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareIndexRoute = CompareIndexRouteImport.update({
+  id: '/compare/',
+  path: '/compare/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareSlugRoute = CompareSlugRouteImport.update({
+  id: '/compare/$slug',
+  path: '/compare/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvitationsIdRoute = InvitationsIdRouteImport.update({
@@ -99,10 +117,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
   '/t/$tenant': typeof TTenantRouteWithChildren
+  '/compare/': typeof CompareIndexRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant/': typeof TTenantIndexRoute
   '/t/$tenant/p/$project': typeof TTenantPProjectRouteWithChildren
@@ -115,9 +136,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
+  '/compare': typeof CompareIndexRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant': typeof TTenantIndexRoute
   '/t/$tenant/p/$project/editor': typeof TTenantPProjectEditorRoute
@@ -130,10 +154,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
   '/t/$tenant': typeof TTenantRouteWithChildren
+  '/compare/': typeof CompareIndexRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant/': typeof TTenantIndexRoute
   '/t/$tenant/p/$project': typeof TTenantPProjectRouteWithChildren
@@ -148,10 +175,13 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/onboarding'
+    | '/privacy'
     | '/sign-in'
     | '/sign-up'
+    | '/compare/$slug'
     | '/invitations/$id'
     | '/t/$tenant'
+    | '/compare/'
     | '/t/$tenant/settings'
     | '/t/$tenant/'
     | '/t/$tenant/p/$project'
@@ -164,9 +194,12 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/onboarding'
+    | '/privacy'
     | '/sign-in'
     | '/sign-up'
+    | '/compare/$slug'
     | '/invitations/$id'
+    | '/compare'
     | '/t/$tenant/settings'
     | '/t/$tenant'
     | '/t/$tenant/p/$project/editor'
@@ -178,10 +211,13 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/onboarding'
+    | '/privacy'
     | '/sign-in'
     | '/sign-up'
+    | '/compare/$slug'
     | '/invitations/$id'
     | '/t/$tenant'
+    | '/compare/'
     | '/t/$tenant/settings'
     | '/t/$tenant/'
     | '/t/$tenant/p/$project'
@@ -195,10 +231,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
   OnboardingRoute: typeof OnboardingRoute
+  PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  CompareSlugRoute: typeof CompareSlugRoute
   InvitationsIdRoute: typeof InvitationsIdRoute
   TTenantRoute: typeof TTenantRouteWithChildren
+  CompareIndexRoute: typeof CompareIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -224,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -236,6 +282,20 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/': {
+      id: '/compare/'
+      path: '/compare'
+      fullPath: '/compare/'
+      preLoaderRoute: typeof CompareIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/$slug': {
+      id: '/compare/$slug'
+      path: '/compare/$slug'
+      fullPath: '/compare/$slug'
+      preLoaderRoute: typeof CompareSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invitations/$id': {
@@ -341,10 +401,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   OnboardingRoute: OnboardingRoute,
+  PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  CompareSlugRoute: CompareSlugRoute,
   InvitationsIdRoute: InvitationsIdRoute,
   TTenantRoute: TTenantRouteWithChildren,
+  CompareIndexRoute: CompareIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

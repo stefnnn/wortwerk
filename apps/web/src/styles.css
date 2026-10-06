@@ -122,3 +122,56 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+.geo-grid {
+  background-image: radial-gradient(circle, var(--sage-7) 1px, transparent 1.4px);
+  background-size: 28px 28px;
+  background-position: center top;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, #000 20%, transparent 75%);
+}
+
+.geo-grid-glow {
+  background-image: radial-gradient(circle, var(--jade-9) 1.2px, transparent 1.6px);
+  mask-image:
+    radial-gradient(ellipse 80% 70% at 50% 20%, #000 20%, transparent 75%),
+    linear-gradient(110deg, transparent 42%, #000 50%, transparent 58%);
+  mask-composite: intersect;
+  mask-size:
+    100% 100%,
+    300% 100%;
+  mask-repeat: no-repeat;
+  animation: geo-sweep 14s linear infinite;
+  opacity: 0.55;
+}
+
+.geo-spin {
+  animation: geo-spin linear infinite;
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+@keyframes geo-sweep {
+  from {
+    mask-position:
+      0 0,
+      100% 0;
+  }
+  to {
+    mask-position:
+      0 0,
+      0% 0;
+  }
+}
+
+@keyframes geo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geo-grid-glow,
+  .geo-spin {
+    animation: none;
+  }
+}

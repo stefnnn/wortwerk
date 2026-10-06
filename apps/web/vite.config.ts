@@ -4,6 +4,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
+import { competitors } from './src/lib/compare.ts'
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
@@ -18,7 +19,9 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart({
       prerender: { enabled: true, autoStaticPathsDiscovery: false, crawlLinks: false },
-      pages: [{ path: '/' }, { path: '/de/' }],
+      pages: ['/', '/privacy', '/compare', ...competitors.map((c) => `/compare/${c.slug}`)].flatMap(
+        (path) => [{ path }, { path: path === '/' ? '/de/' : `/de${path}` }],
+      ),
     }),
     nitro(),
     viteReact(),
