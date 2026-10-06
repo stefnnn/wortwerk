@@ -13,7 +13,7 @@ __unconfig*
 todos.json
 .env.local
 coverage
-storage
+/storage
 src/paraglide
 *.tsbuildinfo
 .output
