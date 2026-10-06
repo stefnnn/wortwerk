@@ -1,6 +1,6 @@
 # API
 
-## Internal API (phase 1–2)
+## Internal API
 
 Used by the admin UI through the typed Hono client (`apps/web/src/lib/api.ts`). Session cookie auth, tenant resolved from the path, membership checked on every request.
 
@@ -30,11 +30,44 @@ Used by the admin UI through the typed Hono client (`apps/web/src/lib/api.ts`). 
 /api/t/:tenant/comments/:id                         DELETE
 /api/t/:tenant/keys/:keyId/screenshots              GET, POST multipart
 /api/t/:tenant/screenshots/:id                      GET (image), DELETE
+/api/t/:tenant/keys/:keyId/machine                  POST { locale } -> { value }  (MT suggestion, not saved)
+
+/api/t/:tenant/git/connections                      GET connections + configured providers
+/api/t/:tenant/git/connections/:id                  DELETE
+/api/t/:tenant/git/connections/:id/repos            GET repositories visible to the connection
+/api/t/:tenant/git/connect/:provider                GET -> redirect to GitHub App install / Bitbucket OAuth
+/api/t/:tenant/projects/:project/repo               GET, PUT { connectionId, repo, branch, exportBranch, localeAliases, autoExport }, DELETE
+/api/t/:tenant/projects/:project/repo/sync          POST { importTranslations, overwrite } -> 202 pull run
+/api/t/:tenant/projects/:project/repo/export        POST -> 202 push run
+/api/t/:tenant/projects/:project/machine            POST { locale, keyIds? } -> 202 machine run (agency plan)
+/api/t/:tenant/projects/:project/tokens             GET, POST { name } -> { token } (shown once)
+/api/t/:tenant/projects/:project/tokens/:id         DELETE
+
+/api/integrations/github/callback                   GitHub App install callback (state + user OAuth code verified)
+/api/integrations/bitbucket/callback                Bitbucket OAuth callback
+/api/webhooks/github                                App webhook, X-Hub-Signature-256
+/api/webhooks/bitbucket/:repoLinkId                 per-repository webhook, X-Hub-Signature with its own secret
 ```
+
+Webhooks only enqueue a pull run with the pushed SHA. The worker skips SHAs it already synced, so redelivered or duplicate webhooks are harmless.
 
 Errors: `{ "error": "not_found" | "conflict" | "invalid" | "limit_reached" | "http" | "internal", "message": "..." }` with status 404 / 409 / 400 / 402 / 4xx / 500.
 
-## Public API v1 (draft)
+## Public API v1
+
+Implemented now (CI flow):
+
+```
+POST /api/v1/projects/:id/sync          { export?: boolean } -> 202 { runs: [{ id, kind, status }] }
+GET  /api/v1/projects/:id/runs/:runId   -> { id, kind, status, result, error, createdAt, finishedAt }
+```
+
+```sh
+curl -X POST https://wortwerk.li/api/v1/projects/$PROJECT_ID/sync \
+  -H "Authorization: Bearer $WORTWERK_TOKEN" -H "Content-Type: application/json" -d '{"export": true}'
+```
+
+### Later (draft)
 
 Versioned, token-authenticated, stable. Same domain services (`@wortwerk/core`) as the internal API, different auth and resource ids.
 
@@ -43,11 +76,9 @@ Versioned, token-authenticated, stable. Same domain services (`@wortwerk/core`) 
 - Pagination: `?limit=&cursor=`, responses `{ data: [...], nextCursor }`.
 
 ```
-POST /api/v1/projects/:id/sync                              phase 3: trigger git source sync from CI
 GET  /api/v1/projects/:id                                   project, locales, files
 GET  /api/v1/projects/:id/files/:fileId/download?locale=    CLI pull
 POST /api/v1/projects/:id/files/:fileId/upload?locale=      CLI push, returns sync run
-GET  /api/v1/projects/:id/runs/:runId                       poll sync run
 GET  /api/v1/projects/:id/keys                              list with translations ?locale=
 PUT  /api/v1/projects/:id/keys/:keyId/translations/:locale
 ```

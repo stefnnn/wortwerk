@@ -6,10 +6,11 @@ Translation management with git flow. See [AGENTS.md](AGENTS.md) for decisions a
 
 ```
 apps/web         TanStack Start app, Hono API at /api/*, marketing site + admin UI (en/de)
-apps/worker      pg-boss consumer (imports, later git sync / exports / machine translation)
+apps/worker      pg-boss consumer (imports, git pull / push, machine translation, auto-export sweep)
 packages/db      Drizzle schema, migrations, client
 packages/core    tenant-scoped domain services
 packages/formats JSON / YAML / PO adapters, ICU conversion
+packages/git     GitHub App + Bitbucket Cloud clients, webhook signatures
 packages/jobs    queue names + typed payloads
 packages/mail    mail abstraction (console, Resend)
 packages/storage storage abstraction (local disk)
@@ -39,3 +40,7 @@ pnpm db:generate # after schema changes
 
 Integration tests create and reset a database named `*_test` only. Create it once with
 `docker compose exec postgres psql -U wortwerk -c "create database wortwerk_test"`.
+
+## Deployment
+
+Production runs on https://wortwerk.li with Docker compose. See [docs/deploy.md](docs/deploy.md).

@@ -1,0 +1,13 @@
+**/node_modules
+**/.output
+**/.nitro
+**/.tanstack
+**/src/paraglide
+**/*.tsbuildinfo
+.git
+.github
+.env
+.env.*
+!.env.example
+storage
+coverage

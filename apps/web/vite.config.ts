@@ -8,6 +8,7 @@ import { nitro } from 'nitro/vite'
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   server: { port: 3010 },
+  preview: { host: '127.0.0.1' },
   plugins: [
     paraglideVitePlugin({
       project: './project.inlang',

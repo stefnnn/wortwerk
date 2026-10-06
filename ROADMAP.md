@@ -1,6 +1,6 @@
 # Roadmap
 
-## Phase 1 — Foundation
+## Phase 1 — Foundation ✅
 
 - pnpm monorepo, TypeScript, oxlint / oxfmt, vitest
 - docker compose for local Postgres
@@ -10,7 +10,7 @@
 - `apps/worker`: pg-boss consumer process
 - GitHub Actions CI: lint, format check, typecheck, test
 
-## Phase 2 — Core TMS
+## Phase 2 — Core TMS ✅
 
 - `packages/formats`: JSON (nested/flat, i18next plurals), YAML (Rails style), PO adapters, structure-preserving export, ICU canonical conversion
 - `packages/core`: projects, locales, keys, translations, statuses, revisions, translation memory, comments, screenshots, plan limits
@@ -18,23 +18,26 @@
 - admin UI: onboarding, project list, translation editor (filters, statuses, history, TM suggestions, comments, screenshots), project settings (locales, import / export), tenant settings (members, invites, plan)
 - file import / export run as worker jobs, tracked as sync runs
 
-## Phase 3 — Git integration
+## Phase 3 — Git integration ✅
 
 - git provider abstraction: read files at ref, commit to branch, open / update PR, verify webhook
 - GitHub App + Bitbucket Cloud OAuth consumer
 - per-project repo connection, tracked branch, file mapping patterns with `%locale%` + locale aliases
 - webhook ingestion -> source sync job (new keys, changed source -> needs review, missing -> obsolete)
-- export job: regenerate `wortwerk/translations` branch from base, force-push, open / update PR, debounced
+- export job: regenerate `wortwerk/translations` branch from base, force-push, open / update PR, auto-export once edits have been quiet for a minute
 - project tokens + `POST /api/v1/projects/:id/sync` for CI
 
-## Phase 4 — Machine translation & launch
+## Phase 4 — Machine translation & launch ✅
 
 - OpenRouter machine translation (configurable model, default `gpt-6-luna`), agency plan only, ICU placeholder protection + validation, bulk pre-translate job
 - public website content en / de, prerendered
-- production deploy: docker compose on one.adaptive-publishing.com (`wortwerk` user, ssh key), GitHub Actions CD, Caddy / TLS, Postgres backups
-- error monitoring, logs
+- production deploy to https://wortwerk.li: docker compose on one.adaptive-publishing.com (`wortwerk` user, ssh key), GitHub Actions CD, Caddy / TLS, Postgres backups
+- logs via Docker (rotated); external error monitoring later
 
 ## Later
+
+- error monitoring (Sentry or similar), off-host backups
+- imprint / privacy pages for the public site
 
 - Stripe billing on top of the existing plan model
 - public API v1 + CLI (`wortwerk push / pull`)

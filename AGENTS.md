@@ -10,7 +10,7 @@ wortwerk is a translation management system with git flow.
 - import / export translation files (po, json, yaml for now)
 - multiple projects per tenant, multiple locales per project
 - no access management for now, all users can do everything
-- code repo on github.com/stefnnn/wortwerk -> ci/cd and deploy to "ssh one.adaptive-publishing.com", create user wortwerk there, ssh key, etc.
+- code repo on github.com/stefnnn/wortwerk -> ci/cd and deploy to "ssh one.adaptive-publishing.com" (user wortwerk), served at https://wortwerk.li, see docs/deploy.md
 
 ## Decisions
 
@@ -45,7 +45,7 @@ wortwerk is a translation management system with git flow.
 - revisions stored per translation (who, when, value)
 - review statuses: untranslated / translated / needs review / approved
 - translation memory (tenant-wide), comments + screenshots per key
-- machine translation via OpenRouter, model configurable (default `gpt-6-luna`), agency plan only, no quota for now. ICU placeholders protected in prompts and validated on output
+- machine translation via OpenRouter, model configurable (default `openai/gpt-6-luna`), agency plan only, no quota for now. ICU placeholders protected in prompts and validated on output
 
 ### Phase 2
 
@@ -59,3 +59,5 @@ wortwerk is a translation management system with git flow.
 - API routes validate with zod via `validate()` and throw `DomainError`; the Hono error handler maps codes to HTTP status
 - UI strings live in `apps/web/messages/{en,de}.json` (Paraglide); German uses "du" and Swiss spelling (ss, no ß)
 - tests that touch the database only run against databases whose name ends in `_test`
+- git providers implement `GitClient` in `packages/git`; sync logic in `@wortwerk/core` only talks to that interface (tests use `createMemoryRepo`)
+- web only enqueues jobs; anything touching a git provider or OpenRouter in bulk runs in the worker
