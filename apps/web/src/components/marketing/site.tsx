@@ -23,6 +23,7 @@ function SiteHeader() {
         <Logo className="text-lg" />
       </Link>
       <nav className="flex items-center gap-1">
+        {/* pricing is hidden for now
         <Link
           to="/"
           hash="pricing"
@@ -30,6 +31,7 @@ function SiteHeader() {
         >
           {m.nav_pricing()}
         </Link>
+        */}
         <Link
           to="/"
           hash="faq"
@@ -62,9 +64,9 @@ function SiteFooter() {
           <Link to="/" hash="how">
             {m.cta_how_it_works()}
           </Link>
-          <Link to="/" hash="pricing">
+          {/* <Link to="/" hash="pricing">
             {m.nav_pricing()}
-          </Link>
+          </Link> */}
           <Link to="/" hash="faq">
             {m.nav_faq()}
           </Link>

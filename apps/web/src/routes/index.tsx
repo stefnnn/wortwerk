@@ -18,9 +18,9 @@ import { ProcessSteps } from '#/components/marketing/process.tsx'
 import { MarketingLayout } from '#/components/marketing/site.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
 import { authClient } from '#/lib/auth-client.ts'
-import { formatNumber } from '#/lib/format.ts'
-import { cn } from '#/lib/utils.ts'
-import { planIds, plans, type Plan } from '@wortwerk/core/plans'
+// import { formatNumber } from '#/lib/format.ts'
+// import { cn } from '#/lib/utils.ts'
+// import { planIds, plans, type Plan } from '@wortwerk/core/plans'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/')({
@@ -135,6 +135,7 @@ function Landing() {
         </div>
       </section>
 
+      {/* pricing is hidden for now
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-4 px-6 pb-24">
         <SectionTitle title={m.pricing_title()} />
         <div className="mt-12 grid gap-6 lg:grid-cols-3">
@@ -143,6 +144,7 @@ function Landing() {
           ))}
         </div>
       </section>
+      */}
 
       <section
         id="faq"
@@ -193,6 +195,7 @@ function IntegrationCard({
   )
 }
 
+/* pricing is hidden for now
 const planNames = { free: 'Free', project: 'Project', agency: 'Agency' } as const
 
 function PlanCard({ plan, highlight }: { plan: Plan; highlight?: boolean }) {
@@ -237,6 +240,7 @@ function PlanCard({ plan, highlight }: { plan: Plan; highlight?: boolean }) {
     </div>
   )
 }
+*/
 
 function CodePreview() {
   return (
