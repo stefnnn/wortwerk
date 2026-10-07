@@ -78,3 +78,7 @@ Workspace settings → OAuth consumers → Add consumer:
 Set `BITBUCKET_CLIENT_ID` (key) and `BITBUCKET_CLIENT_SECRET` (secret). wortwerk creates one webhook per connected repository with its own signing secret.
 
 Bitbucket's API cannot force-push. The export branch therefore gets a new commit on top of its previous head instead of being regenerated from base.
+
+## Platform admin
+
+`/admin` lists all users, workspaces and projects, changes a workspace's plan and deletes users (together with the workspace they own). Access is limited to signed-in users with a verified email listed in `ADMIN_EMAILS` (comma separated) in `~/app/.env`. Everyone else gets a 404.

@@ -7,6 +7,7 @@ import { schema } from '@wortwerk/db'
 import { auth } from '../auth.ts'
 import { env } from '../env.ts'
 import { db, translator } from '../services.ts'
+import { admin } from './admin.ts'
 import { requireSession, requireTenant, type Env } from './context.ts'
 import { comments, keys, projectKeys, screenshots } from './keys.ts'
 import { integrations, tenantGit, webhooks } from './git.ts'
@@ -47,6 +48,7 @@ export const api = new Hono<Env>()
   .on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
   .get('/health', (c) => c.json({ ok: true }))
   .route('/t/:tenant', tenant)
+  .route('/admin', admin)
   .route('/webhooks', webhooks)
   .route('/integrations', integrations)
   .route('/v1', v1)

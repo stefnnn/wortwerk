@@ -1,5 +1,5 @@
 import { queryOptions, keepPreviousData } from '@tanstack/react-query'
-import { t, unwrap } from './api.ts'
+import { client, t, unwrap } from './api.ts'
 
 export type KeyFilters = {
   locale: string
@@ -11,6 +11,11 @@ export type KeyFilters = {
 }
 
 export const queries = {
+  adminOverview: () =>
+    queryOptions({
+      queryKey: ['admin', 'overview'],
+      queryFn: () => unwrap(client.api.admin.overview.$get()),
+    }),
   tenant: (tenant: string) =>
     queryOptions({
       queryKey: ['tenant', tenant],

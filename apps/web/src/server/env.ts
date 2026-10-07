@@ -9,6 +9,16 @@ const schema = z.object({
   OPENROUTER_API_KEY: z.string().optional(),
   MT_MODEL: z.string().default('openai/gpt-6-luna'),
   ADMIN_EMAIL: z.email().optional(),
+  // platform admins (comma separated), allowed into /admin
+  ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
 })
 
 export const env = schema.parse(process.env)

@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronsUpDown, FolderKanban, LogOut, Menu, Plus, Settings } from 'lucide-react'
+import { ChevronsUpDown, FolderKanban, LogOut, Menu, Plus, Settings, Shield } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Logo } from '#/components/brand.tsx'
 import { LocaleSwitch, ThemeToggle } from '#/components/preferences.tsx'
@@ -185,6 +185,11 @@ function UserMenu({ viewer }: { viewer: Viewer }) {
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" className="w-56">
+          {viewer.isAdmin && (
+            <DropdownMenuItem onClick={() => router.navigate({ to: '/admin' })}>
+              <Shield /> {m.admin_title()}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={signOut}>
             <LogOut /> {m.nav_sign_out()}
           </DropdownMenuItem>

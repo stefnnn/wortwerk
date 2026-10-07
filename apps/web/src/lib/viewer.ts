@@ -3,12 +3,14 @@ import { getRequestHeaders } from '@tanstack/react-start/server'
 
 export type Viewer = {
   user: { id: string; name: string; email: string; image?: string | null }
+  isAdmin: boolean
   tenants: Array<{ id: string; name: string; slug: string; plan: string; role: string }>
 }
 
 export const getViewer = createServerFn({ method: 'GET' }).handler(async (): Promise<Viewer | null> => {
-  const [{ auth }, { db }, { schema }, { eq, asc }] = await Promise.all([
+  const [{ auth }, { isAdminUser }, { db }, { schema }, { eq, asc }] = await Promise.all([
     import('#/server/auth.ts'),
+    import('#/server/admin-access.ts'),
     import('#/server/services.ts'),
     import('@wortwerk/db'),
     import('drizzle-orm'),
@@ -28,5 +30,5 @@ export const getViewer = createServerFn({ method: 'GET' }).handler(async (): Pro
     .where(eq(schema.member.userId, session.user.id))
     .orderBy(asc(schema.tenant.name))
   const { id, name, email, image } = session.user
-  return { user: { id, name, email, image }, tenants }
+  return { user: { id, name, email, image }, isAdmin: isAdminUser(session.user), tenants }
 })
