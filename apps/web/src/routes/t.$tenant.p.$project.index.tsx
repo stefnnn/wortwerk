@@ -57,9 +57,14 @@ function ProjectOverview() {
     { invalidate: [queries.runs(tenant, project).queryKey], success: m.machine_queued() },
   )
   // one locale can be queued while others are still running, so busy is tracked per locale
+  // a run that has been going for a long time is probably dead: allow starting again
   const isTranslating = (locale: string) =>
     (pretranslate.isPending && pretranslate.variables === locale) ||
-    !!activeMachine?.some((r) => (r.params as { locale?: string }).locale === locale)
+    !!activeMachine?.some(
+      (r) =>
+        (r.params as { locale?: string }).locale === locale &&
+        Date.now() - new Date(r.startedAt ?? r.createdAt).getTime() < 10 * 60_000,
+    )
   const canMachine = tenantInfo.data?.features.machineTranslation ?? false
 
   if (!stats.data || !details.data) {

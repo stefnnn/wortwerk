@@ -53,8 +53,12 @@ export function createBoss(options: Partial<ConstructorOptions> = {}) {
 }
 
 export async function ensureQueues(boss: PgBoss) {
+  // heartbeats let pg-boss retry a job within a minute when its worker died (e.g. on a deploy),
+  // instead of waiting for the default 15 minute expiry
+  const options = { retryLimit: 2, retryBackoff: true, expireInSeconds: 1800, heartbeatSeconds: 60 }
   for (const name of Object.values(queues)) {
-    if (!(await boss.getQueue(name))) await boss.createQueue(name, { retryLimit: 2, retryBackoff: true })
+    if (await boss.getQueue(name)) await boss.updateQueue(name, options)
+    else await boss.createQueue(name, options)
   }
 }
 

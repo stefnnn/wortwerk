@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
 import { notFound, type Ctx } from './context.ts'
 
@@ -55,4 +55,16 @@ export async function finishSyncRun(
       finishedAt: new Date(),
     })
     .where(and(eq(syncRun.tenantId, ctx.tenantId), eq(syncRun.id, id)))
+}
+
+/** Runs whose job is long gone (worker died, job expired) would otherwise show as active forever. */
+export async function failStaleRuns(db: Ctx['db'], maxAgeMinutes = 30) {
+  const { rows } = await db.execute<{ id: string }>(sql`
+    update ${syncRun}
+    set status = 'failed', error = 'Interrupted: the job did not finish', finished_at = now()
+    where status in ('queued', 'running')
+      and coalesce(started_at, created_at) < now() - make_interval(mins => ${maxAgeMinutes})
+    returning id
+  `)
+  return rows.length
 }

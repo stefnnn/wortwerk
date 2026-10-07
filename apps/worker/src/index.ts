@@ -1,6 +1,7 @@
 import {
   DomainError,
   createSyncRun,
+  failStaleRuns,
   findDueExports,
   finishSyncRun,
   getRepoLink,
@@ -55,14 +56,18 @@ async function withRun<T extends Record<string, unknown>>(
   const ctx: Ctx = { db, tenantId: job.tenantId, userId: run.createdById, storage }
   await startSyncRun(ctx, run.id)
   try {
+    const started = Date.now()
     const result = await fn(ctx, run.params)
     await finishSyncRun(ctx, run.id, { result })
+    console.info(`[worker] ${job.type} project=${job.projectId} done in ${Date.now() - started}ms`)
     return result
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await finishSyncRun(ctx, run.id, { error: message })
+    console.warn(
+      `[worker] ${job.type} project=${job.projectId} failed${isPermanent(error) ? '' : ' (will retry)'}: ${message}`,
+    )
     if (!isPermanent(error)) throw error
-    console.warn(`[worker] ${job.type} project=${job.projectId} failed: ${message}`)
     return null
   }
 }
@@ -123,11 +128,20 @@ async function runMachine(job: Job<'machine'>) {
       model: process.env.MT_MODEL || 'openai/gpt-6-luna',
       appUrl: process.env.APP_URL,
     })
-    return machineTranslateProject(ctx, translator, {
+    console.info(`[worker] machine project=${job.projectId} locale=${params.locale} translating`)
+    const result = await machineTranslateProject(ctx, translator, {
       projectId: job.projectId,
       ...params,
       selection: params.selection as KeySelection | undefined,
     })
+    console.info(
+      `[worker] machine project=${job.projectId} locale=${params.locale}: ${result.translated}/${result.requested} translated, ${result.failed.length} failed`,
+    )
+    for (const f of result.failed.slice(0, 10))
+      console.warn(
+        `[worker] machine project=${job.projectId} locale=${params.locale} key=${f.key}: ${f.reason}`,
+      )
+    return result
   })
 }
 
@@ -142,7 +156,7 @@ await ensureQueues(boss)
 await boss.work(queues.project, { groupConcurrency: 1, localConcurrency: 4 }, async (jobs) => {
   for (const job of jobs) {
     const data = projectJob.parse(job.data)
-    console.info(`[worker] ${data.type} project=${data.projectId}`)
+    console.info(`[worker] ${data.type} project=${data.projectId} start`)
     if (data.type === 'import') await runImport(data)
     else if (data.type === 'pull') await runPull(data)
     else if (data.type === 'push') await runPush(data)
@@ -152,6 +166,8 @@ await boss.work(queues.project, { groupConcurrency: 1, localConcurrency: 4 }, as
 
 await boss.schedule(queues.exportSweep, '* * * * *')
 await boss.work(queues.exportSweep, async () => {
+  const stale = await failStaleRuns(db)
+  if (stale) console.warn(`[worker] marked ${stale} stale runs as failed`)
   for (const due of await findDueExports(db, 60)) {
     const id = await boss.send(
       queues.project,

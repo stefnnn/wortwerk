@@ -49,6 +49,8 @@ export function openRouterTranslator(config: { apiKey: string; model: string; ap
         'content-type': 'application/json',
         ...(config.appUrl ? { 'http-referer': config.appUrl, 'x-title': 'wortwerk' } : {}),
       },
+      // a hung request would otherwise block the job until the queue expires it
+      signal: AbortSignal.timeout(90_000),
       body: JSON.stringify({
         model: normalizeModel(config.model),
         temperature: 0.2,
