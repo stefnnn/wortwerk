@@ -209,6 +209,7 @@
   "language_label": "Langue",
   "loading": "Chargement…",
   "machine_pretranslate": "Pré-traduire",
+  "machine_translated_count": "{done} clés sur {total} traduites",
   "machine_queued": "La traduction automatique a commencé. Les résultats sont marqués comme à vérifier.",
   "magic_link_sent_body": "Nous avons envoyé un lien de connexion à {email}.",
   "magic_link_sent_title": "Consultez votre boîte de réception",
@@ -363,6 +364,8 @@
   "settings_general": "Général",
   "settings_locales": "Langues",
   "settings_locales_body": "La suppression d’une langue la masque dans l’éditeur. Ses traductions sont conservées.",
+  "settings_locale_instructions": "Instructions de traduction pour {locale}",
+  "settings_locale_instructions_placeholder": "Ajouté à l’invite de traduction automatique, p. ex. « - toujours utiliser un langage informel »",
   "settings_obsolete": "Clés obsolètes",
   "settings_obsolete_body": "{count} clés ne figurent plus dans le fichier source. Elles sont conservées avec leurs traductions jusqu’à leur suppression définitive.",
   "settings_purge": "Supprimer définitivement les clés obsolètes",
@@ -404,5 +407,10 @@
   "tokens_subtitle": "Laissez votre CI déclencher une synchronisation après les déploiements ou les fusions. Les jetons ne fonctionnent que pour ce projet.",
   "tokens_title": "Jetons CI",
   "tokens_unused": "jamais utilisé",
-  "tokens_used": "Dernière utilisation : {date}"
+  "tokens_used": "Dernière utilisation : {date}",
+  "export_synced": "Synchronisé avec le dépôt",
+  "export_pending": "Modifications pas encore incluses dans une demande de tirage",
+  "export_pr_open": "Demande de tirage envoyée",
+  "export_last": "Dernière exportation : {date}",
+  "export_never": "Pas encore exporté"
 }

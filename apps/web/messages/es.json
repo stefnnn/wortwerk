@@ -208,7 +208,8 @@
   "landing_title": "Gestión de traducciones que habla git",
   "language_label": "Idioma",
   "loading": "Cargando…",
-  "machine_pretranslate": "Traducir previamente",
+  "machine_pretranslate": "Traducir",
+  "machine_translated_count": "{done} de {total} claves traducidas",
   "machine_queued": "Se ha iniciado la traducción automática. Los resultados se marcan como pendientes de revisión.",
   "magic_link_sent_body": "Hemos enviado un enlace para iniciar sesión a {email}.",
   "magic_link_sent_title": "Revisa tu bandeja de entrada",
@@ -363,6 +364,8 @@
   "settings_general": "General",
   "settings_locales": "Idiomas",
   "settings_locales_body": "Al quitar un idioma, se ocultará del editor. Sus traducciones se conservarán.",
+  "settings_locale_instructions": "Instrucciones de traducción para {locale}",
+  "settings_locale_instructions_placeholder": "Se añade a la instrucción de traducción automática, p. ej., \"- usa siempre un lenguaje informal\"",
   "settings_obsolete": "Claves obsoletas",
   "settings_obsolete_body": "Ya no hay {count} claves en el archivo de origen. Se conservarán con sus traducciones hasta que las elimines definitivamente.",
   "settings_purge": "Eliminar claves obsoletas",
@@ -404,5 +407,10 @@
   "tokens_subtitle": "Permite que tu CI active una sincronización después de las implementaciones o las fusiones. Los tokens solo funcionan para este proyecto.",
   "tokens_title": "Tokens de CI",
   "tokens_unused": "nunca se ha usado",
-  "tokens_used": "último uso {date}"
+  "tokens_used": "último uso {date}",
+  "export_synced": "Sincronizado con el repositorio",
+  "export_pending": "Cambios que aún no están en una pull request",
+  "export_pr_open": "Pull request enviada",
+  "export_last": "Última exportación: {date}",
+  "export_never": "Aún no se ha exportado"
 }
