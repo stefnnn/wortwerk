@@ -1,8 +1,8 @@
 import { parseJson, serializeJson } from './json.ts'
 import { parsePo, patchPo, serializePo } from './po.ts'
 import { parseScriptFile, serializeScript } from './script.ts'
-import type { Entry, FileFormat, ParseContext, ParseResult, SerializeContext } from './types.ts'
-import { parseYaml, serializeYaml } from './yaml.ts'
+import type { Entry, FileFormat, ParseContext, ParseResult, SerializeContext, YamlOptions } from './types.ts'
+import { parseYaml, patchYaml, serializeYaml } from './yaml.ts'
 
 export * from './types.ts'
 export * from './icu.ts'
@@ -66,5 +66,10 @@ export function patchFile<F extends FileFormat>(
     const changed = entries.filter((entry, index) => entry !== parsed.entries[index])
     return patchPo(content, changed, ctx as ParseContext<'po'>)
   }
-  return serializeFile(format, entries, { ...ctx, options: ctx.options ?? parsed.options, template: content })
+  const options = ctx.options ?? parsed.options
+  if (format === 'yaml') {
+    const patched = patchYaml(content, entries, options as YamlOptions)
+    if (patched !== null) return patched
+  }
+  return serializeFile(format, entries, { ...ctx, options, template: content })
 }

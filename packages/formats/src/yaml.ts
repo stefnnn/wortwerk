@@ -1,4 +1,15 @@
-import { Document, isMap, isScalar, parseDocument, stringify, type Pair, type YAMLMap } from 'yaml'
+import {
+  Document,
+  isMap,
+  isScalar,
+  isSeq,
+  parseDocument,
+  stringify,
+  type Pair,
+  type Scalar,
+  type YAMLMap,
+  type YAMLSeq,
+} from 'yaml'
 import { icuToText, pluralCategories } from './icu.ts'
 import {
   collectLeaves,
@@ -10,7 +21,7 @@ import {
   toEntry,
   type Tree,
 } from './tree.ts'
-import type { Entry, ParseContext, ParseResult, SerializeContext } from './types.ts'
+import type { Entry, ParseContext, ParseResult, SerializeContext, YamlOptions } from './types.ts'
 
 const localePattern = /^[a-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/
 
@@ -44,6 +55,12 @@ export function parseYaml(content: string, ctx: ParseContext<'yaml'>): ParseResu
       if (isPluralMap(value)) entries.push(pluralEntry(key, value, interpolation))
       else if (isTree(value)) walk(value, [...path, segment])
       else if (typeof value === 'string') entries.push(toEntry(key, value, interpolation))
+      else if (Array.isArray(value as unknown)) {
+        // string lists become entries keyed by index (`list.0`, `list.1`)
+        ;(value as unknown[]).forEach((item, i) => {
+          if (typeof item === 'string') entries.push(toEntry(`${key}.${i}`, item, interpolation))
+        })
+      }
     }
   }
   walk(tree, [])
@@ -58,6 +75,11 @@ export function serializeYaml(entries: Entry[], ctx: SerializeContext<'yaml'>): 
   const interpolation =
     ctx.options?.interpolation ??
     (isTree(templateData) ? detectInterpolation(collectLeaves(templateData).map((l) => l.text)) : 'icu')
+  // a template already in this locale's shape is patched in place, byte-for-byte where untouched
+  if (ctx.template && (!rootLocaleKey || rootKey === ctx.locale)) {
+    const patched = patchYaml(ctx.template, entries, { rootLocaleKey, interpolation })
+    if (patched !== null) return patched
+  }
   const byKey = new Map(entries.map((e) => [e.key, e]))
   const used = new Set<string>()
 
@@ -88,6 +110,10 @@ export function serializeYaml(entries: Entry[], ctx: SerializeContext<'yaml'>): 
         walk(pair.value, [...path, segment])
         return pair.value.items.length > 0
       }
+      if (isSeq(pair.value)) {
+        walkSeq(pair.value, key)
+        return pair.value.items.length > 0
+      }
       if (!entry) return false
       used.add(key)
       if (entry.isPlural) {
@@ -97,9 +123,27 @@ export function serializeYaml(entries: Entry[], ctx: SerializeContext<'yaml'>): 
           return true
         }
       }
+      setText(pair, entry)
+      return true
+    })
+  }
+
+  // only touch a scalar whose text changed, so block styles and folding survive
+  const setText = (holder: { value?: unknown }, entry: Entry) => {
+    const text = icuToText(entry.value, interpolation)
+    if (isScalar(holder.value)) {
+      if (holder.value.value !== text) holder.value.value = text
+    } else holder.value = doc.createNode(text)
+  }
+
+  const walkSeq = (seq: YAMLSeq, key: string) => {
+    seq.items = seq.items.filter((item, i) => {
+      if (!isScalar(item) || typeof item.value !== 'string') return true
+      const entry = byKey.get(`${key}.${i}`)
+      if (!entry) return false
+      used.add(entry.key)
       const text = icuToText(entry.value, interpolation)
-      if (isScalar(pair.value)) pair.value.value = text
-      else pair.value = doc.createNode(text)
+      if (item.value !== text) item.value = text
       return true
     })
   }
@@ -121,6 +165,99 @@ function mergeInto(doc: Document, map: YAMLMap, tree: Tree) {
   for (const [key, value] of Object.entries(tree)) {
     const existing = map.get(key, true)
     if (isTree(value) && isMap(existing)) mergeInto(doc, existing, value)
-    else map.set(key, doc.createNode(value))
+    else if (isTree(value) && isSeq(existing) && Object.keys(value).every((k) => /^\d+$/.test(k))) {
+      for (const [index, text] of Object.entries(value)) existing.set(Number(index), doc.createNode(text))
+    } else map.set(key, doc.createNode(value))
   }
+}
+
+/**
+ * Brings `content` in line with `entries` by editing source ranges only: changed string scalars are
+ * replaced and keys missing from `entries` are cut out, every other byte (comments, folding, quoting,
+ * blank lines) stays. Returns null when that isn't enough (plural maps, keys to add, removed list
+ * items, emptied maps), so the caller can fall back to a full re-serialize.
+ */
+export function patchYaml(content: string, entries: Entry[], options: YamlOptions): string | null {
+  const doc = parseDocument(content)
+  if (!isMap(doc.contents)) return null
+  const interpolation = options.interpolation ?? 'icu'
+  if (entries.some((e) => e.isPlural)) return null
+  let root: YAMLMap = doc.contents
+  if (options.rootLocaleKey) {
+    const first = root.items[0]
+    if (!first || !isMap(first.value)) return null
+    root = first.value
+  }
+  const wanted = new Map(entries.map((e) => [e.key, e]))
+
+  const edits: { start: number; end: number; text: string }[] = []
+  const seen = new Set<string>()
+  let unsupported = false
+
+  const replace = (node: Scalar, entry: Entry) => {
+    if (!node.range || typeof node.value !== 'string') return void (unsupported = true)
+    const text = icuToText(entry.value, interpolation)
+    if (text === node.value) return
+    const rendered =
+      text.includes('\n') || node.type === 'QUOTE_DOUBLE'
+        ? JSON.stringify(text)
+        : node.type === 'QUOTE_SINGLE'
+          ? `'${text.replaceAll("'", "''")}'`
+          : stringify(text, { lineWidth: 0 }).trimEnd()
+    // a block scalar owns its trailing newline
+    const block = node.type === 'BLOCK_FOLDED' || node.type === 'BLOCK_LITERAL'
+    edits.push({ start: node.range[0], end: node.range[1], text: rendered + (block ? '\n' : '') })
+  }
+
+  // cuts whole lines, from the start of the key line to the end of the value
+  const remove = (pair: Pair) => {
+    const keyStart = isScalar(pair.key) ? pair.key.range?.[0] : undefined
+    const valueNode = pair.value
+    const valueEnd = isScalar(valueNode) ? valueNode.range?.[1] : undefined
+    if (keyStart === undefined || valueEnd === undefined) return void (unsupported = true)
+    const start = content.lastIndexOf('\n', keyStart - 1) + 1
+    const eol = content[valueEnd - 1] === '\n' ? valueEnd : content.indexOf('\n', valueEnd) + 1
+    edits.push({ start, end: eol === 0 ? content.length : eol, text: '' })
+  }
+
+  const walk = (map: YAMLMap, path: string[]) => {
+    let kept = 0
+    for (const pair of map.items) {
+      if (!isScalar(pair.key)) {
+        kept++
+        continue
+      }
+      const segment = String(pair.key.value)
+      const key = [...path, segment].join('.')
+      if (isMap(pair.value)) {
+        if (walk(pair.value, [...path, segment]) === 0 && pair.value.items.length > 0) unsupported = true
+        kept++
+      } else if (isSeq(pair.value)) {
+        kept++
+        pair.value.items.forEach((item, i) => {
+          if (!isScalar(item)) return
+          const entry = wanted.get(`${key}.${i}`)
+          if (!entry) return void (unsupported = true)
+          seen.add(entry.key)
+          replace(item, entry)
+        })
+      } else if (isScalar(pair.value)) {
+        const entry = wanted.get(key)
+        if (!entry) remove(pair)
+        else {
+          kept++
+          seen.add(key)
+          replace(pair.value, entry)
+        }
+      } else kept++
+    }
+    return kept
+  }
+  walk(root, [])
+  if (unsupported || entries.some((e) => !seen.has(e.key))) return null
+
+  let out = content
+  for (const edit of edits.sort((a, b) => b.start - a.start))
+    out = out.slice(0, edit.start) + edit.text + out.slice(edit.end)
+  return out
 }
