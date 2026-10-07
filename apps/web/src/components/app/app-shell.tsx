@@ -116,6 +116,13 @@ function Sidebar({
           ))}
         </div>
       </div>
+      <a
+        href="https://github.com/stefnnn/wortwerk"
+        className="text-muted-foreground hover:text-foreground px-2.5 text-xs"
+        onClick={onNavigate}
+      >
+        {m.footer_source()}
+      </a>
       <UserMenu viewer={viewer} />
     </div>
   )

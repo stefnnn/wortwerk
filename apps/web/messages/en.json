@@ -150,6 +150,7 @@
   "footer_flag": "Swiss flag",
   "footer_made_in": "Made in Switzerland",
   "footer_product": "Product",
+  "footer_source": "Source code",
   "footer_tagline": "Translation management that speaks git.",
   "git_connect": "Connect {provider}",
   "git_connected": "Connected",

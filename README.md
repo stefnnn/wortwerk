@@ -44,3 +44,8 @@ Integration tests create and reset a database named `*_test` only. Create it onc
 ## Deployment
 
 Production runs on https://wortwerk.li with Docker compose. See [docs/deploy.md](docs/deploy.md).
+
+## License
+
+wortwerk is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
+The source code for the hosted service is available at [github.com/stefnnn/wortwerk](https://github.com/stefnnn/wortwerk).

@@ -71,6 +71,7 @@ function SiteFooter() {
             {m.nav_faq()}
           </Link>
           <Link to="/privacy">{m.privacy_title()}</Link>
+          <a href="https://github.com/stefnnn/wortwerk">{m.footer_source()}</a>
         </FooterLinks>
         <FooterLinks title={m.footer_compare()}>
           {competitors.map((c) => (
