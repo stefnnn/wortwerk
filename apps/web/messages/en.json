@@ -19,7 +19,7 @@
   "admin_col_usage": "Usage",
   "admin_col_user": "User",
   "admin_col_workspace": "Workspace",
-  "admin_delete_body": "This permanently deletes the user and their workspace with all projects, keys, translations and history. Please type {email} to confirm.",
+  "admin_delete_body": "This permanently deletes the user and their workspace with all projects, keys, translations and history. Type {email} to confirm.",
   "admin_delete_title": "Delete {email}?",
   "admin_delete_user": "Delete user",
   "admin_member_of": "Member of {count}",
