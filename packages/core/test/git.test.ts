@@ -160,6 +160,21 @@ describe('git sync', () => {
     expect(await state()).toBe('synced')
   })
 
+  it('shows a source edit as submitted when the export had to pull first', async () => {
+    const { ctx, project } = await setup()
+    const repo = createMemoryRepo({
+      'locales/en.json': '{\n  "hello": "Hello"\n}\n',
+      'locales/de.json': '{\n  "hello": "Grüezi"\n}\n',
+    })
+    const state = async () => getExportState(ctx, (await getRepoLink(ctx, project.id))!)
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    const [hello] = (await listKeys(ctx, project.id, { locale: 'en' })).items
+    await setTranslation(ctx, hello!.id, 'en', { value: 'Hello there' })
+    repo.push({ 'locales/en.json': '{\n  "hello": "Hello",\n  "other": "Other"\n}\n' })
+    await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(await state()).toBe('pr')
+  })
+
   it('lists only changed files in the PR and refreshes the description on later exports', async () => {
     const { ctx, project } = await setup()
     await addLocale(ctx, project.id, 'fr')

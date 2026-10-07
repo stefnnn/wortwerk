@@ -294,7 +294,6 @@ export async function pullFromRepo(
 }
 
 export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId: string }) {
-  const startedAt = new Date()
   const project = await getProject(ctx, { id: input.projectId })
   let link = (await getRepoLink(ctx, project.id)) ?? notFound('Repository connection')
   const base = await client.getBranchHead(link.repo, link.branch)
@@ -309,6 +308,8 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
     pulled = base
   }
 
+  // taken after the pull above, which may touch rows itself; edits after this moment are not in the export
+  const startedAt = new Date()
   const changes: Array<FileChange & { locale: string; count: number }> = []
   const pending = await pendingSourceChanges(ctx, project.id)
   for (const file of project.files) {

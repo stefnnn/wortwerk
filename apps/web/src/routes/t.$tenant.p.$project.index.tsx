@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, FileUp, GitMerge, GitPullRequestArrow, Sparkles, Upload } from 'lucide-react'
+import { Check, FileUp, GitMerge, GitPullRequestArrow, Upload, WandSparkles } from 'lucide-react'
 import { useEffect } from 'react'
 import { EmptyState, PageBody } from '#/components/app/page.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
@@ -21,9 +21,15 @@ export const Route = createFileRoute('/t/$tenant/p/$project/')({
 function ProjectOverview() {
   const { tenant, project } = Route.useParams()
   const details = useQuery(queries.project(tenant, project))
-  const stats = useQuery(queries.stats(tenant, project))
   const tenantInfo = useQuery(queries.tenant(tenant))
-  const runs = useQuery(queries.runs(tenant, project))
+  // while machine translation runs, progress is polled
+  const runs = useQuery({
+    ...queries.runs(tenant, project),
+    refetchInterval: (q) =>
+      q.state.data?.some((r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'))
+        ? 5000
+        : false,
+  })
   const sourceSync = useQuery(queries.sourceSync(tenant, project))
   const repo = useQuery(queries.repo(tenant, project))
   const queryClient = useQueryClient()
@@ -31,6 +37,10 @@ function ProjectOverview() {
     (r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'),
   )
   const machineRunning = activeMachine && activeMachine.length > 0
+  const stats = useQuery({
+    ...queries.stats(tenant, project),
+    refetchInterval: machineRunning ? 5000 : false,
+  })
   useEffect(() => {
     if (machineRunning === false)
       void queryClient.invalidateQueries({ queryKey: queries.stats(tenant, project).queryKey })
@@ -129,20 +139,43 @@ function ProjectOverview() {
                 />
                 <p className="text-muted-foreground mt-2 flex flex-wrap gap-x-4 text-xs tabular-nums">
                   <span>{m.overview_done({ percent: percent(done, s.total) })}</span>
-                  <span>{m.overview_needs_review({ count: formatNumber(s.needsReview) })}</span>
-                  <span>{m.overview_untranslated({ count: formatNumber(s.untranslated) })}</span>
+                  <StatusLink
+                    tenant={tenant}
+                    project={project}
+                    locale={s.locale}
+                    status="needs_review"
+                    count={s.needsReview}
+                  >
+                    {m.overview_needs_review({ count: formatNumber(s.needsReview) })}
+                  </StatusLink>
+                  <StatusLink
+                    tenant={tenant}
+                    project={project}
+                    locale={s.locale}
+                    status="untranslated"
+                    count={s.untranslated}
+                  >
+                    {m.overview_untranslated({ count: formatNumber(s.untranslated) })}
+                  </StatusLink>
                 </p>
               </div>
               {!isSource && canMachine && s.untranslated > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isTranslating(s.locale)}
-                  onClick={() => pretranslate.mutate(s.locale)}
-                >
-                  <Sparkles className={isTranslating(s.locale) ? 'animate-pulse' : undefined} />{' '}
-                  {m.machine_pretranslate()}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger render={<span />}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={isTranslating(s.locale)}
+                      onClick={() => pretranslate.mutate(s.locale)}
+                    >
+                      <WandSparkles className={isTranslating(s.locale) ? 'animate-pulse' : undefined} />{' '}
+                      {m.machine_pretranslate()}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {m.machine_translated_count({ done: formatNumber(done), total: formatNumber(s.total) })}
+                  </TooltipContent>
+                </Tooltip>
               )}
               <Link
                 to="/t/$tenant/p/$project/editor"
@@ -157,6 +190,34 @@ function ProjectOverview() {
         })}
       </div>
     </PageBody>
+  )
+}
+
+function StatusLink({
+  tenant,
+  project,
+  locale,
+  status,
+  count,
+  children,
+}: {
+  tenant: string
+  project: string
+  locale: string
+  status: 'untranslated' | 'needs_review'
+  count: number
+  children: React.ReactNode
+}) {
+  if (!count) return <span>{children}</span>
+  return (
+    <Link
+      to="/t/$tenant/p/$project/editor"
+      params={{ tenant, project }}
+      search={{ locale, status }}
+      className="hover:text-foreground underline underline-offset-2"
+    >
+      {children}
+    </Link>
   )
 }
 
