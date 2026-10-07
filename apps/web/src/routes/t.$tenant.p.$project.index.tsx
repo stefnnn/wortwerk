@@ -31,7 +31,12 @@ function ProjectOverview() {
         : false,
   })
   const sourceSync = useQuery(queries.sourceSync(tenant, project))
-  const repo = useQuery(queries.repo(tenant, project))
+  // a merged pull request arrives via webhook and pull job, so an unsynced status is polled
+  const repo = useQuery({
+    ...queries.repo(tenant, project),
+    refetchInterval: (q) =>
+      q.state.data?.exportState && q.state.data.exportState !== 'synced' ? 10_000 : false,
+  })
   const queryClient = useQueryClient()
   const activeMachine = runs.data?.filter(
     (r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'),
@@ -231,13 +236,7 @@ function ExportStatus({
   const label = { synced: m.export_synced(), pending: m.export_pending(), pr: m.export_pr_open() }[state]
   const content = (
     <>
-      {state === 'synced' ? (
-        <span className="bg-success/15 text-success flex size-5 items-center justify-center rounded-full">
-          <Check className="size-3" />
-        </span>
-      ) : (
-        <Upload className="size-4" />
-      )}
+      {state === 'synced' ? <Check className="text-success size-4" /> : <Upload className="size-4" />}
       {label}
     </>
   )
