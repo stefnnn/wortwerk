@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Languages, Sparkles } from 'lucide-react'
+import { FileUp, Languages, Sparkles } from 'lucide-react'
 import { useEffect } from 'react'
-import { PageBody } from '#/components/app/page.tsx'
+import { EmptyState, PageBody } from '#/components/app/page.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
@@ -50,6 +50,22 @@ function ProjectOverview() {
   }
 
   const total = stats.data[0]?.total ?? 0
+  if (!details.data.files.length) {
+    return (
+      <PageBody className="max-w-5xl">
+        <EmptyState
+          icon={<FileUp />}
+          title={m.setup_title()}
+          body={m.setup_body()}
+          action={
+            <Link to="/t/$tenant/p/$project/setup" params={{ tenant, project }} className={buttonVariants()}>
+              {m.setup_continue()}
+            </Link>
+          }
+        />
+      </PageBody>
+    )
+  }
   return (
     <PageBody className="grid max-w-5xl gap-6">
       <p className="text-muted-foreground text-sm">{m.overview_keys({ count: formatNumber(total) })}</p>

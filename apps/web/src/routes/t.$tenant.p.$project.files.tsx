@@ -262,18 +262,20 @@ function RunSummary({ kind, result }: { kind: string; result: Record<string, unk
   )
 }
 
-function ImportCard({
+export function ImportCard({
   tenant,
   project,
   files,
   locales,
   sourceLocale,
+  onQueued,
 }: {
   tenant: string
   project: string
   files: Array<{ id: string; path: string }>
   locales: string[]
   sourceLocale?: string
+  onQueued?: (runId: string) => void
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [locale, setLocale] = useState('')
@@ -298,7 +300,10 @@ function ImportCard({
     {
       invalidate: [queries.runs(tenant, project).queryKey, queries.project(tenant, project).queryKey],
       success: m.import_queued(),
-      onSuccess: () => setFile(null),
+      onSuccess: (run) => {
+        setFile(null)
+        onQueued?.(run.id)
+      },
     },
   )
 

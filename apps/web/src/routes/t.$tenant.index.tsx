@@ -137,7 +137,7 @@ function CreateProjectDialog({
       invalidate: [queries.projects(tenant).queryKey],
       onSuccess: (project) => {
         onOpenChange(false)
-        navigate({ to: '/t/$tenant/p/$project/files', params: { tenant, project: project.slug } })
+        navigate({ to: '/t/$tenant/p/$project/setup', params: { tenant, project: project.slug } })
       },
     },
   )

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { env } from './env.ts'
 
-type State = { tenantId: string; userId: string; exp: number }
+type State = { tenantId: string; userId: string; project?: string; exp: number }
 
 const sign = (payload: string) =>
   createHmac('sha256', `${env.BETTER_AUTH_SECRET}:oauth-state`).update(payload).digest('base64url')

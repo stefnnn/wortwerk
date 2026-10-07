@@ -27,6 +27,7 @@ import { Route as TTenantPProjectIndexRouteImport } from './routes/t.$tenant.p.$
 import { Route as TTenantPProjectEditorRouteImport } from './routes/t.$tenant.p.$project.editor'
 import { Route as TTenantPProjectFilesRouteImport } from './routes/t.$tenant.p.$project.files'
 import { Route as TTenantPProjectSettingsRouteImport } from './routes/t.$tenant.p.$project.settings'
+import { Route as TTenantPProjectSetupRouteImport } from './routes/t.$tenant.p.$project.setup'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -118,6 +119,11 @@ const TTenantPProjectSettingsRoute = TTenantPProjectSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => TTenantPProjectRoute,
 } as any)
+const TTenantPProjectSetupRoute = TTenantPProjectSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => TTenantPProjectRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/t/$tenant/p/$project/editor': typeof TTenantPProjectEditorRoute
   '/t/$tenant/p/$project/files': typeof TTenantPProjectFilesRoute
   '/t/$tenant/p/$project/settings': typeof TTenantPProjectSettingsRoute
+  '/t/$tenant/p/$project/setup': typeof TTenantPProjectSetupRoute
   '/t/$tenant/p/$project/': typeof TTenantPProjectIndexRoute
 }
 export interface FileRoutesByTo {
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/t/$tenant/p/$project/editor': typeof TTenantPProjectEditorRoute
   '/t/$tenant/p/$project/files': typeof TTenantPProjectFilesRoute
   '/t/$tenant/p/$project/settings': typeof TTenantPProjectSettingsRoute
+  '/t/$tenant/p/$project/setup': typeof TTenantPProjectSetupRoute
   '/t/$tenant/p/$project': typeof TTenantPProjectIndexRoute
 }
 export interface FileRoutesById {
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/t/$tenant/p/$project/editor': typeof TTenantPProjectEditorRoute
   '/t/$tenant/p/$project/files': typeof TTenantPProjectFilesRoute
   '/t/$tenant/p/$project/settings': typeof TTenantPProjectSettingsRoute
+  '/t/$tenant/p/$project/setup': typeof TTenantPProjectSetupRoute
   '/t/$tenant/p/$project/': typeof TTenantPProjectIndexRoute
 }
 export interface FileRouteTypes {
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/t/$tenant/p/$project/editor'
     | '/t/$tenant/p/$project/files'
     | '/t/$tenant/p/$project/settings'
+    | '/t/$tenant/p/$project/setup'
     | '/t/$tenant/p/$project/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/t/$tenant/p/$project/editor'
     | '/t/$tenant/p/$project/files'
     | '/t/$tenant/p/$project/settings'
+    | '/t/$tenant/p/$project/setup'
     | '/t/$tenant/p/$project'
   id:
     | '__root__'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/t/$tenant/p/$project/editor'
     | '/t/$tenant/p/$project/files'
     | '/t/$tenant/p/$project/settings'
+    | '/t/$tenant/p/$project/setup'
     | '/t/$tenant/p/$project/'
   fileRoutesById: FileRoutesById
 }
@@ -381,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TTenantPProjectSettingsRouteImport
       parentRoute: typeof TTenantPProjectRoute
     }
+    '/t/$tenant/p/$project/setup': {
+      id: '/t/$tenant/p/$project/setup'
+      path: '/setup'
+      fullPath: '/t/$tenant/p/$project/setup'
+      preLoaderRoute: typeof TTenantPProjectSetupRouteImport
+      parentRoute: typeof TTenantPProjectRoute
+    }
   }
 }
 
@@ -388,6 +407,7 @@ interface TTenantPProjectRouteChildren {
   TTenantPProjectEditorRoute: typeof TTenantPProjectEditorRoute
   TTenantPProjectFilesRoute: typeof TTenantPProjectFilesRoute
   TTenantPProjectSettingsRoute: typeof TTenantPProjectSettingsRoute
+  TTenantPProjectSetupRoute: typeof TTenantPProjectSetupRoute
   TTenantPProjectIndexRoute: typeof TTenantPProjectIndexRoute
 }
 
@@ -395,6 +415,7 @@ const TTenantPProjectRouteChildren: TTenantPProjectRouteChildren = {
   TTenantPProjectEditorRoute: TTenantPProjectEditorRoute,
   TTenantPProjectFilesRoute: TTenantPProjectFilesRoute,
   TTenantPProjectSettingsRoute: TTenantPProjectSettingsRoute,
+  TTenantPProjectSetupRoute: TTenantPProjectSetupRoute,
   TTenantPProjectIndexRoute: TTenantPProjectIndexRoute,
 }
 

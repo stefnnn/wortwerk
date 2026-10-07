@@ -101,7 +101,10 @@ export const tenantGit = new Hono<Env>()
     return c.json(await client.listRepos())
   })
   .get('/connect/:provider', (c) => {
-    const state = signState({ tenantId: c.get('tenant').id, userId: c.get('session').user.id })
+    const project = c.req.query('project')
+    if (project && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(project))
+      throw new DomainError('invalid', 'Invalid project slug')
+    const state = signState({ tenantId: c.get('tenant').id, userId: c.get('session').user.id, project })
     const provider = c.req.param('provider')
     if (provider === 'github' && providers.github) return c.redirect(providers.github.installUrl(state))
     if (provider === 'bitbucket' && providers.bitbucket)
@@ -200,17 +203,22 @@ async function finishConnect(c: { req: { raw: Request } }, stateValue: string | 
     .innerJoin(schema.tenant, eq(schema.tenant.id, schema.member.organizationId))
     .where(and(eq(schema.member.organizationId, state.tenantId), eq(schema.member.userId, state.userId)))
   if (!membership) throw new HTTPException(403, { message: 'Not a member of this workspace' })
-  return { ctx: tenantCtx(state.tenantId, state.userId), slug: membership.slug }
+  return { ctx: tenantCtx(state.tenantId, state.userId), slug: membership.slug, project: state.project }
+}
+
+function connectionReturn(slug: string, project: string | undefined, status: string) {
+  return project ? `/t/${slug}/p/${project}/setup?connect=${status}` : `/t/${slug}/settings?connect=${status}`
 }
 
 export const integrations = new Hono()
   .get('/github/callback', async (c) => {
     const app = providers.github
     if (!app) throw new HTTPException(404)
-    const { ctx, slug } = await finishConnect(c, c.req.query('state'))
+    const { ctx, slug, project } = await finishConnect(c, c.req.query('state'))
     const installationId = c.req.query('installation_id')
     const code = c.req.query('code')
-    if (c.req.query('setup_action') === 'request') return c.redirect(`/t/${slug}/settings?connect=requested`)
+    if (c.req.query('setup_action') === 'request')
+      return c.redirect(connectionReturn(slug, project, 'requested'))
     if (!installationId || !code)
       throw new HTTPException(400, { message: 'Missing installation or authorization' })
     if (!(await app.userCanAccessInstallation(code, installationId))) {
@@ -222,14 +230,14 @@ export const integrations = new Hono()
       externalId: installation.id,
       accountName: installation.account,
     })
-    return c.redirect(`/t/${slug}/settings?connect=github`)
+    return c.redirect(connectionReturn(slug, project, 'github'))
   })
   .get('/bitbucket/callback', async (c) => {
     const oauth = providers.bitbucket
     if (!oauth) throw new HTTPException(404)
-    const { ctx, slug } = await finishConnect(c, c.req.query('state'))
+    const { ctx, slug, project } = await finishConnect(c, c.req.query('state'))
     const code = c.req.query('code')
-    if (!code) return c.redirect(`/t/${slug}/settings?connect=cancelled`)
+    if (!code) return c.redirect(connectionReturn(slug, project, 'cancelled'))
     const credentials = await oauth.exchangeCode(code)
     const user = await oauth.getUser(credentials.accessToken)
     await saveConnection(ctx, {
@@ -238,7 +246,7 @@ export const integrations = new Hono()
       accountName: user.name,
       credentials,
     })
-    return c.redirect(`/t/${slug}/settings?connect=bitbucket`)
+    return c.redirect(connectionReturn(slug, project, 'bitbucket'))
   })
 
 export const webhooks = new Hono()
