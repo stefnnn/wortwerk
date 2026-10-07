@@ -126,6 +126,8 @@ export const translation = pgTable(
     locale: text().notNull(),
     value: text().notNull(),
     status: translationStatus().default('translated').notNull(),
+    // source locale only: the value last seen in the repo, the base for three-way pulls
+    repoValue: text(),
     updatedById: userRef(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -153,6 +155,29 @@ export const translationRevision = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index().on(t.translationId, t.createdAt)],
+)
+
+export const conflictResolution = pgEnum('conflict_resolution', ['repo', 'edited'])
+
+// a pull changed source text that was also edited in wortwerk; the repo value won, `mine` is kept
+export const sourceConflict = pgTable(
+  'source_conflict',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    keyId: text()
+      .notNull()
+      .references(() => translationKey.id, { onDelete: 'cascade' }),
+    mine: text().notNull(),
+    base: text(),
+    // null when the key was removed from the repo
+    theirs: text(),
+    createdAt: createdAt(),
+    resolvedAt: timestamp({ withTimezone: true }),
+    resolvedById: userRef(),
+    resolution: conflictResolution(),
+  },
+  (t) => [index().on(t.keyId), index().on(t.tenantId, t.resolvedAt)],
 )
 
 export const keyComment = pgTable(
@@ -299,6 +324,11 @@ export const translationKeyRelations = relations(translationKey, ({ one, many })
   translations: many(translation),
   comments: many(keyComment),
   screenshots: many(keyScreenshot),
+  conflicts: many(sourceConflict),
+}))
+
+export const sourceConflictRelations = relations(sourceConflict, ({ one }) => ({
+  key: one(translationKey, { fields: [sourceConflict.keyId], references: [translationKey.id] }),
 }))
 
 export const translationRelations = relations(translation, ({ one, many }) => ({

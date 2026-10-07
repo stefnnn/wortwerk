@@ -14,6 +14,7 @@ export type KeySelection =
       filter: {
         locale: string
         status?: 'untranslated' | 'translated' | 'needs_review' | 'approved'
+        sync?: 'pending' | 'conflict'
         search?: string
       }
       excludeKeyIds: string[]

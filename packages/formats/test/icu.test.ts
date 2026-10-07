@@ -9,6 +9,32 @@ import {
   validateIcu,
 } from '../src/icu.ts'
 import { pluralIndexCategories } from '../src/plural-forms.ts'
+import { structureIssue } from '../src/icu.ts'
+
+describe('structureIssue', () => {
+  const plural = '{count, plural, one {# item} other {# items}}'
+
+  it('judges source text by the repo plural forms, not the locale', () => {
+    // French wants "many" too, but a repo text without it is still editable
+    expect(
+      structureIssue(plural, '{count, plural, one {# thing} other {# things}}', 'fr', 'source'),
+    ).toBeNull()
+    expect(structureIssue(plural, '{count, plural, one {# thing} other {# things}}', 'fr')).toEqual({
+      kind: 'pluralForms',
+      missing: ['many'],
+    })
+    expect(structureIssue(plural, '{count, plural, other {# things}}', 'en', 'source')).toEqual({
+      kind: 'pluralForms',
+      missing: ['one'],
+    })
+  })
+
+  it('does not let source text become or stop being a plural', () => {
+    expect(structureIssue('{count} items', plural, 'en', 'source')).toEqual({ kind: 'plural' })
+    expect(structureIssue(plural, '{count} items', 'en', 'source')).toEqual({ kind: 'plural' })
+    expect(structureIssue('{count} items', plural, 'en')).toBeNull()
+  })
+})
 
 describe('icu', () => {
   it.each([

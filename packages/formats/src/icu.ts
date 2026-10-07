@@ -137,3 +137,59 @@ export function icuArguments(icu: string): string[] {
   }
   return [...names].sort()
 }
+
+const markupTags = (s: string) => (s.match(/<\/?[a-zA-Z][^<>]*>/g) ?? []).sort().join('')
+
+export type StructureIssue =
+  | { kind: 'invalid'; message: string }
+  | { kind: 'placeholders'; expected: string[]; actual: string[] }
+  | { kind: 'markup' }
+  | { kind: 'plural' }
+  | { kind: 'pluralForms'; missing: string[] }
+
+/**
+ * Checks that `value` keeps the structure of `reference`: the same placeholders, the same markup
+ * and, for plurals, every form `locale` needs. Wording is free to change.
+ */
+export function structureIssue(
+  reference: string,
+  value: string,
+  locale: string,
+  // 'source': the reference is the repo's own text, so its plural forms (not the locale's) are the
+  // contract and a message can neither become nor stop being a plural
+  mode: 'translation' | 'source' = 'translation',
+): StructureIssue | null {
+  const issue = validateIcu(value)
+  if (issue) return { kind: 'invalid', message: issue.message }
+  const expected = icuArguments(reference)
+  const actual = icuArguments(value)
+  if (expected.join(',') !== actual.join(',')) return { kind: 'placeholders', expected, actual }
+  if (markupTags(reference) !== markupTags(value)) return { kind: 'markup' }
+  const wanted = parsePluralIcu(reference)
+  const plural = parsePluralIcu(value)
+  if (mode === 'source') {
+    if (!wanted !== !plural) return { kind: 'plural' }
+    const missing = Object.keys(wanted?.branches ?? {}).filter((c) => !(c in plural!.branches))
+    if (missing.length) return { kind: 'pluralForms', missing }
+  } else if (wanted) {
+    if (!plural) return { kind: 'plural' }
+    const missing = localePluralCategories(locale).filter((c) => !(c in plural.branches))
+    if (missing.length) return { kind: 'pluralForms', missing }
+  }
+  return null
+}
+
+export function describeStructureIssue(issue: StructureIssue) {
+  switch (issue.kind) {
+    case 'invalid':
+      return `invalid ICU: ${issue.message}`
+    case 'placeholders':
+      return `placeholders changed (${issue.expected.join(',') || 'none'} → ${issue.actual.join(',') || 'none'})`
+    case 'markup':
+      return 'markup changed'
+    case 'plural':
+      return 'plural structure lost'
+    case 'pluralForms':
+      return `missing plural forms: ${issue.missing.join(', ')}`
+  }
+}

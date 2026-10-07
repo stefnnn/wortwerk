@@ -22,6 +22,13 @@
       "when": 1791317133542,
       "tag": "0002_git",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791359033133,
+      "tag": "0003_source_sync",
+      "breakpoints": true
     }
   ]
 }

@@ -11,7 +11,14 @@ import {
 } from '@wortwerk/git'
 import { z } from 'zod'
 import { DomainError, notFound, type Ctx } from './context.ts'
-import { exportFileContent, importFileContent, type ImportResult } from './files.ts'
+import {
+  exportFileContent,
+  importFileContent,
+  keyIdentity,
+  patchSourceContent,
+  pendingSourceChanges,
+  type ImportResult,
+} from './files.ts'
 import { filePathFor, getProject, localeCode } from './projects.ts'
 import { openSecret, sealSecret } from './secrets.ts'
 
@@ -262,11 +269,35 @@ export async function pullFromRepo(
 export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId: string }) {
   const startedAt = new Date()
   const project = await getProject(ctx, { id: input.projectId })
-  const link = (await getRepoLink(ctx, project.id)) ?? notFound('Repository connection')
+  let link = (await getRepoLink(ctx, project.id)) ?? notFound('Repository connection')
   const base = await client.getBranchHead(link.repo, link.branch)
   if (!base) throw new DomainError('not_found', `Branch ${link.branch} not found in ${link.repo}`)
 
+  // Source text is patched into the repo's file at `base`, so wortwerk must know that commit first:
+  // otherwise the base of the three-way merge is stale and the PR could undo developer changes.
+  let pulled: string | null = null
+  if (base !== link.lastPulledSha) {
+    await pullFromRepo(ctx, client, { projectId: project.id, sha: base })
+    link = (await getRepoLink(ctx, project.id))!
+    pulled = base
+  }
+
   const changes: Array<FileChange & { locale: string; count: number }> = []
+  const pending = await pendingSourceChanges(ctx, project.id)
+  for (const file of project.files) {
+    const edits = pending.filter((p) => p.fileId === file.id)
+    if (!edits.length) continue
+    const path = filePathFor(file.path, repoLocale(link, project.sourceLocale))
+    const content = await client.readFile(link.repo, base, path)
+    if (content === null) continue
+    const values = new Map(edits.map((e) => [keyIdentity(e.context, e.name), e.value]))
+    changes.push({
+      path,
+      content: await patchSourceContent(ctx, { fileId: file.id, content, values }),
+      locale: project.sourceLocale,
+      count: edits.length,
+    })
+  }
   for (const file of project.files) {
     for (const { code } of project.locales) {
       if (code === project.sourceLocale) continue
@@ -280,7 +311,6 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
       })
     }
   }
-
   let outcome = { diff: false, updated: false, sha: null as string | null }
   let pullRequestUrl = link.pullRequestUrl
   if (changes.length) {
@@ -291,12 +321,14 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
       message: 'Update translations from wortwerk',
     })
     if (outcome.diff) {
-      const lines = changes.map((c) => `- \`${c.path}\` (${c.locale}, ${c.count} strings)`)
+      const lines = changes
+        .filter((c) => c.locale !== project.sourceLocale)
+        .map((c) => `- \`${c.path}\` (${c.locale}, ${c.count} strings)`)
       const pr = await client.ensurePullRequest(link.repo, {
         head: link.exportBranch,
         base: link.branch,
         title: 'Update translations from wortwerk',
-        body: `Translations exported from the wortwerk project **${project.name}**.\n\n${lines.join('\n')}\n\nThis branch is regenerated on every export. Do not commit to it directly.`,
+        body: pullRequestBody(project.name, lines, pending),
       })
       pullRequestUrl = pr.url
     }
@@ -306,7 +338,48 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
     .update(projectRepo)
     .set({ lastPushedSha: outcome.sha ?? link.lastPushedSha, lastPushedAt: startedAt, pullRequestUrl })
     .where(eq(projectRepo.id, link.id))
-  return { base, files: changes.map((c) => c.path), ...outcome, pullRequestUrl }
+  return {
+    base,
+    pulled,
+    files: changes.map((c) => c.path),
+    sourceChanges: pending.length,
+    ...outcome,
+    pullRequestUrl,
+  }
+}
+
+const shown = 25
+const clip = (text: string) =>
+  (text.length > 120 ? `${text.slice(0, 117)}…` : text).replace(/\n/g, ' ').replace(/\|/g, '\\|')
+
+function pullRequestBody(
+  projectName: string,
+  translations: string[],
+  source: Array<{ name: string; context: string; value: string; repoValue: string | null }>,
+) {
+  const parts = [`Exported from the wortwerk project **${projectName}**.`]
+  if (source.length) {
+    const rows = source
+      .slice(0, shown)
+      .map(
+        (s) =>
+          `| \`${s.context ? `${s.context} · ` : ''}${s.name}\` | ${clip(s.repoValue ?? '')} | ${clip(s.value)} |`,
+      )
+    parts.push(
+      [
+        `### Source text changes (${source.length})`,
+        'Wording edited in wortwerk. Placeholders and markup are unchanged.',
+        '',
+        '| Key | Before | After |',
+        '| --- | --- | --- |',
+        ...rows,
+        ...(source.length > shown ? ['', `…and ${source.length - shown} more.`] : []),
+      ].join('\n'),
+    )
+  }
+  if (translations.length) parts.push(['### Translations', ...translations].join('\n'))
+  parts.push('This branch is regenerated on every export. Do not commit to it directly.')
+  return parts.join('\n\n')
 }
 
 /** System lookups below run before a tenant is known (webhooks, schedulers). */

@@ -200,6 +200,7 @@ type FileResult = {
   translationsChanged?: number
   keysObsoleted?: number
   skipped?: number
+  conflicts?: number
 }
 
 function RunSummary({ kind, result }: { kind: string; result: Record<string, unknown> }) {
@@ -216,6 +217,9 @@ function RunSummary({ kind, result }: { kind: string; result: Record<string, unk
           obsoleted: sum('keysObsoleted'),
           skipped: sum('skipped'),
         })}
+        {sum('conflicts') > 0 && (
+          <span className="text-warning"> · {m.run_conflicts({ count: sum('conflicts') })}</span>
+        )}
       </>
     )
   }
@@ -227,6 +231,9 @@ function RunSummary({ kind, result }: { kind: string; result: Record<string, unk
         {result.updated
           ? m.run_exported({ count: ((result.files ?? []) as unknown[]).length })
           : m.run_up_to_date()}
+        {Number(result.sourceChanges ?? 0) > 0 && (
+          <> · {m.run_source_changes({ count: Number(result.sourceChanges) })}</>
+        )}
         {url && (
           <>
             {' · '}

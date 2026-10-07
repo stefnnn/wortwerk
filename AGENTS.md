@@ -16,8 +16,12 @@ wortwerk is a translation management system with git flow.
 
 ### Git sync
 
-- split ownership: git owns keys + source-locale text (repo -> wortwerk), wortwerk owns target translations (wortwerk -> repo)
-- write-back via PR on a wortwerk branch, regenerated from base on every export (force-push, no merging)
+- split ownership: git owns keys and message structure (placeholders, markup, plural forms), source wording syncs both ways, wortwerk owns target translations (wortwerk -> repo)
+- source text is merged three-way per key against `translation.repo_value` (the value last seen in the repo): repo-only changes are taken, wortwerk-only edits are kept and pushed, changes on both sides are a conflict where the repo wins and the wortwerk wording is kept in `source_conflict` for the user to re-apply or dismiss
+- source edits in wortwerk may only change wording: placeholders, markup and plural forms must match the repo value (`structureIssue`), enforced in core and the editor
+- keys of a repo-connected project are only added by developers in the repo, never in wortwerk
+- a push first pulls if the tracked branch moved, then patches pending source edits into the repo's source file at that commit (`patchFile`, byte-for-byte for untouched entries) and lists them separately in the PR
+- write-back via PR on a wortwerk branch, regenerated from base on every export (force-push, no merging); it carries target files and edited source text
 - repo translations only fill gaps, marked needs review: all keys on the first pull, afterwards only keys that are new in that pull. explicit "import translations" re-runs the fill (optionally overwriting)
 - one tracked branch per project
 - sync trigger: provider webhooks + manual "sync now"

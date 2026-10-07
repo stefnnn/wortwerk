@@ -1,10 +1,10 @@
-import { and, desc, eq, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
-import { parsePluralIcu, validateIcu } from '@wortwerk/formats'
+import { describeStructureIssue, parsePluralIcu, structureIssue, validateIcu } from '@wortwerk/formats'
 import { z } from 'zod'
 import { DomainError, notFound, type Ctx } from './context.ts'
 
-const { translation, translationRevision, translationKey } = schema
+const { translation, translationRevision, translationKey, sourceConflict } = schema
 
 export const translationStatuses = ['untranslated', 'translated', 'needs_review', 'approved'] as const
 export type TranslationStatus = (typeof translationStatuses)[number]
@@ -13,6 +13,8 @@ export type RevisionSource = (typeof schema.revisionSource.enumValues)[number]
 export const setTranslationInput = z.object({
   value: z.string().max(20_000),
   status: z.enum(translationStatuses).optional(),
+  // source edits only: a typo fix that should not send translations back to review
+  minor: z.boolean().optional(),
 })
 
 export async function getKeyInTenant(ctx: Ctx, keyId: string) {
@@ -49,6 +51,17 @@ export async function setTranslation(
       where: and(eq(translation.keyId, keyId), eq(translation.locale, locale)),
     })
     if (existing && existing.value === data.value && existing.status === status) return existing
+    // source text that came from the repo: wording is editable, structure belongs to the developers
+    if (isSource && existing?.repoValue != null) {
+      if (!data.value) throw new DomainError('invalid', 'Source text from the repository cannot be emptied')
+      const changed = structureIssue(existing.repoValue, data.value, locale, 'source')
+      if (changed) {
+        throw new DomainError(
+          'invalid',
+          `Placeholders, markup and plural forms are defined in the repository (${describeStructureIssue(changed)})`,
+        )
+      }
+    }
 
     const [row] = await tx
       .insert(translation)
@@ -72,8 +85,9 @@ export async function setTranslation(
       const isPlural = parsePluralIcu(data.value) !== null
       if (isPlural !== key.isPlural)
         await tx.update(translationKey).set({ isPlural }).where(eq(translationKey.id, keyId))
-      if (existing && existing.value !== data.value)
+      if (existing && existing.value !== data.value && !data.minor)
         await flagDependentsForReview(tx, ctx.tenantId, [keyId], locale)
+      if (source === 'editor') await resolveConflicts(tx, ctx, [keyId], 'edited')
     }
     return row!
   })
@@ -132,4 +146,46 @@ export async function listRevisions(ctx: Ctx, keyId: string, locale: string) {
     orderBy: desc(translationRevision.createdAt),
     limit: 100,
   })
+}
+
+export async function resolveConflicts(
+  db: Ctx['db'],
+  ctx: Ctx,
+  keyIds: string[],
+  resolution: 'repo' | 'edited',
+) {
+  if (!keyIds.length) return 0
+  const rows = await db
+    .update(sourceConflict)
+    .set({ resolvedAt: new Date(), resolvedById: ctx.userId, resolution })
+    .where(
+      and(
+        eq(sourceConflict.tenantId, ctx.tenantId),
+        inArray(sourceConflict.keyId, keyIds),
+        isNull(sourceConflict.resolvedAt),
+      ),
+    )
+    .returning({ id: sourceConflict.id })
+  return rows.length
+}
+
+export async function listOpenConflicts(ctx: Ctx, keyId: string) {
+  await getKeyInTenant(ctx, keyId)
+  return ctx.db
+    .select()
+    .from(sourceConflict)
+    .where(
+      and(
+        eq(sourceConflict.tenantId, ctx.tenantId),
+        eq(sourceConflict.keyId, keyId),
+        isNull(sourceConflict.resolvedAt),
+      ),
+    )
+    .orderBy(desc(sourceConflict.createdAt))
+}
+
+/** "Keep the repo version": the current source text already is the repo's, so just close the conflict. */
+export async function keepRepoVersion(ctx: Ctx, keyId: string) {
+  await getKeyInTenant(ctx, keyId)
+  await resolveConflicts(ctx.db, ctx, [keyId], 'repo')
 }

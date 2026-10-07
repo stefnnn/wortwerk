@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
-import { icuArguments, localePluralCategories, parsePluralIcu, validateIcu } from '@wortwerk/formats'
+import { describeStructureIssue, localePluralCategories, structureIssue } from '@wortwerk/formats'
 import { DomainError, chunks, type Ctx } from './context.ts'
 import { assertMachineTranslation } from './limits.ts'
 import { resolveKeySelection, type KeySelection } from './keys.ts'
@@ -75,24 +75,10 @@ export function openRouterTranslator(config: { apiKey: string; model: string; ap
   }
 }
 
-const tags = (s: string) => (s.match(/<\/?[a-zA-Z][^<>]*>/g) ?? []).sort().join('')
-
 export function checkMachineOutput(source: string, output: string, targetLocale: string): string | null {
   if (!output.trim()) return 'empty output'
-  const issue = validateIcu(output)
-  if (issue) return `invalid ICU: ${issue.message}`
-  const want = [...icuArguments(source)].sort().join(',')
-  const got = [...icuArguments(output)].sort().join(',')
-  if (want !== got) return `placeholders changed (${want || 'none'} → ${got || 'none'})`
-  if (tags(source) !== tags(output)) return 'markup changed'
-  const plural = parsePluralIcu(source)
-  if (plural) {
-    const out = parsePluralIcu(output)
-    if (!out) return 'plural structure lost'
-    const missing = localePluralCategories(targetLocale).filter((c) => !(c in out.branches))
-    if (missing.length) return `missing plural forms: ${missing.join(', ')}`
-  }
-  return null
+  const issue = structureIssue(source, output, targetLocale)
+  return issue && describeStructureIssue(issue)
 }
 
 async function translateChecked(

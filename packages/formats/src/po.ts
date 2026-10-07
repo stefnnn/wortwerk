@@ -47,6 +47,9 @@ export function parsePo(content: string, ctx: ParseContext<'po'>): ParseResult<'
   return { entries, options: {} }
 }
 
+const msgidFallback = (t: GetTextTranslation) =>
+  t.msgid_plural === undefined ? t.msgid : buildPluralIcu({ one: t.msgid, other: t.msgid_plural })
+
 export function serializePo(entries: Entry[], ctx: SerializeContext<'po'>): string {
   const data: GetTextTranslations = ctx.template
     ? po.parse(ctx.template)
@@ -62,6 +65,8 @@ export function serializePo(entries: Entry[], ctx: SerializeContext<'po'>): stri
   const seen = new Set<string>()
 
   const fill = (t: GetTextTranslation, entry: Entry | undefined) => {
+    // a source entry that only repeats its msgid keeps the empty msgstr gettext expects
+    if (ctx.isSource && entry && !t.msgstr.some(Boolean) && entry.value === msgidFallback(t)) return
     const message = entry?.isPlural ? parsePluralIcu(entry.value) : null
     if (t.msgid_plural !== undefined) {
       t.msgstr = categories.map((c) => (message ? pluralBranchFor(message, c) : ''))
@@ -101,4 +106,65 @@ export function serializePo(entries: Entry[], ctx: SerializeContext<'po'>): stri
 
   const folded = ctx.template ? /^msg\w*(\[\d+\])? ""\r?\n"/m.test(ctx.template) : false
   return po.compile(data, { foldLength: folded ? 76 : 0 }).toString('utf8') + '\n'
+}
+
+const unquote = (line: string) =>
+  JSON.parse(line.slice(line.indexOf('"')).replace(/\\([^"\\nrt])/g, '\\\\$1')) as string
+const quote = (text: string) =>
+  `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\t/g, '\\t')}"`
+
+/**
+ * Replaces the msgstr of the given entries in place and leaves every other byte alone. gettext-parser
+ * reorders comments and rewrites headers when compiling, which would bury edits in noise.
+ */
+export function patchPo(content: string, entries: Entry[], ctx: ParseContext<'po'>): string {
+  if (!entries.length) return content
+  const categories = pluralIndexCategories(ctx.locale, pluralFormsOf(po.parse(content), ctx.locale))
+  const byId = new Map(entries.map((e) => [entryId(e.context ?? '', e.key), e]))
+  const lines = content.split('\n')
+  const out: string[] = []
+
+  // reads a keyword's string, including continuation lines; returns the text and the next index
+  const read = (start: number) => {
+    let text = unquote(lines[start]!)
+    let i = start + 1
+    while (i < lines.length && lines[i]!.startsWith('"')) text += unquote(lines[i++]!)
+    return { text, next: i }
+  }
+
+  let msgctxt = ''
+  let msgid: string | null = null
+  for (let i = 0; i < lines.length;) {
+    const line = lines[i]!
+    if (line.startsWith('msgctxt ')) {
+      const { text, next } = read(i)
+      msgctxt = text
+      out.push(...lines.slice(i, next))
+      i = next
+    } else if (line.startsWith('msgid ')) {
+      const { text, next } = read(i)
+      msgid = text
+      out.push(...lines.slice(i, next))
+      i = next
+    } else if (line.startsWith('msgstr') && msgid) {
+      let end = i
+      while (end < lines.length && (lines[end]!.startsWith('msgstr') || lines[end]!.startsWith('"'))) end++
+      const entry = byId.get(entryId(msgctxt, msgid))
+      if (!entry) out.push(...lines.slice(i, end))
+      else if (line.startsWith('msgstr[')) {
+        const message = parsePluralIcu(entry.value)
+        categories.forEach((c, index) =>
+          out.push(`msgstr[${index}] ${quote(message ? pluralBranchFor(message, c) : entry.value)}`),
+        )
+      } else out.push(`msgstr ${quote(entry.value)}`)
+      msgctxt = ''
+      msgid = null
+      i = end
+    } else {
+      if (!line.trim()) msgctxt = ''
+      out.push(line)
+      i++
+    }
+  }
+  return out.join('\n')
 }

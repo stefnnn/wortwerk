@@ -4,6 +4,7 @@ import { client, t, unwrap } from './api.ts'
 export type KeyFilters = {
   locale: string
   status?: 'untranslated' | 'translated' | 'needs_review' | 'approved'
+  sync?: 'pending' | 'conflict'
   search?: string
   fileId?: string
   obsolete?: boolean
@@ -43,6 +44,16 @@ export const queries = {
       refetchInterval: (query) =>
         query.state.data?.some((r) => r.status === 'queued' || r.status === 'running') ? 1500 : false,
     }),
+  sourceSync: (tenant: string, project: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'project', project, 'source-sync'],
+      queryFn: () => unwrap(t.projects[':project']['source-sync'].$get({ param: { tenant, project } })),
+    }),
+  conflicts: (tenant: string, keyId: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'key', keyId, 'conflicts'],
+      queryFn: () => unwrap(t.keys[':keyId'].conflicts.$get({ param: { tenant, keyId } })),
+    }),
   keys: (tenant: string, project: string, filters: KeyFilters) =>
     queryOptions({
       queryKey: ['tenant', tenant, 'project', project, 'keys', filters],
@@ -53,6 +64,7 @@ export const queries = {
             query: {
               locale: filters.locale,
               status: filters.status,
+              sync: filters.sync,
               search: filters.search || undefined,
               fileId: filters.fileId,
               obsolete: filters.obsolete ? 'true' : undefined,

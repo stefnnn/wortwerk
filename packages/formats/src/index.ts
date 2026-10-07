@@ -1,5 +1,5 @@
 import { parseJson, serializeJson } from './json.ts'
-import { parsePo, serializePo } from './po.ts'
+import { parsePo, patchPo, serializePo } from './po.ts'
 import type { Entry, FileFormat, ParseContext, ParseResult, SerializeContext } from './types.ts'
 import { parseYaml, serializeYaml } from './yaml.ts'
 
@@ -42,4 +42,26 @@ export function formatFromPath(path: string): FileFormat | null {
   if (ext === 'yml' || ext === 'yaml') return 'yaml'
   if (ext === 'po' || ext === 'pot') return 'po'
   return null
+}
+
+/**
+ * Rewrites `content` with some values replaced, using the file itself as the template so key order,
+ * nesting and comments stay put. `replace` returns the new value for an entry, or undefined to keep it.
+ */
+export function patchFile<F extends FileFormat>(
+  format: F,
+  content: string,
+  replace: (entry: Entry) => string | undefined,
+  ctx: ParseContext<F>,
+): string {
+  const parsed = parseFile(format, content, ctx)
+  const entries = parsed.entries.map((entry) => {
+    const value = replace(entry)
+    return value === undefined ? entry : { ...entry, value }
+  })
+  if (format === 'po') {
+    const changed = entries.filter((entry, index) => entry !== parsed.entries[index])
+    return patchPo(content, changed, ctx as ParseContext<'po'>)
+  }
+  return serializeFile(format, entries, { ...ctx, options: ctx.options ?? parsed.options, template: content })
 }

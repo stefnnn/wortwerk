@@ -15,6 +15,7 @@ import {
   getSyncRun,
   localeCode,
   localeStats,
+  sourceSyncCounts,
   removeLocale,
   updateProject,
   updateProjectInput,
@@ -53,6 +54,7 @@ const project = new Hono<Env>()
     return c.body(null, 204)
   })
   .get('/stats', async (c) => c.json(await localeStats(c.get('ctx'), c.get('project').id)))
+  .get('/source-sync', async (c) => c.json(await sourceSyncCounts(c.get('ctx'), c.get('project').id)))
   .post('/locales', validate('json', z.object({ code: localeCode })), async (c) => {
     await addLocale(c.get('ctx'), c.get('project').id, c.req.valid('json').code)
     return c.body(null, 204)

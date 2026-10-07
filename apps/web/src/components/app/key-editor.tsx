@@ -1,16 +1,29 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Check, CornerDownLeft, Eye, ImagePlus, Sparkles, Trash2 } from 'lucide-react'
+import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import {
+  AlertTriangle,
+  Check,
+  CornerDownLeft,
+  Eye,
+  GitMerge,
+  ImagePlus,
+  Sparkles,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import {
   buildPluralIcu,
   icuArguments,
   localePluralCategories,
   parsePluralIcu,
+  structureIssue,
   validateIcu,
+  type StructureIssue,
 } from '@wortwerk/formats/icu'
 import { StatusBadge, type Status } from '#/components/app/status.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button } from '#/components/ui/button.tsx'
+import { Checkbox } from '#/components/ui/checkbox.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs.tsx'
 import { Textarea } from '#/components/ui/textarea.tsx'
@@ -30,6 +43,9 @@ export type EditorItem = {
   source: string | null
   value: string | null
   status: string
+  // source sync: the value last seen in the repo, and whether an open conflict exists
+  repoValue?: string | null
+  conflict?: boolean
 }
 
 type Props = {
@@ -57,6 +73,12 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
   }
 
   const issue = draft ? validateIcu(draft) : null
+  // source text from the repo: wording is editable, structure is not
+  const fromRepo = isSource && item.repoValue != null
+  const structure =
+    fromRepo && draft && !issue ? structureIssue(item.repoValue!, draft, locale, 'source') : null
+  const blocked = !!issue || !!structure || (fromRepo && !draft)
+  const [minor, setMinor] = useState(false)
   const placeholders = useMemo(() => {
     if (!item.source || !draft || isSource) return { missing: [], extra: [] }
     const expected = icuArguments(item.source)
@@ -71,6 +93,8 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
     ['tenant', tenant, 'project', project, 'keys'],
     queries.stats(tenant, project).queryKey,
     queries.revisions(tenant, item.id, locale).queryKey,
+    queries.sourceSync(tenant, project).queryKey,
+    queries.conflicts(tenant, item.id).queryKey,
   ]
   const tenantInfo = useQuery(queries.tenant(tenant))
   const machine = useAction(
@@ -82,7 +106,7 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
       unwrap(
         t.keys[':keyId'].translations[':locale'].$put({
           param: { tenant, keyId: item.id, locale },
-          json: { value: draft, status },
+          json: { value: draft, status, minor: isSource && minor ? true : undefined },
         }),
       ),
     {
@@ -131,6 +155,19 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
         </div>
       )}
 
+      {isSource && (item.conflict || (fromRepo && item.value !== item.repoValue)) && (
+        <SourceSync
+          tenant={tenant}
+          item={item}
+          locale={locale}
+          invalidate={invalidate}
+          onUseWording={(value) => {
+            setRaw(true)
+            setDraft(value)
+          }}
+        />
+      )}
+
       <form onSubmit={submit} className="grid gap-3">
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground text-xs font-medium">
@@ -175,8 +212,15 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
           />
         )}
 
-        {(issue || placeholders.missing.length > 0 || placeholders.extra.length > 0) && (
+        {fromRepo && <p className="text-muted-foreground text-xs">{m.editor_source_wording_only()}</p>}
+
+        {(issue || structure || placeholders.missing.length > 0 || placeholders.extra.length > 0) && (
           <div className="bg-warning-surface text-warning grid gap-1 rounded-lg px-3 py-2 text-xs">
+            {structure && (
+              <p className="flex gap-1.5">
+                <AlertTriangle className="size-3.5 shrink-0" /> {structureMessage(structure)}
+              </p>
+            )}
             {issue && (
               <p className="flex gap-1.5">
                 <AlertTriangle className="size-3.5 shrink-0" />{' '}
@@ -199,7 +243,7 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={!!issue || save.isPending || (!dirty && !onNext)}>
+          <Button type="submit" disabled={blocked || save.isPending || (!dirty && !onNext)}>
             <CornerDownLeft /> {onNext ? m.editor_save_next() : m.action_save()}
           </Button>
           {!isSource && (
@@ -231,6 +275,12 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
                 </Button>
               )}
             </>
+          )}
+          {isSource && item.value && dirty && (
+            <label className="text-muted-foreground flex items-center gap-2 text-xs">
+              <Checkbox checked={minor} onCheckedChange={(checked) => setMinor(checked === true)} />
+              {m.editor_minor_edit()}
+            </label>
           )}
         </div>
       </form>
@@ -457,6 +507,116 @@ function Screenshots({ tenant, keyId, onChange }: { tenant: string; keyId: strin
           }}
         />
       </label>
+    </div>
+  )
+}
+
+function structureMessage(issue: StructureIssue) {
+  switch (issue.kind) {
+    case 'invalid':
+      return m.editor_invalid_icu({ message: issue.message })
+    case 'placeholders':
+      return m.editor_structure_placeholders({ names: issue.expected.join(', ') || '—' })
+    case 'markup':
+      return m.editor_structure_markup()
+    case 'plural':
+    case 'pluralForms':
+      return m.editor_structure_plural()
+  }
+}
+
+function SourceSync({
+  tenant,
+  item,
+  locale,
+  invalidate,
+  onUseWording,
+}: {
+  tenant: string
+  item: EditorItem
+  locale: string
+  invalidate: QueryKey[]
+  onUseWording: (value: string) => void
+}) {
+  const conflicts = useQuery({ ...queries.conflicts(tenant, item.id), enabled: !!item.conflict })
+  const [conflict] = conflicts.data ?? []
+  const keepRepo = useAction(
+    () => unwrap(t.keys[':keyId'].conflicts['keep-repo'].$post({ param: { tenant, keyId: item.id } })),
+    { invalidate },
+  )
+  const revert = useAction(
+    () =>
+      unwrap(
+        t.keys[':keyId'].translations[':locale'].$put({
+          param: { tenant, keyId: item.id, locale },
+          json: { value: item.repoValue ?? '' },
+        }),
+      ),
+    { invalidate, success: m.editor_reverted() },
+  )
+
+  if (item.conflict) {
+    if (!conflict) return null
+    return (
+      <div className="bg-warning-surface grid gap-3 rounded-lg px-3.5 py-3 text-sm">
+        <p className="text-warning flex gap-1.5 font-medium">
+          <GitMerge className="size-4 shrink-0" />
+          {conflict.theirs === null ? m.editor_conflict_removed() : m.editor_conflict_title()}
+        </p>
+        <dl className="grid gap-2">
+          <div>
+            <dt className="text-muted-foreground text-xs">{m.editor_conflict_mine()}</dt>
+            <dd className="whitespace-pre-wrap">{conflict.mine}</dd>
+          </div>
+          {conflict.base !== null && (
+            <div>
+              <dt className="text-muted-foreground text-xs">{m.editor_conflict_base()}</dt>
+              <dd className="text-muted-foreground whitespace-pre-wrap line-through">{conflict.base}</dd>
+            </div>
+          )}
+          {conflict.theirs !== null && (
+            <div>
+              <dt className="text-muted-foreground text-xs">{m.editor_conflict_theirs()}</dt>
+              <dd className="whitespace-pre-wrap">{conflict.theirs}</dd>
+            </div>
+          )}
+        </dl>
+        <div className="flex flex-wrap gap-2">
+          {conflict.theirs !== null && (
+            <Button size="sm" variant="outline" onClick={() => onUseWording(conflict.mine)}>
+              {m.editor_conflict_use_mine()}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={keepRepo.isPending}
+            onClick={() => keepRepo.mutate(undefined)}
+          >
+            {conflict.theirs === null ? m.editor_conflict_dismiss() : m.editor_conflict_keep_repo()}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-muted grid gap-2 rounded-lg px-3.5 py-3 text-sm">
+      <p className="text-muted-foreground text-xs font-medium">{m.editor_pending_title()}</p>
+      <p className="whitespace-pre-wrap">
+        <span className="text-muted-foreground text-xs">{m.editor_pending_repo()} </span>
+        {item.repoValue}
+      </p>
+      <div>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={revert.isPending}
+          onClick={() => revert.mutate(undefined)}
+        >
+          <Undo2 /> {m.editor_revert_to_repo()}
+        </Button>
+      </div>
     </div>
   )
 }

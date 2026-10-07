@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileUp, Languages, Sparkles } from 'lucide-react'
+import { FileUp, GitMerge, GitPullRequestArrow, Languages, Sparkles } from 'lucide-react'
 import { useEffect } from 'react'
 import { EmptyState, PageBody } from '#/components/app/page.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
@@ -23,6 +23,7 @@ function ProjectOverview() {
   const stats = useQuery(queries.stats(tenant, project))
   const tenantInfo = useQuery(queries.tenant(tenant))
   const runs = useQuery(queries.runs(tenant, project))
+  const sourceSync = useQuery(queries.sourceSync(tenant, project))
   const queryClient = useQueryClient()
   const machineRunning = runs.data?.some(
     (r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'),
@@ -68,7 +69,31 @@ function ProjectOverview() {
   }
   return (
     <PageBody className="grid max-w-5xl gap-6">
-      <p className="text-muted-foreground text-sm">{m.overview_keys({ count: formatNumber(total) })}</p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <p className="text-muted-foreground">{m.overview_keys({ count: formatNumber(total) })}</p>
+        {!!sourceSync.data?.conflicts && (
+          <Link
+            to="/t/$tenant/p/$project/editor"
+            params={{ tenant, project }}
+            search={{ locale: details.data.sourceLocale, sync: 'conflict' }}
+            className="text-warning flex items-center gap-1.5 hover:underline"
+          >
+            <GitMerge className="size-4" />
+            {m.overview_source_conflicts({ count: formatNumber(sourceSync.data.conflicts) })}
+          </Link>
+        )}
+        {!!sourceSync.data?.pending && (
+          <Link
+            to="/t/$tenant/p/$project/editor"
+            params={{ tenant, project }}
+            search={{ locale: details.data.sourceLocale, sync: 'pending' }}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 hover:underline"
+          >
+            <GitPullRequestArrow className="size-4" />
+            {m.overview_source_pending({ count: formatNumber(sourceSync.data.pending) })}
+          </Link>
+        )}
+      </div>
       <div className="grid gap-3">
         {stats.data.map((s) => {
           const isSource = s.locale === details.data.sourceLocale

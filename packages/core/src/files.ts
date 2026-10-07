@@ -1,12 +1,13 @@
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
-import { parseFile, serializeFile, type Entry, type FileFormat } from '@wortwerk/formats'
+import { parseFile, patchFile, serializeFile, type Entry, type FileFormat } from '@wortwerk/formats'
 import { chunks, type Ctx } from './context.ts'
 import { assertKeyCapacity } from './limits.ts'
 import { addLocale, filePathFor, getFile, getProject } from './projects.ts'
-import { flagDependentsForReview, type TranslationStatus } from './translations.ts'
+import { flagDependentsForReview, resolveConflicts, type TranslationStatus } from './translations.ts'
 
-const { translationKey, translation, translationRevision, projectFile, projectFileSnapshot } = schema
+const { translationKey, translation, translationRevision, projectFile, projectFileSnapshot, sourceConflict } =
+  schema
 
 const identity = (context: string | undefined, name: string) => `${context ?? ''}\u0004${name}`
 
@@ -17,6 +18,7 @@ export type ImportResult = {
   translationsChanged: number
   translationsUnchanged: number
   skipped: number
+  conflicts: number
 }
 
 export async function importFileContent(
@@ -35,6 +37,9 @@ export async function importFileContent(
   const project = await getProject(ctx, { id: input.projectId })
   const file = await getFile(ctx, input.fileId)
   const isSource = input.locale === project.sourceLocale
+  // source text from git is merged three-way against the value last seen in the repo, so wording
+  // edited in wortwerk survives pulls that did not touch it
+  const threeWay = isSource && input.source === 'git'
   const parsed = parseFile(file.format as FileFormat, input.content, {
     locale: input.locale,
     isSource,
@@ -62,6 +67,7 @@ export async function importFileContent(
       translationsChanged: 0,
       translationsUnchanged: 0,
       skipped: 0,
+      conflicts: 0,
     }
 
     const keys = await tx
@@ -108,6 +114,30 @@ export async function importFileContent(
           .update(translationKey)
           .set({ obsoleteAt: new Date() })
           .where(inArray(translationKey.id, batch))
+        if (!threeWay) continue
+        const pending = await tx
+          .select({ keyId: translation.keyId, value: translation.value, repoValue: translation.repoValue })
+          .from(translation)
+          .where(
+            and(
+              inArray(translation.keyId, batch),
+              eq(translation.locale, input.locale),
+              isNotNull(translation.repoValue),
+              ne(translation.value, sql`${translation.repoValue}`),
+            ),
+          )
+        if (pending.length) {
+          await tx.insert(sourceConflict).values(
+            pending.map((p) => ({
+              tenantId: ctx.tenantId,
+              keyId: p.keyId,
+              mine: p.value,
+              base: p.repoValue,
+              theirs: null,
+            })),
+          )
+          result.conflicts += pending.length
+        }
       }
       result.keysObsoleted = gone.length
 
@@ -149,7 +179,12 @@ export async function importFileContent(
     const changedSourceKeys: string[] = []
     for (const batch of chunks(writes)) {
       const existing = await tx
-        .select({ keyId: translation.keyId, value: translation.value, status: translation.status })
+        .select({
+          keyId: translation.keyId,
+          value: translation.value,
+          status: translation.status,
+          repoValue: translation.repoValue,
+        })
         .from(translation)
         .where(
           and(
@@ -161,16 +196,57 @@ export async function importFileContent(
           ),
         )
       const current = new Map(existing.map((t) => [t.keyId, t]))
-      const changed = batch.filter((w) => {
+      const changed: typeof batch = []
+      // three-way only: keys whose repo base moves without changing the value
+      const rebased: typeof batch = []
+      const conflicts: Array<{ keyId: string; mine: string; base: string | null; theirs: string }> = []
+
+      for (const w of batch) {
         const t = current.get(w.keyId)
-        if (!t || t.status === 'untranslated' || !t.value) return true
-        if (t.value === w.value) return false
-        return isSource || input.overwrite
-      })
+        if (!t || t.status === 'untranslated' || !t.value) {
+          changed.push(w)
+        } else if (threeWay) {
+          // rows from before base tracking have no base; the repo wins for them, as it used to
+          const base = t.repoValue ?? t.value
+          if (w.value === t.value) {
+            if (t.repoValue !== w.value) rebased.push(w)
+          } else if (w.value !== base) {
+            // the repo changed; if wortwerk changed it too, the repo wins and the wording is kept
+            if (t.value !== base)
+              conflicts.push({ keyId: w.keyId, mine: t.value, base: t.repoValue, theirs: w.value })
+            changed.push(w)
+          }
+          // otherwise only wortwerk changed it: keep the edit, the next push sends it
+        } else if (t.value !== w.value && (isSource || input.overwrite)) {
+          changed.push(w)
+        }
+      }
       result.translationsUnchanged += batch.length - changed.length
       result.translationsChanged += changed.length
+      result.conflicts += conflicts.length
+
+      if (rebased.length) {
+        const values = sql.join(
+          rebased.map((w) => sql`(${w.keyId}, ${w.value})`),
+          sql`, `,
+        )
+        await tx.execute(sql`
+          update ${translation} set repo_value = v.value
+          from (values ${values}) as v(key_id, value)
+          where ${translation.keyId} = v.key_id and ${translation.locale} = ${input.locale}
+        `)
+      }
+      if (threeWay) {
+        // a newer repo value supersedes conflicts that are still open for the key
+        const superseded = changed.filter((w) => current.get(w.keyId)?.value).map((w) => w.keyId)
+        await resolveConflicts(tx, ctx, superseded, 'repo')
+      }
+      if (conflicts.length) {
+        await tx.insert(sourceConflict).values(conflicts.map((c) => ({ tenantId: ctx.tenantId, ...c })))
+      }
       if (!changed.length) continue
-      if (isSource) changedSourceKeys.push(...changed.filter((w) => current.has(w.keyId)).map((w) => w.keyId))
+      if (isSource)
+        changedSourceKeys.push(...changed.filter((w) => current.get(w.keyId)?.value).map((w) => w.keyId))
 
       const upserted = await tx
         .insert(translation)
@@ -181,6 +257,7 @@ export async function importFileContent(
             locale: input.locale,
             value: w.value,
             status: w.status,
+            repoValue: threeWay ? w.value : undefined,
             updatedById: ctx.userId,
           })),
         )
@@ -189,6 +266,7 @@ export async function importFileContent(
           set: {
             value: sql`excluded.value`,
             status: sql`excluded.status`,
+            ...(threeWay ? { repoValue: sql`excluded.repo_value` } : {}),
             updatedById: sql`excluded.updated_by_id`,
             updatedAt: new Date(),
           },
@@ -281,3 +359,47 @@ export async function exportFileContent(ctx: Ctx, input: { fileId: string; local
   })
   return { path: filePathFor(file.path, input.locale), content, count: entries.length }
 }
+
+/** Source text edited in wortwerk that differs from what the repo has (the next push sends it). */
+export async function pendingSourceChanges(ctx: Ctx, projectId: string) {
+  const project = await getProject(ctx, { id: projectId })
+  return ctx.db
+    .select({
+      keyId: translationKey.id,
+      fileId: translationKey.fileId,
+      name: translationKey.name,
+      context: translationKey.context,
+      value: translation.value,
+      repoValue: translation.repoValue,
+    })
+    .from(translation)
+    .innerJoin(translationKey, eq(translationKey.id, translation.keyId))
+    .where(
+      and(
+        eq(translationKey.tenantId, ctx.tenantId),
+        eq(translationKey.projectId, project.id),
+        isNull(translationKey.obsoleteAt),
+        eq(translation.locale, project.sourceLocale),
+        isNotNull(translation.repoValue),
+        ne(translation.value, sql`${translation.repoValue}`),
+      ),
+    )
+    .orderBy(asc(translationKey.position))
+}
+
+/** Writes pending source edits into the repo's version of a source file, touching nothing else. */
+export async function patchSourceContent(
+  ctx: Ctx,
+  input: { fileId: string; content: string; values: ReadonlyMap<string, string> },
+) {
+  const file = await getFile(ctx, input.fileId)
+  const project = await getProject(ctx, { id: file.projectId })
+  return patchFile(
+    file.format as FileFormat,
+    input.content,
+    (entry) => input.values.get(identity(entry.context, entry.key)),
+    { locale: project.sourceLocale, isSource: true, options: file.options as never },
+  )
+}
+
+export const keyIdentity = identity

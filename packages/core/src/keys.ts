@@ -20,17 +20,29 @@ import { assertKeyCapacity } from './limits.ts'
 import { getProject } from './projects.ts'
 import { setTranslation, translationStatuses, type TranslationStatus } from './translations.ts'
 
-const { translationKey, translation, translationRevision, keyComment, keyScreenshot } = schema
+const {
+  translationKey,
+  translation,
+  translationRevision,
+  keyComment,
+  keyScreenshot,
+  sourceConflict,
+  projectRepo,
+} = schema
 
 export const listKeysInput = z.object({
   locale: z.string(),
   status: z.enum(translationStatuses).optional(),
+  // source sync state: wording not in the repo yet, or an open conflict with the repo
+  sync: z.enum(['pending', 'conflict']).optional(),
   search: z.string().trim().max(200).optional(),
   fileId: z.string().optional(),
   obsolete: z.coerce.boolean().default(false),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })
+
+const openConflict = sql`(select 1 from ${sourceConflict} where ${sourceConflict.keyId} = ${translationKey.id} and ${sourceConflict.resolvedAt} is null)`
 
 export const keyFilterInput = listKeysInput.omit({ limit: true, offset: true })
 
@@ -46,11 +58,18 @@ function keyFilter(
   const filters: Array<SQL | undefined> = [
     eq(translationKey.tenantId, ctx.tenantId),
     eq(translationKey.projectId, project.id),
-    q.obsolete ? isNotNull(translationKey.obsoleteAt) : isNull(translationKey.obsoleteAt),
+    // conflicts include keys the repo removed, so they show regardless of the obsolete filter
+    q.sync === 'conflict'
+      ? undefined
+      : q.obsolete
+        ? isNotNull(translationKey.obsoleteAt)
+        : isNull(translationKey.obsoleteAt),
     q.fileId ? eq(translationKey.fileId, q.fileId) : undefined,
   ]
   if (q.status === 'untranslated') filters.push(or(isNull(tgt.id), eq(tgt.status, 'untranslated')))
   else if (q.status) filters.push(eq(tgt.status, q.status))
+  if (q.sync === 'pending') filters.push(isNotNull(src.repoValue), sql`${src.value} <> ${src.repoValue}`)
+  if (q.sync === 'conflict') filters.push(sql`exists ${openConflict}`)
   if (q.search) {
     const pattern = `%${q.search.replace(/[%_\\]/g, '\\$&')}%`
     filters.push(
@@ -78,6 +97,8 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
       value: tgt.value,
       status: sql<string>`coalesce(${tgt.status}, 'untranslated')`,
       updatedAt: tgt.updatedAt,
+      repoValue: src.repoValue,
+      conflict: sql<boolean>`exists ${openConflict}`,
       comments: sql<number>`(select count(*)::int from ${keyComment} where ${keyComment.keyId} = ${translationKey.id})`,
       screenshots: sql<number>`(select count(*)::int from ${keyScreenshot} where ${keyScreenshot.keyId} = ${translationKey.id})`,
     })
@@ -156,6 +177,15 @@ export const createKeyInput = z.object({
 export async function createKey(ctx: Ctx, projectId: string, input: z.input<typeof createKeyInput>) {
   const data = createKeyInput.parse(input)
   const project = await getProject(ctx, { id: projectId })
+  const [linked] = await ctx.db
+    .select({ id: projectRepo.id })
+    .from(projectRepo)
+    .where(and(eq(projectRepo.tenantId, ctx.tenantId), eq(projectRepo.projectId, project.id)))
+  if (linked)
+    throw new DomainError(
+      'invalid',
+      'Keys of a project connected to a repository are added in the repository',
+    )
   await assertKeyCapacity(ctx, 1)
   const [{ max } = { max: 0 }] = await ctx.db
     .select({ max: sql<number>`coalesce(max(${translationKey.position}), -1)::int + 1` })
@@ -300,4 +330,20 @@ export async function setTranslationStatusBulk(
     })
   }
   return { selected: keyIds.length, updated }
+}
+
+export async function sourceSyncCounts(ctx: Ctx, projectId: string) {
+  const project = await getProject(ctx, { id: projectId })
+  const [row] = await ctx.db
+    .select({
+      pending: sql<number>`count(*) filter (where ${translation.repoValue} is not null and ${translation.value} <> ${translation.repoValue} and ${translationKey.obsoleteAt} is null)::int`,
+      conflicts: sql<number>`count(*) filter (where exists ${openConflict})::int`,
+    })
+    .from(translationKey)
+    .leftJoin(
+      translation,
+      and(eq(translation.keyId, translationKey.id), eq(translation.locale, project.sourceLocale)),
+    )
+    .where(and(eq(translationKey.tenantId, ctx.tenantId), eq(translationKey.projectId, project.id)))
+  return { pending: row?.pending ?? 0, conflicts: row?.conflicts ?? 0 }
 }

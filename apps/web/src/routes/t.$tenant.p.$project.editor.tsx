@@ -1,6 +1,16 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Image, KeyRound, MessageSquare, Plus, Search } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  GitMerge,
+  GitPullRequestArrow,
+  Image,
+  KeyRound,
+  MessageSquare,
+  Plus,
+  Search,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { BulkPanel, type KeySelection } from '#/components/app/bulk-panel.tsx'
@@ -8,6 +18,7 @@ import { KeyEditor } from '#/components/app/key-editor.tsx'
 import { NewKeyDialog } from '#/components/app/new-key-dialog.tsx'
 import { EmptyState } from '#/components/app/page.tsx'
 import { StatusBadge, statusLabel, type Status } from '#/components/app/status.tsx'
+import { Badge } from '#/components/ui/badge.tsx'
 import { Button } from '#/components/ui/button.tsx'
 import { Checkbox } from '#/components/ui/checkbox.tsx'
 import { Input } from '#/components/ui/input.tsx'
@@ -25,6 +36,7 @@ const pageSize = 50
 const search = z.object({
   locale: z.string().optional().catch(undefined),
   status: z.enum(statuses).optional().catch(undefined),
+  sync: z.enum(['pending', 'conflict']).optional().catch(undefined),
   q: z.string().optional().catch(undefined),
   page: z.number().int().min(0).optional().catch(undefined),
   key: z.string().optional().catch(undefined),
@@ -61,7 +73,15 @@ function Editor() {
     details.data?.locales.map((l) => l.code).filter((c) => c !== details.data.sourceLocale) ?? []
   const locale = params.locale ?? targets[0] ?? details.data?.sourceLocale ?? ''
   const page = params.page ?? 0
-  const filters = { locale, status: params.status, search: params.q, offset: page * pageSize }
+  const filters = {
+    locale,
+    status: params.status,
+    sync: params.sync,
+    search: params.q,
+    offset: page * pageSize,
+  }
+  const repo = useQuery(queries.repo(tenant, project))
+  const connected = !!repo.data
   const keys = useQuery({ ...queries.keys(tenant, project, filters), enabled: !!locale })
 
   useEffect(() => {
@@ -74,7 +94,7 @@ function Editor() {
 
   // `picked` holds the ticked keys, or in `allMatching` mode the keys unticked from "all matching".
   // The selection belongs to the filter it was made under and is ignored once the filter changes.
-  const filterKey = `${locale}|${params.status ?? ''}|${params.q ?? ''}`
+  const filterKey = `${locale}|${params.status ?? ''}|${params.sync ?? ''}|${params.q ?? ''}`
   const [sel, setSel] = useState({ filterKey: '', picked: new Set<string>(), allMatching: false })
   const current =
     sel.filterKey === filterKey ? sel : { filterKey, picked: new Set<string>(), allMatching: false }
@@ -99,7 +119,7 @@ function Editor() {
   const clearSelection = () => setSel({ filterKey, picked: new Set(), allMatching: false })
   const selection: KeySelection = allMatching
     ? {
-        filter: { locale, status: params.status, search: params.q },
+        filter: { locale, status: params.status, sync: params.sync, search: params.q },
         excludeKeyIds: [...picked],
       }
     : { keyIds: [...picked] }
@@ -151,17 +171,20 @@ function Editor() {
         </NativeSelect>
         <NativeSelect
           className="w-44"
-          value={params.status ?? ''}
+          value={params.sync ? `sync:${params.sync}` : (params.status ?? '')}
           aria-label={m.editor_status()}
-          onChange={(e) =>
+          onChange={(e) => {
+            const value = e.target.value
+            const sync = value.startsWith('sync:') ? (value.slice(5) as 'pending' | 'conflict') : undefined
             navigate({
               search: (s) => ({
                 ...s,
-                status: (e.target.value || undefined) as Status | undefined,
+                status: sync ? undefined : ((value || undefined) as Status | undefined),
+                sync,
                 page: undefined,
               }),
             })
-          }
+          }}
         >
           <option value="">{m.editor_all_statuses()}</option>
           {statuses.map((s) => (
@@ -169,6 +192,12 @@ function Editor() {
               {statusLabel(s)}
             </option>
           ))}
+          {connected && (
+            <optgroup label={m.editor_sync_group()}>
+              <option value="sync:pending">{m.editor_sync_pending()}</option>
+              <option value="sync:conflict">{m.editor_sync_conflict()}</option>
+            </optgroup>
+          )}
         </NativeSelect>
         <div className="relative min-w-48 flex-1">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
@@ -179,9 +208,12 @@ function Editor() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline" onClick={() => setNewKeyOpen(true)}>
-          <Plus /> {m.editor_new_key()}
-        </Button>
+        {/* keys of a connected project are added by developers in the repository */}
+        {repo.isSuccess && !connected && (
+          <Button variant="outline" onClick={() => setNewKeyOpen(true)}>
+            <Plus /> {m.editor_new_key()}
+          </Button>
+        )}
       </div>
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
@@ -255,6 +287,7 @@ function Editor() {
                           </span>
                         )}
                         {item.screenshots > 0 && <Image className="text-muted-foreground size-3" />}
+                        <SyncBadge item={item} />
                         <StatusBadge status={item.status as Status} />
                       </span>
                       <span className="line-clamp-1 text-sm">{item.source ?? '—'}</span>
@@ -337,4 +370,24 @@ function Editor() {
       />
     </div>
   )
+}
+
+function SyncBadge({
+  item,
+}: {
+  item: { conflict: boolean; source: string | null; repoValue: string | null }
+}) {
+  if (item.conflict)
+    return (
+      <Badge variant="secondary" className="bg-warning-surface text-warning border-0 font-normal">
+        <GitMerge /> {m.editor_sync_conflict()}
+      </Badge>
+    )
+  if (item.repoValue !== null && item.source !== item.repoValue)
+    return (
+      <Badge variant="outline" className="font-normal" title={m.editor_pending_title()}>
+        <GitPullRequestArrow /> {m.editor_sync_pending()}
+      </Badge>
+    )
+  return null
 }

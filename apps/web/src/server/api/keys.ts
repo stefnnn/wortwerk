@@ -12,7 +12,9 @@ import {
   setTranslationStatusBulk,
   deleteComment,
   deleteScreenshot,
+  keepRepoVersion,
   listComments,
+  listOpenConflicts,
   listKeys,
   listKeysInput,
   listRevisions,
@@ -95,6 +97,11 @@ export const keys = new Hono<Env>()
         c.req.valid('json').locale,
       ),
     )
+  })
+  .get('/:keyId/conflicts', async (c) => c.json(await listOpenConflicts(c.get('ctx'), c.req.param('keyId'))))
+  .post('/:keyId/conflicts/keep-repo', async (c) => {
+    await keepRepoVersion(c.get('ctx'), c.req.param('keyId'))
+    return c.body(null, 204)
   })
   .get('/:keyId/comments', async (c) => c.json(await listComments(c.get('ctx'), c.req.param('keyId'))))
   .post('/:keyId/comments', validate('json', commentInput), async (c) =>
