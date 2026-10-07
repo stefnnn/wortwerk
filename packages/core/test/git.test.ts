@@ -9,16 +9,20 @@ import {
   saveConnection,
   saveRepoLink,
 } from '../src/git.ts'
-import { createProject, upsertFile } from '../src/projects.ts'
+import { addLocale, createProject, upsertFile } from '../src/projects.ts'
 import { listKeys } from '../src/keys.ts'
 import { setTranslation } from '../src/translations.ts'
 import { createProjectToken, resolveProjectToken, revokeProjectToken } from '../src/tokens.ts'
 import { openSecret, sealSecret } from '../src/secrets.ts'
+import type { Ctx } from '../src/context.ts'
 import { createTenant, db } from './helpers.ts'
 
 afterAll(() => db.pool.end())
 
 process.env.BETTER_AUTH_SECRET ??= 'test-secret-test-secret'
+
+const project_pull = (ctx: Ctx, repo: ReturnType<typeof createMemoryRepo>, projectId: string) =>
+  pullFromRepo(ctx, repo.client, { projectId })
 
 async function setup() {
   const ctx = await createTenant()
@@ -154,6 +158,29 @@ describe('git sync', () => {
     repo.push({ 'locales/de.json': repo.file('wortwerk/translations', 'locales/de.json')! })
     await pullFromRepo(ctx, repo.client, { projectId: project.id })
     expect(await state()).toBe('synced')
+  })
+
+  it('lists only changed files in the PR and refreshes the description on later exports', async () => {
+    const { ctx, project } = await setup()
+    await addLocale(ctx, project.id, 'fr')
+    const repo = createMemoryRepo({
+      'locales/en.json': '{\n  "a": "A",\n  "b": "B"\n}\n',
+      'locales/de.json': '{\n  "a": "A-de",\n  "b": "B-de"\n}\n',
+      'locales/fr.json': '{\n  "a": "A-fr"\n}\n',
+    })
+    await project_pull(ctx, repo, project.id)
+    const keys = (await listKeys(ctx, project.id, { locale: 'fr' })).items
+    const b = keys.find((k) => k.name === 'b')!
+    await setTranslation(ctx, b.id, 'fr', { value: 'B-fr' })
+    await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(repo.pulls[0]!.body).toContain('`locales/fr.json` (fr, 1 strings changed)')
+    expect(repo.pulls[0]!.body).not.toContain('locales/de.json')
+
+    const a = keys.find((k) => k.name === 'a')!
+    await setTranslation(ctx, a.id, 'fr', { value: 'A-fr!' })
+    await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(repo.pulls).toHaveLength(1)
+    expect(repo.pulls[0]!.body).toContain('`locales/fr.json` (fr, 2 strings changed)')
   })
 
   it('finds projects with unexported edits after the quiet period', async () => {

@@ -143,7 +143,14 @@ export function createBitbucketClient(getToken: () => Promise<string>): GitClien
       const q = encodeURIComponent(`source.branch.name="${head}" AND state="OPEN"`)
       const open = await call(`/repositories/${repo}/pullrequests?q=${q}`)
       const existing = (open.values as Json[])[0]
-      if (existing) return { url: String(existing.links.html.href) }
+      if (existing) {
+        // the branch is regenerated on every export, so the description must follow
+        await call(`/repositories/${repo}/pullrequests/${existing.id}`, {
+          ...json({ title, description: body }),
+          method: 'PUT',
+        })
+        return { url: String(existing.links.html.href) }
+      }
       const created = await call(
         `/repositories/${repo}/pullrequests`,
         json({

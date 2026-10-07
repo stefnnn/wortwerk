@@ -42,7 +42,10 @@ export function createMemoryRepo(files: Record<string, string>, branch = 'main')
     },
     async ensurePullRequest(_repo, input) {
       const existing = pulls.find((p) => p.head === input.head && p.base === input.base)
-      if (existing) return { url: existing.url }
+      if (existing) {
+        Object.assign(existing, input)
+        return { url: existing.url }
+      }
       const url = `https://git.example/acme/app/pull/${pulls.length + 1}`
       pulls.push({ ...input, url })
       return { url }

@@ -202,7 +202,14 @@ export function createGitHubClient(
       const open = (await call(
         `/repos/${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${head}`)}&base=${encodeURIComponent(base)}`,
       )) as unknown as Json[]
-      if (open[0]) return { url: String(open[0].html_url) }
+      if (open[0]) {
+        // the branch is regenerated on every export, so the description must follow
+        await call(`/repos/${repo}/pulls/${open[0].number}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ body }),
+        })
+        return { url: String(open[0].html_url) }
+      }
       const created = await call(`/repos/${repo}/pulls`, {
         method: 'POST',
         body: JSON.stringify({ title, head, base, body }),

@@ -325,17 +325,17 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
       count: edits.length,
     })
   }
+  // only files that differ from the repo go into the PR; per locale the changed strings are those whose
+  // value differs from what the repo held at the last pull
+  const changedCounts = await changedStringCounts(ctx, project.id)
   for (const file of project.files) {
     for (const { code } of project.locales) {
       if (code === project.sourceLocale) continue
       const exported = await exportFileContent(ctx, { fileId: file.id, locale: code })
       if (!exported.count) continue
-      changes.push({
-        path: filePathFor(file.path, repoLocale(link, code)),
-        content: exported.content,
-        locale: code,
-        count: exported.count,
-      })
+      const path = filePathFor(file.path, repoLocale(link, code))
+      if ((await client.readFile(link.repo, base, path)) === exported.content) continue
+      changes.push({ path, content: exported.content, locale: code, count: changedCounts.get(code) ?? 0 })
     }
   }
   let outcome = { diff: false, updated: false, sha: null as string | null }
@@ -350,7 +350,7 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
     if (outcome.diff) {
       const lines = changes
         .filter((c) => c.locale !== project.sourceLocale)
-        .map((c) => `- \`${c.path}\` (${c.locale}, ${c.count} strings)`)
+        .map((c) => `- \`${c.path}\` (${c.locale}${c.count ? `, ${c.count} strings changed` : ''})`)
       const pr = await client.ensurePullRequest(link.repo, {
         head: link.exportBranch,
         base: link.branch,
@@ -373,6 +373,21 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
     ...outcome,
     pullRequestUrl,
   }
+}
+
+async function changedStringCounts(ctx: Ctx, projectId: string) {
+  const { rows } = await ctx.db.execute<{ locale: string; count: number }>(sql`
+    select t.locale, count(*)::int as count
+    from ${schema.translation} t
+    join ${schema.translationKey} k on k.id = t.key_id
+    where t.tenant_id = ${ctx.tenantId}
+      and k.project_id = ${projectId}
+      and k.obsolete_at is null
+      and t.value <> ''
+      and t.repo_value is distinct from t.value
+    group by t.locale
+  `)
+  return new Map(rows.map((r) => [r.locale, r.count]))
 }
 
 const shown = 25
