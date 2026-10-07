@@ -112,6 +112,8 @@ export const invitation = pgTable(
       .references(() => tenant.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     role: text('role'),
+    // guests only: JSON `[{ projectId, locales: string[] | null }]`, applied when the invitation is accepted
+    grants: text('grants'),
     status: text('status').default('pending').notNull(),
     expiresAt: timestamp('expires_at').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),

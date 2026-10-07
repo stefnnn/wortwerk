@@ -16,7 +16,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core'
 import { schema } from '@wortwerk/db'
 import { z } from 'zod'
-import { DomainError, chunks, notFound, type Ctx } from './context.ts'
+import { DomainError, assertLocaleEditable, chunks, notFound, type Ctx } from './context.ts'
 import { assertKeyCapacity } from './limits.ts'
 import { getProject } from './projects.ts'
 import { setTranslation, translationStatuses, type TranslationStatus } from './translations.ts'
@@ -353,6 +353,7 @@ export async function setTranslationStatusBulk(
   const project = await getProject(ctx, { id: projectId })
   if (!project.locales.some((l) => l.code === locale))
     throw new DomainError('invalid', `Locale ${locale} is not part of this project`)
+  assertLocaleEditable(ctx, projectId, locale)
   const keyIds = await resolveKeySelection(ctx, projectId, selection)
   let updated = 0
   for (const batch of chunks(keyIds)) {

@@ -65,6 +65,7 @@ function Editor() {
   const { tenant, project } = Route.useParams()
   const params = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const guest = Route.useRouteContext().tenant.role === 'guest'
   const details = useQuery(queries.project(tenant, project))
   const desktop = useIsDesktop()
   const [query, setQuery] = useState(params.q ?? '')
@@ -85,7 +86,7 @@ function Editor() {
     search: params.q,
     offset: page * pageSize,
   }
-  const repo = useQuery(queries.repo(tenant, project))
+  const repo = useQuery({ ...queries.repo(tenant, project), enabled: !guest })
   const connected = !!repo.data
   const keys = useQuery({ ...queries.keys(tenant, project, filters), enabled: !!locale })
 
@@ -165,6 +166,7 @@ function Editor() {
       onShowAll={() => showEverywhere(selected.name)}
       sourceLocale={details.data.sourceLocale}
       onNext={next}
+      readOnly={!!details.data.editableLocales && !details.data.editableLocales.includes(selected.locale)}
     />
   )
 

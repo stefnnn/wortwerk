@@ -414,5 +414,15 @@
   "export_pending": "Changes not in a pull request yet",
   "export_pr_open": "Pull request submitted",
   "export_last": "Last export: {date}",
-  "export_never": "Not exported yet"
+  "export_never": "Not exported yet",
+  "editor_read_only": "You can read this language but not edit it.",
+  "guest_access_all_languages": "All languages",
+  "guest_access_edit": "Edit access",
+  "guest_access_none": "No projects yet",
+  "guest_access_projects": "Projects",
+  "guest_access_title": "Guest access",
+  "members_guest_hint": "Guests only see the projects you select and can edit translations, but cannot change settings.",
+  "members_role": "Role",
+  "members_role_guest": "Guest",
+  "members_role_member": "Member"
 }

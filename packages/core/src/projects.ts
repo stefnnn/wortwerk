@@ -1,8 +1,8 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
 import { formatFromPath } from '@wortwerk/formats'
 import { z } from 'zod'
-import { DomainError, notFound, type Ctx } from './context.ts'
+import { DomainError, canAccessProject, editableLocales, notFound, type Ctx } from './context.ts'
 import { assertProjectCapacity } from './limits.ts'
 
 const { project, projectLocale, projectFile } = schema
@@ -25,12 +25,27 @@ export const updateProjectInput = z.object({
   sourceLocale: localeCode.optional(),
 })
 
+// guests see the source locale (as reference) plus the locales they were granted
+function visibleLocales<P extends { id: string; sourceLocale: string; locales: { code: string }[] }>(
+  ctx: Ctx,
+  p: P,
+): P {
+  const editable = editableLocales(ctx, p.id)
+  if (!editable) return p
+  return { ...p, locales: p.locales.filter((l) => l.code === p.sourceLocale || editable.includes(l.code)) }
+}
+
 export async function listProjects(ctx: Ctx) {
-  return ctx.db.query.project.findMany({
-    where: eq(project.tenantId, ctx.tenantId),
+  if (ctx.guest && !ctx.guest.size) return []
+  const rows = await ctx.db.query.project.findMany({
+    where: and(
+      eq(project.tenantId, ctx.tenantId),
+      ctx.guest ? inArray(project.id, [...ctx.guest.keys()]) : undefined,
+    ),
     with: { locales: { columns: { code: true, instructions: true }, orderBy: asc(projectLocale.code) } },
     orderBy: asc(project.name),
   })
+  return rows.map((p) => visibleLocales(ctx, p))
 }
 
 export async function getProject(ctx: Ctx, slugOrId: { slug: string } | { id: string }) {
@@ -45,7 +60,8 @@ export async function getProject(ctx: Ctx, slugOrId: { slug: string } | { id: st
       files: { orderBy: asc(projectFile.path) },
     },
   })
-  return row ?? notFound('Project')
+  if (!row || !canAccessProject(ctx, row.id)) notFound('Project')
+  return { ...visibleLocales(ctx, row), editableLocales: editableLocales(ctx, row.id) }
 }
 
 export type ProjectDetails = Awaited<ReturnType<typeof getProject>>

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { FileUp, GitBranch, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -13,6 +13,10 @@ import { queries } from '#/lib/queries.ts'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/t/$tenant/p/$project/setup')({
+  // guests only edit content
+  beforeLoad: ({ context, params }) => {
+    if (context.tenant.role === 'guest') throw redirect({ to: '/t/$tenant/p/$project', params })
+  },
   validateSearch: z.object({ connect: z.string().optional() }),
   component: ProjectSetup,
 })

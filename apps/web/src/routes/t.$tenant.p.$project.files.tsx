@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Download, FileUp, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -20,6 +20,10 @@ import { cn } from '#/lib/utils.ts'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/t/$tenant/p/$project/files')({
+  // guests only edit content
+  beforeLoad: ({ context, params }) => {
+    if (context.tenant.role === 'guest') throw redirect({ to: '/t/$tenant/p/$project', params })
+  },
   component: ProjectFiles,
 })
 

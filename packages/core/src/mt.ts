@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
 import { describeStructureIssue, localePluralCategories, structureIssue } from '@wortwerk/formats'
-import { DomainError, chunks, type Ctx } from './context.ts'
+import { DomainError, assertLocaleEditable, chunks, type Ctx } from './context.ts'
 import { assertMachineTranslation } from './limits.ts'
 import { resolveKeySelection, type KeySelection } from './keys.ts'
 import { getProject } from './projects.ts'
@@ -123,6 +123,7 @@ export async function suggestMachineTranslation(
 ) {
   await assertMachineTranslation(ctx)
   const key = await getKeyInTenant(ctx, keyId)
+  assertLocaleEditable(ctx, key.projectId, locale)
   const source = await ctx.db.query.translation.findFirst({
     where: and(eq(translation.keyId, keyId), eq(translation.locale, key.project.sourceLocale)),
   })

@@ -12,13 +12,16 @@ export const Route = createFileRoute('/t/$tenant/p/$project')({
 
 function ProjectLayout() {
   const { tenant, project } = Route.useParams()
+  const { tenant: workspace } = Route.useRouteContext()
   const details = useQuery(queries.project(tenant, project))
+  const guest = workspace.role === 'guest'
   const tabs = [
     { to: '/t/$tenant/p/$project', label: m.project_tab_overview(), exact: true },
     { to: '/t/$tenant/p/$project/editor', label: m.project_tab_editor() },
     { to: '/t/$tenant/p/$project/files', label: m.project_tab_files() },
     { to: '/t/$tenant/p/$project/settings', label: m.project_tab_settings() },
   ] as const
+  const visibleTabs = guest ? tabs.slice(0, 2) : tabs
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -33,7 +36,7 @@ function ProjectLayout() {
         }
       >
         <nav className="-mb-px flex gap-4 overflow-x-auto">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <Link
               key={tab.to}
               to={tab.to}

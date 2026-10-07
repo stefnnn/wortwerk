@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
 import { describeStructureIssue, parsePluralIcu, structureIssue, validateIcu } from '@wortwerk/formats'
 import { z } from 'zod'
-import { DomainError, notFound, type Ctx } from './context.ts'
+import { DomainError, assertLocaleEditable, canAccessProject, notFound, type Ctx } from './context.ts'
 
 const { translation, translationRevision, translationKey, sourceConflict } = schema
 
@@ -24,7 +24,8 @@ export async function getKeyInTenant(ctx: Ctx, keyId: string) {
       project: { columns: { id: true, sourceLocale: true }, with: { locales: { columns: { code: true } } } },
     },
   })
-  return key ?? notFound('Key')
+  if (!key || !canAccessProject(ctx, key.projectId)) notFound('Key')
+  return key
 }
 
 export async function setTranslation(
@@ -38,6 +39,7 @@ export async function setTranslation(
   const key = await getKeyInTenant(ctx, keyId)
   if (!key.project.locales.some((l) => l.code === locale))
     throw new DomainError('invalid', `Locale ${locale} is not part of this project`)
+  assertLocaleEditable(ctx, key.projectId, locale)
   const issue = data.value ? validateIcu(data.value) : null
   if (issue) throw new DomainError('invalid', `Invalid ICU message: ${issue.message}`)
 
@@ -131,6 +133,7 @@ export async function setTranslationStatus(
 }
 
 export async function listRevisions(ctx: Ctx, keyId: string, locale: string) {
+  await getKeyInTenant(ctx, keyId)
   const row = await ctx.db.query.translation.findFirst({
     where: and(
       eq(translation.tenantId, ctx.tenantId),

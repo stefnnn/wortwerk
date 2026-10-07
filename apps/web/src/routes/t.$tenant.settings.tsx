@@ -1,15 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { GitBranch, MailPlus, Trash2 } from 'lucide-react'
+import { GitBranch, MailPlus, Trash2, UserPen } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { GrantsPicker, GuestAccessDialog, grantsSummary, type Grant } from '#/components/app/guest-access.tsx'
 import { PageBody, PageHeader } from '#/components/app/page.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { t, unwrap } from '#/lib/api.ts'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
 import { Input } from '#/components/ui/input.tsx'
+import { NativeSelect } from '#/components/ui/native-select.tsx'
 import { Progress } from '#/components/ui/progress.tsx'
 import { Skeleton } from '#/components/ui/skeleton.tsx'
 import { authClient } from '#/lib/auth-client.ts'
@@ -19,6 +21,9 @@ import { queries } from '#/lib/queries.ts'
 import { m } from '#/paraglide/messages.js'
 
 export const Route = createFileRoute('/t/$tenant/settings')({
+  beforeLoad: ({ context, params }) => {
+    if (context.tenant.role === 'guest') throw redirect({ to: '/t/$tenant', params })
+  },
   head: () => ({ meta: [{ title: `${m.nav_settings()} · wortwerk` }] }),
   validateSearch: z.object({ connect: z.string().optional() }),
   component: TenantSettings,
@@ -39,15 +44,47 @@ function TenantSettings() {
       return data
     },
   })
+  const projects = useQuery(queries.projects(slug))
+  const access = useQuery(queries.access(slug))
   const [email, setEmail] = useState('')
+  const [role, setRole] = useState<'member' | 'guest'>('member')
+  const [grants, setGrants] = useState<Grant[]>([])
+  const [editing, setEditing] = useState<{ userId: string; name: string } | null>(null)
+  const projectList = projects.data ?? []
+  const grantsOf = (userId: string): Grant[] =>
+    access.data
+      ?.filter((a) => a.userId === userId)
+      .map(({ projectId, locales }) => ({ projectId, locales })) ?? []
 
   const organizationId = tenant.data?.id ?? ''
   const invite = useAction(
     async () => {
-      const { error } = await authClient.organization.inviteMember({ email, role: 'member', organizationId })
+      const { error } = await authClient.organization.inviteMember({
+        email,
+        role,
+        organizationId,
+        grants: role === 'guest' ? JSON.stringify(grants) : undefined,
+      })
       if (error) throw new Error(error.message ?? m.error_generic())
     },
-    { invalidate: [organizationKey], success: m.members_invited(), onSuccess: () => setEmail('') },
+    {
+      invalidate: [organizationKey],
+      success: m.members_invited(),
+      onSuccess: () => {
+        setEmail('')
+        setGrants([])
+      },
+    },
+  )
+  const saveAccess = useAction(
+    (input: { userId: string; grants: Grant[] }) =>
+      unwrap(
+        t.access[':userId'].$put({
+          param: { tenant: slug, userId: input.userId },
+          json: { grants: input.grants },
+        }),
+      ),
+    { invalidate: [queries.access(slug).queryKey], onSuccess: () => setEditing(null) },
   )
   const cancel = useAction(
     async (invitationId: string) => {
@@ -61,7 +98,7 @@ function TenantSettings() {
       const { error } = await authClient.organization.removeMember({ memberIdOrEmail, organizationId })
       if (error) throw new Error(error.message ?? m.error_generic())
     },
-    { invalidate: [organizationKey, queries.tenant(slug).queryKey] },
+    { invalidate: [organizationKey, queries.tenant(slug).queryKey, queries.access(slug).queryKey] },
   )
 
   const submit = (event: FormEvent) => {
@@ -118,26 +155,64 @@ function TenantSettings() {
                 <ContactLink email={tenant.data?.contact} subject={tenant.data?.name} />
               </p>
             ) : (
-              <form onSubmit={submit} className="flex gap-2">
-                <Input
-                  type="email"
-                  required
-                  placeholder="name@company.ch"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <Button type="submit" disabled={invite.isPending || !organizationId}>
-                  <MailPlus /> {m.members_invite()}
-                </Button>
+              <form onSubmit={submit} className="grid gap-3">
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    required
+                    placeholder="name@company.ch"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <NativeSelect
+                    aria-label={m.members_role()}
+                    className="w-32 shrink-0"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value === 'guest' ? 'guest' : 'member')}
+                  >
+                    <option value="member">{m.members_role_member()}</option>
+                    <option value="guest">{m.members_role_guest()}</option>
+                  </NativeSelect>
+                  <Button
+                    type="submit"
+                    disabled={invite.isPending || !organizationId || (role === 'guest' && !grants.length)}
+                  >
+                    <MailPlus /> {m.members_invite()}
+                  </Button>
+                </div>
+                {role === 'guest' && (
+                  <div className="grid gap-2">
+                    <p className="text-muted-foreground text-xs">{m.members_guest_hint()}</p>
+                    <GrantsPicker projects={projectList} value={grants} onChange={setGrants} />
+                  </div>
+                )}
               </form>
             )}
             <ul className="divide-y rounded-lg border">
               {organization.data?.members.map((member) => (
                 <li key={member.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{member.user.name}</p>
+                    <p className="flex items-center gap-2 truncate font-medium">
+                      {member.user.name}
+                      {member.role === 'guest' && <Badge variant="outline">{m.members_role_guest()}</Badge>}
+                    </p>
                     <p className="text-muted-foreground truncate">{member.user.email}</p>
+                    {member.role === 'guest' && (
+                      <p className="text-muted-foreground truncate text-xs">
+                        {grantsSummary(grantsOf(member.userId), projectList) || m.guest_access_none()}
+                      </p>
+                    )}
                   </div>
+                  {member.role === 'guest' && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={m.guest_access_edit()}
+                      onClick={() => setEditing({ userId: member.userId, name: member.user.name })}
+                    >
+                      <UserPen />
+                    </Button>
+                  )}
                   {member.userId !== viewer.user.id && (
                     <Button
                       variant="ghost"
@@ -153,7 +228,17 @@ function TenantSettings() {
               {pending.map((invitation) => (
                 <li key={invitation.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate">{invitation.email}</p>
+                    <p className="flex items-center gap-2 truncate">
+                      {invitation.email}
+                      {invitation.role === 'guest' && (
+                        <Badge variant="outline">{m.members_role_guest()}</Badge>
+                      )}
+                    </p>
+                    {invitation.role === 'guest' && (
+                      <p className="text-muted-foreground truncate text-xs">
+                        {grantsSummary(parseGrants(invitation.grants), projectList)}
+                      </p>
+                    )}
                     <p className="text-muted-foreground">
                       {m.members_pending({ date: formatDateTime(invitation.expiresAt) })}
                     </p>
@@ -167,8 +252,28 @@ function TenantSettings() {
           </CardContent>
         </Card>
       </PageBody>
+      {editing && (
+        <GuestAccessDialog
+          key={editing.userId}
+          open
+          name={editing.name}
+          projects={projectList}
+          initial={grantsOf(editing.userId)}
+          pending={saveAccess.isPending}
+          onOpenChange={(open) => !open && setEditing(null)}
+          onSave={(next) => saveAccess.mutate({ userId: editing.userId, grants: next })}
+        />
+      )}
     </>
   )
+}
+
+function parseGrants(json: string | null | undefined): Grant[] {
+  try {
+    return json ? (JSON.parse(json) as Grant[]) : []
+  } catch {
+    return []
+  }
 }
 
 function ConnectionsCard({ tenant }: { tenant: string }) {

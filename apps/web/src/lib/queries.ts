@@ -22,6 +22,11 @@ export const queries = {
       queryKey: ['tenant', tenant],
       queryFn: () => unwrap(t.$get({ param: { tenant } })),
     }),
+  access: (tenant: string) =>
+    queryOptions({
+      queryKey: ['tenant', tenant, 'access'],
+      queryFn: () => unwrap(t.access.$get({ param: { tenant } })),
+    }),
   projects: (tenant: string) =>
     queryOptions({
       queryKey: ['tenant', tenant, 'projects'],

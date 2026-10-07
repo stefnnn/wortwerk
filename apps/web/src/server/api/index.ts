@@ -1,8 +1,16 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { count, eq } from 'drizzle-orm'
-import { ZodError } from 'zod'
-import { DomainError, countActiveKeys, countProjects, getPlan } from '@wortwerk/core'
+import { ZodError, z } from 'zod'
+import { validate } from './validate.ts'
+import {
+  DomainError,
+  countActiveKeys,
+  countProjects,
+  getPlan,
+  listGuestAccess,
+  setGuestAccess,
+} from '@wortwerk/core'
 import { schema } from '@wortwerk/db'
 import { auth } from '../auth.ts'
 import { env } from '../env.ts'
@@ -14,7 +22,7 @@ import { integrations, tenantGit, webhooks } from './git.ts'
 import { projects } from './projects.ts'
 import { v1 } from './v1.ts'
 
-const statusFor = { not_found: 404, conflict: 409, invalid: 400, limit_reached: 402 } as const
+const statusFor = { not_found: 404, conflict: 409, invalid: 400, limit_reached: 402, forbidden: 403 } as const
 
 const tenant = new Hono<Env>()
   .use(requireSession, requireTenant)
@@ -38,6 +46,11 @@ const tenant = new Hono<Env>()
   })
   .route('/projects', projects)
   .route('/git', tenantGit)
+  .get('/access', async (c) => c.json(await listGuestAccess(c.get('ctx'))))
+  .put('/access/:userId', validate('json', z.object({ grants: z.unknown() })), async (c) => {
+    await setGuestAccess(c.get('ctx'), c.req.param('userId'), c.req.valid('json').grants)
+    return c.body(null, 204)
+  })
   .route('/projects/:project/keys', projectKeys)
   .route('/keys', keys)
   .route('/comments', comments)

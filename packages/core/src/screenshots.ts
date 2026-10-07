@@ -13,7 +13,19 @@ function requireStorage(ctx: Ctx) {
   return ctx.storage
 }
 
+// guests only reach screenshots of keys in their projects
+async function assertScreenshotVisible(ctx: Ctx, screenshotId: string) {
+  if (!ctx.guest) return
+  const row = await ctx.db.query.keyScreenshot.findFirst({
+    where: and(eq(keyScreenshot.tenantId, ctx.tenantId), eq(keyScreenshot.id, screenshotId)),
+    columns: { keyId: true },
+  })
+  if (!row) notFound('Screenshot')
+  await getKeyInTenant(ctx, row.keyId)
+}
+
 export async function listScreenshots(ctx: Ctx, keyId: string) {
+  await getKeyInTenant(ctx, keyId)
   return ctx.db.query.keyScreenshot.findMany({
     where: and(eq(keyScreenshot.tenantId, ctx.tenantId), eq(keyScreenshot.keyId, keyId)),
     orderBy: asc(keyScreenshot.createdAt),
@@ -49,6 +61,7 @@ export async function addScreenshot(
 }
 
 export async function readScreenshot(ctx: Ctx, screenshotId: string) {
+  await assertScreenshotVisible(ctx, screenshotId)
   const row = await ctx.db.query.keyScreenshot.findFirst({
     where: and(eq(keyScreenshot.tenantId, ctx.tenantId), eq(keyScreenshot.id, screenshotId)),
   })
@@ -59,6 +72,7 @@ export async function readScreenshot(ctx: Ctx, screenshotId: string) {
 }
 
 export async function deleteScreenshot(ctx: Ctx, screenshotId: string) {
+  await assertScreenshotVisible(ctx, screenshotId)
   const [row] = await ctx.db
     .delete(keyScreenshot)
     .where(and(eq(keyScreenshot.tenantId, ctx.tenantId), eq(keyScreenshot.id, screenshotId)))

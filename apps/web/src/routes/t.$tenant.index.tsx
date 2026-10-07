@@ -30,6 +30,7 @@ export const Route = createFileRoute('/t/$tenant/')({
 
 function Projects() {
   const { tenant } = Route.useParams()
+  const guest = Route.useRouteContext().tenant.role === 'guest'
   const projects = useQuery(queries.projects(tenant))
   const details = useQuery(queries.tenant(tenant))
   const [open, setOpen] = useState(false)
@@ -42,16 +43,18 @@ function Projects() {
         title={m.nav_projects()}
         description={m.projects_subtitle()}
         actions={
-          <div className="flex items-center gap-3">
-            {atLimit && (
-              <span className="text-muted-foreground text-sm max-sm:hidden">
-                {m.projects_limit_reached({ count: maxProjects })}
-              </span>
-            )}
-            <Button onClick={() => setOpen(true)} disabled={atLimit}>
-              <Plus /> {m.projects_new()}
-            </Button>
-          </div>
+          !guest && (
+            <div className="flex items-center gap-3">
+              {atLimit && (
+                <span className="text-muted-foreground text-sm max-sm:hidden">
+                  {m.projects_limit_reached({ count: maxProjects })}
+                </span>
+              )}
+              <Button onClick={() => setOpen(true)} disabled={atLimit}>
+                <Plus /> {m.projects_new()}
+              </Button>
+            </div>
+          )
         }
       />
       <PageBody>
@@ -67,9 +70,11 @@ function Projects() {
             title={m.projects_empty_title()}
             body={m.projects_empty_body()}
             action={
-              <Button onClick={() => setOpen(true)}>
-                <Plus /> {m.projects_new()}
-              </Button>
+              !guest && (
+                <Button onClick={() => setOpen(true)}>
+                  <Plus /> {m.projects_new()}
+                </Button>
+              )
             }
           />
         ) : (
@@ -99,7 +104,7 @@ function Projects() {
           </div>
         )}
       </PageBody>
-      <CreateProjectDialog tenant={tenant} open={open} onOpenChange={setOpen} />
+      {!guest && <CreateProjectDialog tenant={tenant} open={open} onOpenChange={setOpen} />}
     </>
   )
 }

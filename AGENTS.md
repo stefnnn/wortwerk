@@ -9,7 +9,7 @@ wortwerk is a translation management system with git flow.
 - git integration: github + bitbucket cloud, behind an abstraction
 - import / export translation files (po, json, yaml, ts/js object literals for now)
 - multiple projects per tenant, multiple locales per project
-- no access management for now, all users can do everything
+- no role matrix for now: workspace members can do everything, guests are scoped to projects (see Platform)
 - code repo on github.com/stefnnn/wortwerk -> ci/cd and deploy to "ssh one.adaptive-publishing.com" (user wortwerk), served at https://wortwerk.li, see docs/deploy.md
 
 ## Decisions
@@ -36,6 +36,7 @@ wortwerk is a translation management system with git flow.
 - single Postgres DB, every tenant-owned table has `tenant_id`, all queries scoped through a helper
 - background jobs: pg-boss, web only enqueues, worker processes. per-project serialization via a single `project` queue with pg-boss groups (`groupConcurrency: 1`), idempotent webhook handling
 - auth: Better Auth (magic links never create accounts, sign-up is explicit), path-based tenant (`/t/:tenantSlug/...`), users can belong to multiple tenants
+- guests: a workspace member with role `guest` only reaches the projects (and optionally locales) granted in `project_member`, can edit translations (all locales including source unless the grant lists some), comments and screenshots and use per-key machine translation there, and nothing else (no settings, keys, repo sync, bulk pre-translation, members). They are invited with a project selection (`invitation.grants`), count towards the plan's user limit, and don't get a workspace of their own. The scope is `Ctx.guest` (unset in the worker, webhooks and project-token contexts): core filters projects, keys and translation memory by it and checks locales on writes, and `requireTenant` only lets guests call the allow-listed routes in `apps/web/src/server/api/context.ts` (new routes are members-only until added)
 - plans modeled on the tenant from day one, limits (users, keys, machine translation) enforced in code; stripe only wires into this in phase 2
 - email: Resend behind a mail abstraction (magic links, invites)
 - file storage: local disk behind a storage abstraction (S3-compatible later)

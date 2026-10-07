@@ -89,15 +89,17 @@ function Sidebar({
         >
           <FolderKanban className="size-4" /> {m.nav_projects()}
         </Link>
-        <Link
-          to="/t/$tenant/settings"
-          params={{ tenant: tenant.slug }}
-          className={linkClass}
-          activeProps={{ className: activeClass }}
-          onClick={onNavigate}
-        >
-          <Settings className="size-4" /> {m.nav_settings()}
-        </Link>
+        {tenant.role !== 'guest' && (
+          <Link
+            to="/t/$tenant/settings"
+            params={{ tenant: tenant.slug }}
+            className={linkClass}
+            activeProps={{ className: activeClass }}
+            onClick={onNavigate}
+          >
+            <Settings className="size-4" /> {m.nav_settings()}
+          </Link>
+        )}
       </nav>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <p className="text-muted-foreground px-2.5 pb-1.5 text-xs font-medium">{m.nav_projects()}</p>

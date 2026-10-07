@@ -59,9 +59,20 @@ type Props = {
   onNext?: () => void
   // lists this key in every target locale
   onShowAll?: () => void
+  // a guest looking at a locale they may not edit
+  readOnly?: boolean
 }
 
-export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext, onShowAll }: Props) {
+export function KeyEditor({
+  tenant,
+  project,
+  item,
+  locale,
+  sourceLocale,
+  onNext,
+  onShowAll,
+  readOnly,
+}: Props) {
   const queryClient = useQueryClient()
   const isSource = locale === sourceLocale
   const sourcePlural = useMemo(() => parsePluralIcu(item.source ?? ''), [item.source])
@@ -211,6 +222,7 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext,
               <label key={category} className="grid grid-cols-[4rem_1fr] items-center gap-2">
                 <span className="text-muted-foreground font-mono text-xs">{category}</span>
                 <Input
+                  disabled={readOnly}
                   value={forms[category] ?? ''}
                   onChange={(e) => setForm(category, e.target.value)}
                   onKeyDown={(e) => {
@@ -223,7 +235,8 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext,
           </div>
         ) : (
           <Textarea
-            autoFocus
+            autoFocus={!readOnly}
+            disabled={readOnly}
             rows={4}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -264,7 +277,9 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext,
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        {readOnly && <p className="text-muted-foreground text-xs">{m.editor_read_only()}</p>}
+
+        <div className={cn('flex flex-wrap gap-2', readOnly && 'hidden')}>
           <Button type="submit" disabled={blocked || save.isPending || (!dirty && !onNext)}>
             <CornerDownLeft /> {onNext ? m.editor_save_next() : m.action_save()}
           </Button>

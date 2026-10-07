@@ -9,6 +9,7 @@ const { keyComment } = schema
 export const commentInput = z.object({ body: z.string().trim().min(1).max(5000) })
 
 export async function listComments(ctx: Ctx, keyId: string) {
+  await getKeyInTenant(ctx, keyId)
   return ctx.db.query.keyComment.findMany({
     where: and(eq(keyComment.tenantId, ctx.tenantId), eq(keyComment.keyId, keyId)),
     with: { user: { columns: { id: true, name: true, email: true } } },
@@ -27,6 +28,13 @@ export async function addComment(ctx: Ctx, keyId: string, input: z.input<typeof 
 }
 
 export async function deleteComment(ctx: Ctx, commentId: string) {
+  if (ctx.guest) {
+    const row = await ctx.db.query.keyComment.findFirst({
+      where: and(eq(keyComment.tenantId, ctx.tenantId), eq(keyComment.id, commentId)),
+      columns: { keyId: true },
+    })
+    if (row) await getKeyInTenant(ctx, row.keyId)
+  }
   await ctx.db
     .delete(keyComment)
     .where(and(eq(keyComment.tenantId, ctx.tenantId), eq(keyComment.id, commentId)))

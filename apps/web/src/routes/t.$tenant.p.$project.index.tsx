@@ -20,20 +20,24 @@ export const Route = createFileRoute('/t/$tenant/p/$project/')({
 
 function ProjectOverview() {
   const { tenant, project } = Route.useParams()
+  // runs, repo and source sync are workspace business: guests only see progress
+  const guest = Route.useRouteContext().tenant.role === 'guest'
   const details = useQuery(queries.project(tenant, project))
   const tenantInfo = useQuery(queries.tenant(tenant))
   // while machine translation runs, progress is polled
   const runs = useQuery({
     ...queries.runs(tenant, project),
+    enabled: !guest,
     refetchInterval: (q) =>
       q.state.data?.some((r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'))
         ? 5000
         : false,
   })
-  const sourceSync = useQuery(queries.sourceSync(tenant, project))
+  const sourceSync = useQuery({ ...queries.sourceSync(tenant, project), enabled: !guest })
   // a merged pull request arrives via webhook and pull job, so an unsynced status is polled
   const repo = useQuery({
     ...queries.repo(tenant, project),
+    enabled: !guest,
     refetchInterval: (q) =>
       q.state.data?.exportState && q.state.data.exportState !== 'synced' ? 10_000 : false,
   })
@@ -65,7 +69,8 @@ function ProjectOverview() {
         (r.params as { locale?: string }).locale === locale &&
         Date.now() - new Date(r.startedAt ?? r.createdAt).getTime() < 10 * 60_000,
     )
-  const canMachine = tenantInfo.data?.features.machineTranslation ?? false
+  // pre-translating a whole language is a bulk job: members only
+  const canMachine = (tenantInfo.data?.features.machineTranslation ?? false) && !guest
 
   if (!stats.data || !details.data) {
     return (

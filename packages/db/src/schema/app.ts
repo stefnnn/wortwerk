@@ -44,6 +44,25 @@ export const project = pgTable(
   (t) => [unique().on(t.tenantId, t.slug)],
 )
 
+// Scoped access for guests (workspace members with role "guest"): they only reach projects listed here.
+// `locales` null = every locale of the project, otherwise only the listed ones can be edited.
+export const projectMember = pgTable(
+  'project_member',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: text()
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    locales: jsonb().$type<string[] | null>(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique().on(t.projectId, t.userId), index().on(t.tenantId, t.userId)],
+)
+
 export const projectLocale = pgTable(
   'project_locale',
   {

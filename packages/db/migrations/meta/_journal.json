@@ -43,6 +43,13 @@
       "when": 1791385011808,
       "tag": "0005_locale_instructions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791394861318,
+      "tag": "0006_guest_access",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,15 @@ export async function tmSuggestions(
   })
   if (!source?.value) return []
 
+  // guests only get matches from the projects they can see
+  const scope = ctx.guest
+    ? sql`and p.id in (${sql.join(
+        [...ctx.guest.keys()].map((id) => sql`${id}`),
+        sql`, `,
+      )})`
+    : sql``
+  if (ctx.guest && !ctx.guest.size) return []
+
   const result = await ctx.db.execute<TmSuggestion>(sql`
     select distinct on (tgt.value)
       tgt.value as "value",
@@ -41,6 +50,7 @@ export async function tmSuggestions(
     where src.tenant_id = ${ctx.tenantId}
       and src.key_id <> ${keyId}
       and src.value % ${source.value}
+      ${scope}
     order by tgt.value, similarity(src.value, ${source.value}) desc
   `)
   return result.rows.sort((a, b) => b.score - a.score).slice(0, limit)
