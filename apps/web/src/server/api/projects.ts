@@ -101,7 +101,8 @@ const project = new Hono<Env>()
     if (!fileId) {
       const pattern = form.path?.trim() || form.file.name.replace(form.locale, '%locale%')
       const format = formatFromPath(form.file.name)
-      if (!format) throw new DomainError('invalid', 'Unsupported file type, use .json, .yml/.yaml or .po')
+      if (!format)
+        throw new DomainError('invalid', 'Unsupported file type, use .json, .yml/.yaml, .po or .ts/.js')
       const path = pattern.includes('%locale%') ? pattern : `%locale%/${pattern}`
       fileId = (await upsertFile(ctx, p.id, { path, format })).id
     } else if ((await getFile(ctx, fileId)).projectId !== p.id) {

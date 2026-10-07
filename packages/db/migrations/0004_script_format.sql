@@ -1,0 +1,1 @@
+ALTER TYPE "public"."file_format" ADD VALUE 'script';

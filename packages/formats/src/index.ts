@@ -1,5 +1,6 @@
 import { parseJson, serializeJson } from './json.ts'
 import { parsePo, patchPo, serializePo } from './po.ts'
+import { parseScriptFile, serializeScript } from './script.ts'
 import type { Entry, FileFormat, ParseContext, ParseResult, SerializeContext } from './types.ts'
 import { parseYaml, serializeYaml } from './yaml.ts'
 
@@ -7,7 +8,7 @@ export * from './types.ts'
 export * from './icu.ts'
 export { defaultPluralForms } from './plural-forms.ts'
 
-export const fileFormats: FileFormat[] = ['json', 'yaml', 'po']
+export const fileFormats: FileFormat[] = ['json', 'yaml', 'po', 'script']
 
 const adapters: {
   [F in FileFormat]: {
@@ -18,6 +19,7 @@ const adapters: {
   json: { parse: parseJson, serialize: serializeJson },
   yaml: { parse: parseYaml, serialize: serializeYaml },
   po: { parse: parsePo, serialize: serializePo },
+  script: { parse: parseScriptFile, serialize: serializeScript },
 }
 
 export function parseFile<F extends FileFormat>(
@@ -41,6 +43,7 @@ export function formatFromPath(path: string): FileFormat | null {
   if (ext === 'json') return 'json'
   if (ext === 'yml' || ext === 'yaml') return 'yaml'
   if (ext === 'po' || ext === 'pot') return 'po'
+  if (ext && ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].includes(ext)) return 'script'
   return null
 }
 

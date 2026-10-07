@@ -29,6 +29,13 @@
       "when": 1791359033133,
       "tag": "0003_source_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791376874549,
+      "tag": "0004_script_format",
+      "breakpoints": true
     }
   ]
 }

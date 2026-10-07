@@ -18,7 +18,7 @@ const updatedAt = () =>
     .notNull()
 const userRef = () => text().references(() => user.id, { onDelete: 'set null' })
 
-export const fileFormat = pgEnum('file_format', ['json', 'yaml', 'po'])
+export const fileFormat = pgEnum('file_format', ['json', 'yaml', 'po', 'script'])
 export const translationStatus = pgEnum('translation_status', [
   'untranslated',
   'translated',

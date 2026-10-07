@@ -9,7 +9,7 @@ apps/web         TanStack Start app, Hono API at /api/*, marketing site + admin 
 apps/worker      pg-boss consumer (imports, git pull / push, machine translation, auto-export sweep)
 packages/db      Drizzle schema, migrations, client
 packages/core    tenant-scoped domain services
-packages/formats JSON / YAML / PO adapters, ICU conversion
+packages/formats JSON / YAML / PO / TS+JS (static, never executed) adapters, ICU conversion
 packages/git     GitHub App + Bitbucket Cloud clients, webhook signatures
 packages/jobs    queue names + typed payloads
 packages/mail    mail abstraction (console, Resend)

@@ -112,14 +112,15 @@ export const fileInput = z.object({
     .min(1)
     .max(300)
     .refine((p) => p.includes('%locale%'), 'Path must contain %locale%'),
-  format: z.enum(['json', 'yaml', 'po']).optional(),
+  format: z.enum(['json', 'yaml', 'po', 'script']).optional(),
   options: z.record(z.string(), z.unknown()).default({}),
 })
 
 export async function upsertFile(ctx: Ctx, projectId: string, input: z.input<typeof fileInput>) {
   const parsed = fileInput.parse(input)
   const format = parsed.format ?? formatFromPath(parsed.path)
-  if (!format) throw new DomainError('invalid', 'Unsupported file type, use .json, .yml/.yaml or .po')
+  if (!format)
+    throw new DomainError('invalid', 'Unsupported file type, use .json, .yml/.yaml, .po or .ts/.js')
   const data = { ...parsed, format }
   const [row] = await ctx.db
     .insert(projectFile)

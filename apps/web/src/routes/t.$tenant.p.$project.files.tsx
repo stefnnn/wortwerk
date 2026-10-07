@@ -335,7 +335,7 @@ export function ImportCard({
               <input
                 type="file"
                 className="sr-only"
-                accept=".json,.yml,.yaml,.po,.pot"
+                accept=".json,.yml,.yaml,.po,.pot,.ts,.js,.mjs,.cjs,.mts,.cts"
                 onChange={(e) => {
                   const chosen = e.target.files?.[0] ?? null
                   setFile(chosen)

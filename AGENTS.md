@@ -7,7 +7,7 @@ wortwerk is a translation management system with git flow.
 - hono / drizzleORM / postgres / pg-boss / tanstack start / tanstack query / zod / pnpm / oxlint / oxfmt
 - lucide icons / tailwind4 / shadcdn/ui with base-ui / light/dark theme system with tokens
 - git integration: github + bitbucket cloud, behind an abstraction
-- import / export translation files (po, json, yaml for now)
+- import / export translation files (po, json, yaml, ts/js object literals for now)
 - multiple projects per tenant, multiple locales per project
 - no access management for now, all users can do everything
 - code repo on github.com/stefnnn/wortwerk -> ci/cd and deploy to "ssh one.adaptive-publishing.com" (user wortwerk), served at https://wortwerk.li, see docs/deploy.md

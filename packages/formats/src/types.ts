@@ -23,12 +23,18 @@ export type YamlOptions = {
 
 export type PoOptions = Record<string, never>
 
-export type FileFormat = 'json' | 'yaml' | 'po'
+export type ScriptOptions = {
+  exportName?: string
+  interpolation?: Interpolation
+}
+
+export type FileFormat = 'json' | 'yaml' | 'po' | 'script'
 
 export type FormatOptions = {
   json: JsonOptions
   yaml: YamlOptions
   po: PoOptions
+  script: ScriptOptions
 }
 
 export type ParseContext<F extends FileFormat> = {
