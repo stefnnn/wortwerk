@@ -46,12 +46,13 @@ type Queued =
 
 export async function queueRun(ctx: Ctx, projectId: string, job: Queued) {
   const run = await createSyncRun(ctx, projectId, job.kind, job.params)
-  await enqueueProjectJob(await getBoss(), {
-    type: job.kind,
-    tenantId: ctx.tenantId,
-    projectId,
-    syncRunId: run.id,
-  })
+  const base = { tenantId: ctx.tenantId, projectId, syncRunId: run.id }
+  await enqueueProjectJob(
+    await getBoss(),
+    job.kind === 'machine'
+      ? { type: 'machine', ...base, locale: job.params.locale }
+      : { type: job.kind, ...base },
+  )
   return run
 }
 

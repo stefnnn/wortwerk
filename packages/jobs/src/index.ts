@@ -7,7 +7,7 @@ export const projectJob = z.discriminatedUnion('type', [
   z.object({ type: z.literal('import'), ...base, syncRunId: z.string() }),
   z.object({ type: z.literal('pull'), ...base, syncRunId: z.string() }),
   z.object({ type: z.literal('push'), ...base, syncRunId: z.string().optional() }),
-  z.object({ type: z.literal('machine'), ...base, syncRunId: z.string() }),
+  z.object({ type: z.literal('machine'), ...base, syncRunId: z.string(), locale: z.string() }),
 ])
 export type ProjectJob = z.infer<typeof projectJob>
 
@@ -59,7 +59,10 @@ export async function ensureQueues(boss: PgBoss) {
 }
 
 export async function enqueueProjectJob(boss: PgBoss, job: ProjectJob, options: SendOptions = {}) {
-  return boss.send(queues.project, projectJob.parse(job), { ...options, group: { id: job.projectId } })
+  // git and import jobs are serialized per project. Machine translation only writes its own locale's
+  // translations, so it is grouped per locale and different locales can run in parallel.
+  const group = job.type === 'machine' ? `${job.projectId}:machine:${job.locale}` : job.projectId
+  return boss.send(queues.project, projectJob.parse(job), { ...options, group: { id: group } })
 }
 
 export type { PgBoss }
