@@ -17,6 +17,11 @@ export function formatDateTime(value: string | Date | null | undefined) {
   )
 }
 
+export function formatDate(value: string | Date | null | undefined) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium' }).format(new Date(value))
+}
+
 export function formatNumber(value: number) {
   return new Intl.NumberFormat(getLocale()).format(value)
 }

@@ -424,5 +424,10 @@
   "members_guest_hint": "Guests only see the projects you select and can edit translations, but cannot change settings.",
   "members_role": "Role",
   "members_role_guest": "Guest",
-  "members_role_member": "Member"
+  "members_role_member": "Member",
+  "workspace_title": "Workspace",
+  "workspace_renamed": "Workspace renamed",
+  "members_role_owner": "Owner",
+  "members_joined": "Joined {date}",
+  "members_you": "You"
 }

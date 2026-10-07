@@ -1,11 +1,12 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { GitBranch, MailPlus, Trash2, UserPen } from 'lucide-react'
+import { Crown, GitBranch, Mail, MailPlus, Trash2, User, UserPen, UserRound } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { GrantsPicker, GuestAccessDialog, grantsSummary, type Grant } from '#/components/app/guest-access.tsx'
 import { PageBody, PageHeader } from '#/components/app/page.tsx'
+import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { t, unwrap } from '#/lib/api.ts'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
@@ -15,7 +16,7 @@ import { NativeSelect } from '#/components/ui/native-select.tsx'
 import { Progress } from '#/components/ui/progress.tsx'
 import { Skeleton } from '#/components/ui/skeleton.tsx'
 import { authClient } from '#/lib/auth-client.ts'
-import { formatDateTime, formatNumber, percent } from '#/lib/format.ts'
+import { formatDate, formatDateTime, formatNumber, percent } from '#/lib/format.ts'
 import { useAction } from '#/lib/mutations.ts'
 import { queries } from '#/lib/queries.ts'
 import { m } from '#/paraglide/messages.js'
@@ -46,6 +47,8 @@ function TenantSettings() {
   })
   const projects = useQuery(queries.projects(slug))
   const access = useQuery(queries.access(slug))
+  const router = useRouter()
+  const [name, setName] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'member' | 'guest'>('member')
   const [grants, setGrants] = useState<Grant[]>([])
@@ -57,6 +60,24 @@ function TenantSettings() {
       .map(({ projectId, locales }) => ({ projectId, locales })) ?? []
 
   const organizationId = tenant.data?.id ?? ''
+  const nameValue = name ?? tenant.data?.name ?? ''
+  const rename = useAction(
+    async () => {
+      const { error } = await authClient.organization.update({
+        data: { name: nameValue.trim() },
+        organizationId,
+      })
+      if (error) throw new Error(error.message ?? m.error_generic())
+    },
+    {
+      invalidate: [queries.tenant(slug).queryKey],
+      success: m.workspace_renamed(),
+      onSuccess: () => {
+        setName(null)
+        void router.invalidate()
+      },
+    },
+  )
   const invite = useAction(
     async () => {
       const { error } = await authClient.organization.inviteMember({
@@ -116,6 +137,40 @@ function TenantSettings() {
     <>
       <PageHeader title={m.nav_settings()} description={tenant.data?.name} />
       <PageBody className="grid max-w-4xl gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{m.workspace_title()}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                rename.mutate(undefined)
+              }}
+            >
+              <Input
+                required
+                aria-label={m.field_workspace_name()}
+                maxLength={120}
+                value={nameValue}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <Button
+                type="submit"
+                disabled={
+                  rename.isPending ||
+                  !organizationId ||
+                  !nameValue.trim() ||
+                  nameValue.trim() === tenant.data?.name
+                }
+              >
+                {m.action_save()}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -191,17 +246,26 @@ function TenantSettings() {
             <ul className="divide-y rounded-lg border">
               {organization.data?.members.map((member) => (
                 <li key={member.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                  <Avatar className="size-9">
+                    {member.user.image && <AvatarImage src={member.user.image} alt="" />}
+                    <AvatarFallback className="text-xs">
+                      {(member.user.name || member.user.email).slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 truncate font-medium">
-                      {member.user.name}
-                      {member.role === 'guest' && <Badge variant="outline">{m.members_role_guest()}</Badge>}
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                      <span className="truncate">{member.user.name}</span>
+                      {member.userId === viewer.user.id && (
+                        <span className="text-muted-foreground text-xs font-normal">{m.members_you()}</span>
+                      )}
+                      <RoleBadge role={member.role} />
                     </p>
                     <p className="text-muted-foreground truncate">{member.user.email}</p>
-                    {member.role === 'guest' && (
-                      <p className="text-muted-foreground truncate text-xs">
-                        {grantsSummary(grantsOf(member.userId), projectList) || m.guest_access_none()}
-                      </p>
-                    )}
+                    <p className="text-muted-foreground truncate text-xs">
+                      {m.members_joined({ date: formatDate(member.createdAt) })}
+                      {member.role === 'guest' &&
+                        ` · ${grantsSummary(grantsOf(member.userId), projectList) || m.guest_access_none()}`}
+                    </p>
                   </div>
                   {member.role === 'guest' && (
                     <Button
@@ -227,12 +291,13 @@ function TenantSettings() {
               ))}
               {pending.map((invitation) => (
                 <li key={invitation.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                  <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full">
+                    <Mail className="size-4" />
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 truncate">
-                      {invitation.email}
-                      {invitation.role === 'guest' && (
-                        <Badge variant="outline">{m.members_role_guest()}</Badge>
-                      )}
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="truncate">{invitation.email}</span>
+                      <RoleBadge role={invitation.role ?? 'member'} />
                     </p>
                     {invitation.role === 'guest' && (
                       <p className="text-muted-foreground truncate text-xs">
@@ -265,6 +330,26 @@ function TenantSettings() {
         />
       )}
     </>
+  )
+}
+
+function RoleBadge({ role }: { role: string }) {
+  if (role === 'owner')
+    return (
+      <Badge>
+        <Crown /> {m.members_role_owner()}
+      </Badge>
+    )
+  if (role === 'guest')
+    return (
+      <Badge variant="outline">
+        <UserRound /> {m.members_role_guest()}
+      </Badge>
+    )
+  return (
+    <Badge variant="secondary">
+      <User /> {m.members_role_member()}
+    </Badge>
   )
 }
 
