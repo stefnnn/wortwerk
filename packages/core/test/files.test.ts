@@ -68,6 +68,29 @@ describe('file import / export', () => {
 `)
   })
 
+  it("exports a script file by patching the locale's own file, not the source", async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['bg'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'src/%locale%.ts', format: 'script' })
+    const input = { projectId: project.id, fileId: file.id }
+    await importFileContent(ctx, {
+      ...input,
+      locale: 'en',
+      content: `const en = {\n  home: "Home",\n  save: "Save",\n} as const;\n\nexport default en;\nexport type Translations = typeof en;\n`,
+    })
+    const bg = `const bg = {\n  home: 'Начало',\n} as const;\n\nexport default bg;\n`
+    await importFileContent(ctx, { ...input, locale: 'bg', content: bg })
+
+    const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'bg' })
+    expect(exported.path).toBe('src/bg.ts')
+    expect(exported.content).toBe(bg)
+  })
+
   it('soft-deletes, restores and flags changed source strings', async () => {
     const ctx = await createTenant()
     const project = await createProject(ctx, {
