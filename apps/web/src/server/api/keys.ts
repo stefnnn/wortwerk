@@ -6,7 +6,10 @@ import {
   addScreenshot,
   commentInput,
   createKey,
+  bulkStatuses,
   createKeyInput,
+  keySelection,
+  setTranslationStatusBulk,
   deleteComment,
   deleteScreenshot,
   listComments,
@@ -45,6 +48,22 @@ export const projectKeys = new Hono<Env>()
       const { keyIds, obsolete } = c.req.valid('json')
       await setKeysObsolete(c.get('ctx'), keyIds, obsolete)
       return c.body(null, 204)
+    },
+  )
+  .post(
+    '/status',
+    validate('json', z.object({ locale: z.string(), status: z.enum(bulkStatuses), selection: keySelection })),
+    async (c) => {
+      const body = c.req.valid('json')
+      return c.json(
+        await setTranslationStatusBulk(
+          c.get('ctx'),
+          c.get('project').id,
+          body.locale,
+          body.status,
+          body.selection,
+        ),
+      )
     },
   )
   .post('/purge', async (c) =>

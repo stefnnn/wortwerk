@@ -1,13 +1,26 @@
-import { and, asc, count, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  notInArray,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { schema } from '@wortwerk/db'
 import { z } from 'zod'
-import { DomainError, notFound, type Ctx } from './context.ts'
+import { DomainError, chunks, notFound, type Ctx } from './context.ts'
 import { assertKeyCapacity } from './limits.ts'
 import { getProject } from './projects.ts'
-import { setTranslation, translationStatuses } from './translations.ts'
+import { setTranslation, translationStatuses, type TranslationStatus } from './translations.ts'
 
-const { translationKey, translation, keyComment, keyScreenshot } = schema
+const { translationKey, translation, translationRevision, keyComment, keyScreenshot } = schema
 
 export const listKeysInput = z.object({
   locale: z.string(),
@@ -19,15 +32,20 @@ export const listKeysInput = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 })
 
-export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeof listKeysInput>) {
-  const q = listKeysInput.parse(input)
-  const project = await getProject(ctx, { id: projectId })
+export const keyFilterInput = listKeysInput.omit({ limit: true, offset: true })
+
+function keyFilter(
+  ctx: Ctx,
+  project: { id: string; sourceLocale: string },
+  input: z.input<typeof keyFilterInput>,
+) {
+  const q = keyFilterInput.parse(input)
   const src = alias(translation, 'src')
   const tgt = alias(translation, 'tgt')
 
   const filters: Array<SQL | undefined> = [
     eq(translationKey.tenantId, ctx.tenantId),
-    eq(translationKey.projectId, projectId),
+    eq(translationKey.projectId, project.id),
     q.obsolete ? isNotNull(translationKey.obsoleteAt) : isNull(translationKey.obsoleteAt),
     q.fileId ? eq(translationKey.fileId, q.fileId) : undefined,
   ]
@@ -39,7 +57,13 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
       or(ilike(translationKey.name, pattern), ilike(src.value, pattern), ilike(tgt.value, pattern)),
     )
   }
-  const where = and(...filters)
+  return { q, src, tgt, where: and(...filters) }
+}
+
+export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeof listKeysInput>) {
+  const q = listKeysInput.parse(input)
+  const project = await getProject(ctx, { id: projectId })
+  const { src, tgt, where } = keyFilter(ctx, project, q)
 
   const base = ctx.db
     .select({
@@ -190,4 +214,90 @@ export async function purgeObsoleteKeys(ctx: Ctx, projectId: string) {
     )
     .returning({ id: translationKey.id })
   return deleted.length
+}
+
+export const keySelection = z.union([
+  z.object({ keyIds: z.array(z.string()).min(1).max(1000) }),
+  // everything matching the filter, minus the rows the user unticked
+  z.object({ filter: keyFilterInput, excludeKeyIds: z.array(z.string()).max(1000).default([]) }),
+])
+export type KeySelection = z.input<typeof keySelection>
+
+export async function resolveKeySelection(ctx: Ctx, projectId: string, input: KeySelection) {
+  const selection = keySelection.parse(input)
+  const project = await getProject(ctx, { id: projectId })
+  if ('keyIds' in selection) {
+    const rows = await ctx.db
+      .select({ id: translationKey.id })
+      .from(translationKey)
+      .where(
+        and(
+          eq(translationKey.tenantId, ctx.tenantId),
+          eq(translationKey.projectId, project.id),
+          inArray(translationKey.id, selection.keyIds),
+        ),
+      )
+    return rows.map((r) => r.id)
+  }
+  const { src, tgt, where, q } = keyFilter(ctx, project, selection.filter)
+  const rows = await ctx.db
+    .select({ id: translationKey.id })
+    .from(translationKey)
+    .leftJoin(src, and(eq(src.keyId, translationKey.id), eq(src.locale, project.sourceLocale)))
+    .leftJoin(tgt, and(eq(tgt.keyId, translationKey.id), eq(tgt.locale, q.locale)))
+    .where(
+      and(
+        where,
+        selection.excludeKeyIds.length ? notInArray(translationKey.id, selection.excludeKeyIds) : undefined,
+      ),
+    )
+    .orderBy(asc(translationKey.fileId), asc(translationKey.position), asc(translationKey.name))
+  return rows.map((r) => r.id)
+}
+
+export const bulkStatuses = ['translated', 'needs_review', 'approved'] as const
+
+/** Sets the review status of existing, non-empty translations. Keys without a translation are skipped. */
+export async function setTranslationStatusBulk(
+  ctx: Ctx,
+  projectId: string,
+  locale: string,
+  status: (typeof bulkStatuses)[number],
+  selection: KeySelection,
+) {
+  const project = await getProject(ctx, { id: projectId })
+  if (!project.locales.some((l) => l.code === locale))
+    throw new DomainError('invalid', `Locale ${locale} is not part of this project`)
+  const keyIds = await resolveKeySelection(ctx, projectId, selection)
+  let updated = 0
+  for (const batch of chunks(keyIds)) {
+    await ctx.db.transaction(async (tx) => {
+      const rows = await tx
+        .update(translation)
+        .set({ status: status satisfies TranslationStatus, updatedById: ctx.userId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(translation.tenantId, ctx.tenantId),
+            eq(translation.locale, locale),
+            inArray(translation.keyId, batch),
+            sql`${translation.value} <> ''`,
+            sql`${translation.status} <> ${status}`,
+          ),
+        )
+        .returning({ id: translation.id, value: translation.value })
+      if (rows.length)
+        await tx.insert(translationRevision).values(
+          rows.map((r) => ({
+            tenantId: ctx.tenantId,
+            translationId: r.id,
+            value: r.value,
+            status,
+            source: 'editor' as const,
+            userId: ctx.userId,
+          })),
+        )
+      updated += rows.length
+    })
+  }
+  return { selected: keyIds.length, updated }
 }

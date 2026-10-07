@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Image, KeyRound, MessageSquare, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
+import { BulkPanel, type KeySelection } from '#/components/app/bulk-panel.tsx'
 import { KeyEditor } from '#/components/app/key-editor.tsx'
 import { NewKeyDialog } from '#/components/app/new-key-dialog.tsx'
 import { EmptyState } from '#/components/app/page.tsx'
 import { StatusBadge, statusLabel, type Status } from '#/components/app/status.tsx'
 import { Button } from '#/components/ui/button.tsx'
+import { Checkbox } from '#/components/ui/checkbox.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { NativeSelect } from '#/components/ui/native-select.tsx'
 import { Sheet, SheetContent, SheetTitle } from '#/components/ui/sheet.tsx'
@@ -53,6 +55,7 @@ function Editor() {
   const desktop = useIsDesktop()
   const [query, setQuery] = useState(params.q ?? '')
   const [newKeyOpen, setNewKeyOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const targets =
     details.data?.locales.map((l) => l.code).filter((c) => c !== details.data.sourceLocale) ?? []
@@ -69,11 +72,37 @@ function Editor() {
     return () => clearTimeout(timer)
   }, [query, params.q, navigate])
 
+  // `picked` holds the ticked keys, or in `allMatching` mode the keys unticked from "all matching".
+  // The selection belongs to the filter it was made under and is ignored once the filter changes.
+  const filterKey = `${locale}|${params.status ?? ''}|${params.q ?? ''}`
+  const [sel, setSel] = useState({ filterKey: '', picked: new Set<string>(), allMatching: false })
+  const current =
+    sel.filterKey === filterKey ? sel : { filterKey, picked: new Set<string>(), allMatching: false }
+  const { picked, allMatching } = current
+
   const items = keys.data?.items ?? []
   const selectedIndex = items.findIndex((k) => k.id === params.key)
   const selected = selectedIndex >= 0 ? items[selectedIndex] : undefined
   const total = keys.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / pageSize))
+
+  const selectedCount = allMatching ? Math.max(0, total - picked.size) : picked.size
+  const bulk = selectedCount >= 2
+  const isPicked = (id: string) => (allMatching ? !picked.has(id) : picked.has(id))
+  const toggle = (id: string) => {
+    const next = new Set(picked)
+    if (!next.delete(id)) next.add(id)
+    setSel({ filterKey, picked: next, allMatching })
+  }
+  const allPicked = total > 0 && selectedCount === total
+  const toggleAll = () => setSel({ filterKey, picked: new Set(), allMatching: !allPicked })
+  const clearSelection = () => setSel({ filterKey, picked: new Set(), allMatching: false })
+  const selection: KeySelection = allMatching
+    ? {
+        filter: { locale, status: params.status, search: params.q },
+        excludeKeyIds: [...picked],
+      }
+    : { keyIds: [...picked] }
 
   const select = (key?: string) => navigate({ search: (s) => ({ ...s, key }), replace: true })
   const following = items[selectedIndex + 1]
@@ -90,6 +119,18 @@ function Editor() {
       locale={locale}
       sourceLocale={details.data.sourceLocale}
       onNext={next}
+    />
+  )
+
+  const bulkPanel = (
+    <BulkPanel
+      tenant={tenant}
+      project={project}
+      locale={locale}
+      isSource={locale === details.data.sourceLocale}
+      count={selectedCount}
+      selection={selection}
+      onClear={clearSelection}
     />
   )
 
@@ -156,41 +197,82 @@ function Editor() {
               <EmptyState icon={<KeyRound />} title={m.editor_empty_title()} body={m.editor_empty_body()} />
             </div>
           ) : (
-            <ul className="divide-y">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    onClick={() => select(item.id)}
-                    className={cn(
-                      'grid w-full gap-1 px-6 py-3 text-left hover:bg-muted/60 md:px-8',
-                      item.id === params.key && 'bg-accent hover:bg-accent',
-                    )}
-                  >
-                    <span className="flex items-center gap-2">
-                      <code className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
-                        {item.context && <span className="text-[var(--amber-11)]">{item.context} · </span>}
-                        {item.name}
-                      </code>
-                      {item.comments > 0 && (
-                        <span className="text-muted-foreground flex items-center gap-0.5 text-xs">
-                          <MessageSquare className="size-3" /> {item.comments}
+            <>
+              <div className="text-muted-foreground flex items-center gap-3 border-b py-2 pr-6 pl-1.5 text-sm md:pr-8 md:pl-3">
+                <Checkbox
+                  checked={allPicked}
+                  indeterminate={selectedCount > 0 && !allPicked}
+                  onCheckedChange={toggleAll}
+                  aria-label={m.editor_select_all()}
+                />
+                <span className="flex-1 tabular-nums">
+                  {selectedCount > 0
+                    ? m.editor_selected({ count: formatNumber(selectedCount) })
+                    : m.editor_select_all()}
+                </span>
+                {!desktop && bulk && (
+                  <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)}>
+                    {m.editor_bulk_actions()}
+                  </Button>
+                )}
+              </div>
+              <ul className="divide-y">
+                {items.map((item) => (
+                  <li key={item.id} className="group/row relative">
+                    <Checkbox
+                      checked={isPicked(item.id)}
+                      onCheckedChange={() => toggle(item.id)}
+                      aria-label={m.editor_select_key_row()}
+                      className={cn(
+                        'absolute top-3 left-1.5 z-10 bg-background md:left-3',
+                        'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-checked:opacity-100 pointer-coarse:opacity-100',
+                      )}
+                    />
+                    <button
+                      onClick={() => select(item.id)}
+                      className={cn(
+                        'grid w-full grid-cols-[minmax(0,1fr)] gap-1 px-6 py-3 text-left hover:bg-muted/60 md:px-8',
+                        isPicked(item.id) && 'bg-accent/50',
+                        !bulk && item.id === params.key && 'bg-accent hover:bg-accent',
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        {/* rtl + bdi puts the ellipsis at the start, so the end of long keys stays visible */}
+                        <code
+                          title={item.name}
+                          className="text-muted-foreground min-w-0 flex-1 truncate text-left text-xs [direction:rtl]"
+                        >
+                          <bdi>
+                            {item.context && (
+                              <span className="text-[var(--amber-11)]">{item.context} · </span>
+                            )}
+                            {item.name}
+                          </bdi>
+                        </code>
+                        {item.comments > 0 && (
+                          <span className="text-muted-foreground flex items-center gap-0.5 text-xs">
+                            <MessageSquare className="size-3" /> {item.comments}
+                          </span>
+                        )}
+                        {item.screenshots > 0 && <Image className="text-muted-foreground size-3" />}
+                        <StatusBadge status={item.status as Status} />
+                      </span>
+                      <span className="line-clamp-1 text-sm">{item.source ?? '—'}</span>
+                      {locale !== details.data.sourceLocale && (
+                        <span
+                          className={cn(
+                            'line-clamp-1 text-sm',
+                            !item.value && 'text-muted-foreground italic',
+                          )}
+                        >
+                          {item.value || m.editor_missing()}
                         </span>
                       )}
-                      {item.screenshots > 0 && <Image className="text-muted-foreground size-3" />}
-                      <StatusBadge status={item.status as Status} />
-                    </span>
-                    <span className="line-clamp-1 text-sm">{item.source ?? '—'}</span>
-                    {locale !== details.data.sourceLocale && (
-                      <span
-                        className={cn('line-clamp-1 text-sm', !item.value && 'text-muted-foreground italic')}
-                      >
-                        {item.value || m.editor_missing()}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
           <div className="text-muted-foreground flex items-center justify-between border-t px-6 py-3 text-sm md:px-8">
             <span>{m.editor_count({ count: formatNumber(total) })}</span>
@@ -223,16 +305,26 @@ function Editor() {
         {desktop ? (
           <aside className="hidden min-w-0 lg:block">
             <div className="sticky top-0 max-h-dvh overflow-y-auto">
-              {editor ?? <p className="text-muted-foreground p-8 text-sm">{m.editor_select_key()}</p>}
+              {bulk
+                ? bulkPanel
+                : (editor ?? <p className="text-muted-foreground p-8 text-sm">{m.editor_select_key()}</p>)}
             </div>
           </aside>
         ) : (
-          <Sheet open={!!selected} onOpenChange={(open) => !open && select(undefined)}>
-            <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-lg">
-              <SheetTitle className="sr-only">{selected?.name}</SheetTitle>
-              {editor}
-            </SheetContent>
-          </Sheet>
+          <>
+            <Sheet open={!!selected && !bulk} onOpenChange={(open) => !open && select(undefined)}>
+              <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-lg">
+                <SheetTitle className="sr-only">{selected?.name}</SheetTitle>
+                {editor}
+              </SheetContent>
+            </Sheet>
+            <Sheet open={bulk && bulkOpen} onOpenChange={setBulkOpen}>
+              <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-lg">
+                <SheetTitle className="sr-only">{m.editor_bulk_actions()}</SheetTitle>
+                {bulkPanel}
+              </SheetContent>
+            </Sheet>
+          </>
         )}
       </div>
       <NewKeyDialog

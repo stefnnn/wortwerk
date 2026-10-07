@@ -8,6 +8,7 @@ import {
   gitClientFor,
   importFileContent,
   machineTranslateProject,
+  type KeySelection,
   openRouterTranslator,
   pullFromRepo,
   pushToRepo,
@@ -122,7 +123,11 @@ async function runMachine(job: Job<'machine'>) {
       model: process.env.MT_MODEL || 'openai/gpt-6-luna',
       appUrl: process.env.APP_URL,
     })
-    return machineTranslateProject(ctx, translator, { projectId: job.projectId, ...params })
+    return machineTranslateProject(ctx, translator, {
+      projectId: job.projectId,
+      ...params,
+      selection: params.selection as KeySelection | undefined,
+    })
   })
 }
 

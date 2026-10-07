@@ -41,6 +41,8 @@ export type PushParams = z.input<typeof pushParams>
 export const machineParams = z.object({
   locale: z.string(),
   keyIds: z.array(z.string()).optional(),
+  // validated by core (keySelection) when the job runs
+  selection: z.record(z.string(), z.unknown()).optional(),
 })
 export type MachineParams = z.input<typeof machineParams>
 

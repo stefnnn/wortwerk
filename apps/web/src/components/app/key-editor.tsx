@@ -100,8 +100,8 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
   const dirty = draft !== (item.value ?? '')
 
   return (
-    <div className="grid gap-5 p-6">
-      <div>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 p-6">
+      <div className="min-w-0">
         <code className="text-sm break-all">{item.name}</code>
         {item.context && (
           <Badge variant="outline" className="ml-2">
@@ -224,7 +224,6 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
                 <Button
                   type="button"
                   variant="ghost"
-                  className="ml-auto"
                   disabled={machine.isPending}
                   onClick={() => machine.mutate(undefined)}
                 >

@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
+  keySelection,
   DomainError,
   assertMachineTranslation,
   createProjectToken,
@@ -161,7 +162,14 @@ export const projectGit = new Hono<Env>()
   })
   .post(
     '/machine',
-    validate('json', z.object({ locale: localeCode, keyIds: z.array(z.string()).max(1000).optional() })),
+    validate(
+      'json',
+      z.object({
+        locale: localeCode,
+        keyIds: z.array(z.string()).max(1000).optional(),
+        selection: keySelection.optional(),
+      }),
+    ),
     async (c) => {
       const ctx = c.get('ctx')
       await assertMachineTranslation(ctx)

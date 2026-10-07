@@ -3,6 +3,7 @@ import { schema } from '@wortwerk/db'
 import { icuArguments, localePluralCategories, parsePluralIcu, validateIcu } from '@wortwerk/formats'
 import { DomainError, chunks, type Ctx } from './context.ts'
 import { assertMachineTranslation } from './limits.ts'
+import { resolveKeySelection, type KeySelection } from './keys.ts'
 import { getProject } from './projects.ts'
 import { getKeyInTenant, setTranslation } from './translations.ts'
 
@@ -143,7 +144,13 @@ export async function suggestMachineTranslation(
 export async function machineTranslateProject(
   ctx: Ctx,
   translator: Translator,
-  input: { projectId: string; locale: string; keyIds?: string[]; batchSize?: number },
+  input: {
+    projectId: string
+    locale: string
+    keyIds?: string[]
+    selection?: KeySelection
+    batchSize?: number
+  },
 ) {
   await assertMachineTranslation(ctx)
   const project = await getProject(ctx, { id: input.projectId })
@@ -151,6 +158,13 @@ export async function machineTranslateProject(
   if (!project.locales.some((l) => l.code === input.locale)) {
     throw new DomainError('invalid', `Locale ${input.locale} is not part of this project`)
   }
+
+  const keyIds = input.selection
+    ? await resolveKeySelection(ctx, project.id, input.selection)
+    : input.keyIds?.length
+      ? input.keyIds
+      : undefined
+  if (keyIds && !keyIds.length) return { requested: 0, translated: 0, failed: [] }
 
   const rows = await ctx.db.execute<{ id: string; name: string; description: string; text: string }>(sql`
     select k.id, k.name, k.description, src.value as text
@@ -162,7 +176,7 @@ export async function machineTranslateProject(
       and k.obsolete_at is null
       and src.value <> ''
       and (tgt.id is null or tgt.status = 'untranslated' or tgt.value = '')
-      ${input.keyIds?.length ? sql`and k.id in ${input.keyIds}` : sql``}
+      ${keyIds ? sql`and k.id = any(${sql.param(keyIds)}::text[])` : sql``}
     order by k.position
   `)
 
