@@ -20,7 +20,7 @@ id wortwerk >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker wortwerk
 install -d -m 700 -o wortwerk -g wortwerk /home/wortwerk/.ssh
 keys=/home/wortwerk/.ssh/authorized_keys
 touch \$keys
-for k in "\$(cat /home/ubuntu/.ssh/authorized_keys)" "$(cat "$KEY.pub")"; do
+for k in "\$(cat /home/ubuntu/.ssh/authorized_keys)"; do
   printf '%s\n' "\$k" | while read -r line; do
     [ -n "\$line" ] && ! grep -qxF "\$line" \$keys && echo "\$line" >> \$keys
   done
@@ -35,6 +35,11 @@ command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/nu
 cat /home/wortwerk/.ssh/id_ed25519.pub
 EOF
 )
+
+echo "==> install restricted GitHub Actions deploy command"
+ssh "$ADMIN_HOST" 'sudo install -D -o root -g root -m 755 /dev/stdin /usr/local/libexec/wortwerk-deploy-command' < deploy/ssh-deploy-command.sh
+ssh "$ADMIN_HOST" 'sudo install -D -o root -g root -m 755 /dev/stdin /usr/local/libexec/wortwerk-install-actions-key' < deploy/install-actions-key.sh
+ssh "$ADMIN_HOST" 'sudo /usr/local/libexec/wortwerk-install-actions-key' < "$KEY.pub"
 
 echo "==> GitHub: read-only deploy key + Actions secrets"
 gh repo deploy-key list -R "$REPO" | grep -q 'wortwerk@one' || \

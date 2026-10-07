@@ -14,7 +14,7 @@ From a machine that can `ssh one` (ubuntu with sudo) and has `gh` logged in:
 
 This is idempotent and:
 
-1. creates the `wortwerk` user (in the `docker` group) with your keys plus a GitHub Actions key (`~/.ssh/wortwerk_actions`)
+1. creates the `wortwerk` user (in the `docker` group) with your keys plus a GitHub Actions key (`~/.ssh/wortwerk_actions`) restricted to the deploy command
 2. opens 80/443 in iptables and persists the rules
 3. adds a read-only deploy key for the repo and the `DEPLOY_*` Actions secrets
 4. clones the repo and writes `~/app/.env` (only if missing) with generated secrets and the Resend / OpenRouter keys from your local `.env`
@@ -25,6 +25,8 @@ If the site is unreachable from outside afterwards, check the Oracle Cloud VCN s
 ## Continuous deployment
 
 Every push to `main` runs CI. When it passes, the `deploy` job runs `~/app/deploy/deploy.sh <sha>` over SSH, which resets the checkout, rebuilds and restarts with `docker compose up -d --build --wait`. Migrations run before `web` and `worker` start.
+
+The Actions key in `authorized_keys` has `restrict` and a root-owned forced command. It accepts only the deploy command for the current tip of `main`; it cannot open a shell or deploy an arbitrary ref. Administrative SSH access remains separate for manual deploys and rollbacks.
 
 Manual deploy or rollback: `ssh wortwerk@one.adaptive-publishing.com '~/app/deploy/deploy.sh <sha>'`.
 
