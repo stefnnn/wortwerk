@@ -30,6 +30,8 @@ import { queries } from '#/lib/queries.ts'
 import { cn } from '#/lib/utils.ts'
 import { m } from '#/paraglide/messages.js'
 
+// locale filter value that lists every target locale
+const ALL_LOCALES = 'all'
 const statuses = ['untranslated', 'translated', 'needs_review', 'approved'] as const
 const pageSize = 50
 
@@ -72,6 +74,9 @@ function Editor() {
   const targets =
     details.data?.locales.map((l) => l.code).filter((c) => c !== details.data.sourceLocale) ?? []
   const locale = params.locale ?? targets[0] ?? details.data?.sourceLocale ?? ''
+  // one row per key and target locale
+  const all = locale === ALL_LOCALES
+  const rowKey = (item: { id: string; locale: string }) => (all ? `${item.id}:${item.locale}` : item.id)
   const page = params.page ?? 0
   const filters = {
     locale,
@@ -101,13 +106,13 @@ function Editor() {
   const { picked, allMatching } = current
 
   const items = keys.data?.items ?? []
-  const selectedIndex = items.findIndex((k) => k.id === params.key)
+  const selectedIndex = items.findIndex((k) => rowKey(k) === params.key)
   const selected = selectedIndex >= 0 ? items[selectedIndex] : undefined
   const total = keys.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / pageSize))
 
   const selectedCount = allMatching ? Math.max(0, total - picked.size) : picked.size
-  const bulk = selectedCount >= 2
+  const bulk = !all && selectedCount >= 2
   const isPicked = (id: string) => (allMatching ? !picked.has(id) : picked.has(id))
   const toggle = (id: string) => {
     const next = new Set(picked)
@@ -126,17 +131,32 @@ function Editor() {
 
   const select = (key?: string) => navigate({ search: (s) => ({ ...s, key }), replace: true })
   const following = items[selectedIndex + 1]
-  const next = following ? () => select(following.id) : undefined
+  const next = following ? () => select(rowKey(following)) : undefined
+  const showEverywhere = (name: string) => {
+    setQuery(name)
+    navigate({
+      search: (s) => ({
+        ...s,
+        locale: ALL_LOCALES,
+        q: name,
+        status: undefined,
+        sync: undefined,
+        key: undefined,
+        page: undefined,
+      }),
+    })
+  }
 
   if (!details.data) return <Skeleton className="m-8 h-96" />
 
   const editor = selected && (
     <KeyEditor
-      key={`${selected.id}:${locale}`}
+      key={`${selected.id}:${selected.locale}`}
       tenant={tenant}
       project={project}
       item={selected}
-      locale={locale}
+      locale={selected.locale}
+      onShowAll={all ? undefined : () => showEverywhere(selected.name)}
       sourceLocale={details.data.sourceLocale}
       onNext={next}
     />
@@ -163,6 +183,7 @@ function Editor() {
           aria-label={m.editor_locale()}
           onChange={(e) => navigate({ search: (s) => ({ ...s, locale: e.target.value, page: undefined }) })}
         >
+          {targets.length > 1 && <option value={ALL_LOCALES}>{m.editor_all_languages()}</option>}
           {[...targets, details.data.sourceLocale].map((code) => (
             <option key={code} value={code}>
               {code} · {localeName(code)}
@@ -230,7 +251,12 @@ function Editor() {
             </div>
           ) : (
             <>
-              <div className="text-muted-foreground flex items-center gap-3 border-b py-2 pr-6 pl-1.5 text-sm md:pr-8 md:pl-3">
+              <div
+                className={cn(
+                  'text-muted-foreground flex items-center gap-3 border-b py-2 pr-6 pl-1.5 text-sm md:pr-8 md:pl-3',
+                  all && 'hidden',
+                )}
+              >
                 <Checkbox
                   checked={allPicked}
                   indeterminate={selectedCount > 0 && !allPicked}
@@ -250,22 +276,23 @@ function Editor() {
               </div>
               <ul className="divide-y">
                 {items.map((item) => (
-                  <li key={item.id} className="group/row relative">
+                  <li key={rowKey(item)} className="group/row relative">
                     <Checkbox
                       checked={isPicked(item.id)}
                       onCheckedChange={() => toggle(item.id)}
                       aria-label={m.editor_select_key_row()}
                       className={cn(
                         'absolute top-3 left-1.5 z-10 bg-background md:left-3',
+                        all && 'hidden',
                         'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-checked:opacity-100 pointer-coarse:opacity-100',
                       )}
                     />
                     <button
-                      onClick={() => select(item.id)}
+                      onClick={() => select(rowKey(item))}
                       className={cn(
                         'grid w-full grid-cols-[minmax(0,1fr)] gap-1 px-6 py-3 text-left hover:bg-muted/60 md:px-8',
                         isPicked(item.id) && 'bg-accent/50',
-                        !bulk && item.id === params.key && 'bg-accent hover:bg-accent',
+                        !bulk && rowKey(item) === params.key && 'bg-accent hover:bg-accent',
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -287,6 +314,11 @@ function Editor() {
                           </span>
                         )}
                         {item.screenshots > 0 && <Image className="text-muted-foreground size-3" />}
+                        {all && (
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            {item.locale}
+                          </Badge>
+                        )}
                         <SyncBadge item={item} />
                         <StatusBadge status={item.status as Status} />
                       </span>

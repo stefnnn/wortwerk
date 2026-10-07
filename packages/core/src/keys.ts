@@ -7,6 +7,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  ne,
   notInArray,
   or,
   sql,
@@ -23,6 +24,7 @@ import { setTranslation, translationStatuses, type TranslationStatus } from './t
 const {
   translationKey,
   translation,
+  projectLocale,
   translationRevision,
   keyComment,
   keyScreenshot,
@@ -30,7 +32,10 @@ const {
   projectRepo,
 } = schema
 
+export const ALL_LOCALES = 'all'
+
 export const listKeysInput = z.object({
+  // a locale code, or ALL_LOCALES for one row per key and target locale
   locale: z.string(),
   status: z.enum(translationStatuses).optional(),
   // source sync state: wording not in the repo yet, or an open conflict with the repo
@@ -84,39 +89,52 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
   const project = await getProject(ctx, { id: projectId })
   const { src, tgt, where } = keyFilter(ctx, project, q)
 
-  const base = ctx.db
-    .select({
-      id: translationKey.id,
-      name: translationKey.name,
-      context: translationKey.context,
-      description: translationKey.description,
-      isPlural: translationKey.isPlural,
-      fileId: translationKey.fileId,
-      obsoleteAt: translationKey.obsoleteAt,
-      source: src.value,
-      value: tgt.value,
-      status: sql<string>`coalesce(${tgt.status}, 'untranslated')`,
-      updatedAt: tgt.updatedAt,
-      repoValue: src.repoValue,
-      conflict: sql<boolean>`exists ${openConflict}`,
-      comments: sql<number>`(select count(*)::int from ${keyComment} where ${keyComment.keyId} = ${translationKey.id})`,
-      screenshots: sql<number>`(select count(*)::int from ${keyScreenshot} where ${keyScreenshot.keyId} = ${translationKey.id})`,
-    })
-    .from(translationKey)
-    .leftJoin(src, and(eq(src.keyId, translationKey.id), eq(src.locale, project.sourceLocale)))
-    .leftJoin(tgt, and(eq(tgt.keyId, translationKey.id), eq(tgt.locale, q.locale)))
-    .where(where)
-
+  // one row per key and listed locale: the requested one, or every target locale
+  const localeRows = and(
+    eq(projectLocale.projectId, translationKey.projectId),
+    q.locale === ALL_LOCALES
+      ? ne(projectLocale.code, project.sourceLocale)
+      : eq(projectLocale.code, q.locale),
+  )
   const [items, [total]] = await Promise.all([
-    base
-      .orderBy(asc(translationKey.fileId), asc(translationKey.position), asc(translationKey.name))
+    ctx.db
+      .select({
+        id: translationKey.id,
+        locale: projectLocale.code,
+        name: translationKey.name,
+        context: translationKey.context,
+        description: translationKey.description,
+        isPlural: translationKey.isPlural,
+        fileId: translationKey.fileId,
+        obsoleteAt: translationKey.obsoleteAt,
+        source: src.value,
+        value: tgt.value,
+        status: sql<string>`coalesce(${tgt.status}, 'untranslated')`,
+        updatedAt: tgt.updatedAt,
+        repoValue: src.repoValue,
+        conflict: sql<boolean>`exists ${openConflict}`,
+        comments: sql<number>`(select count(*)::int from ${keyComment} where ${keyComment.keyId} = ${translationKey.id})`,
+        screenshots: sql<number>`(select count(*)::int from ${keyScreenshot} where ${keyScreenshot.keyId} = ${translationKey.id})`,
+      })
+      .from(translationKey)
+      .innerJoin(projectLocale, localeRows)
+      .leftJoin(src, and(eq(src.keyId, translationKey.id), eq(src.locale, project.sourceLocale)))
+      .leftJoin(tgt, and(eq(tgt.keyId, translationKey.id), eq(tgt.locale, projectLocale.code)))
+      .where(where)
+      .orderBy(
+        asc(translationKey.fileId),
+        asc(translationKey.position),
+        asc(translationKey.name),
+        asc(projectLocale.code),
+      )
       .limit(q.limit)
       .offset(q.offset),
     ctx.db
       .select({ n: count() })
       .from(translationKey)
+      .innerJoin(projectLocale, localeRows)
       .leftJoin(src, and(eq(src.keyId, translationKey.id), eq(src.locale, project.sourceLocale)))
-      .leftJoin(tgt, and(eq(tgt.keyId, translationKey.id), eq(tgt.locale, q.locale)))
+      .leftJoin(tgt, and(eq(tgt.keyId, translationKey.id), eq(tgt.locale, projectLocale.code)))
       .where(where),
   ])
   return { items, total: total?.n ?? 0 }

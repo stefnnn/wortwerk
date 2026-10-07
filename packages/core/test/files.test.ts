@@ -178,4 +178,34 @@ describe('file import / export', () => {
       projectName: 'A',
     })
   })
+
+  it('lists one row per key and target locale for all languages', async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['de', 'fr'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'locales/%locale%.json', format: 'json' })
+    await importFileContent(ctx, {
+      projectId: project.id,
+      fileId: file.id,
+      locale: 'en',
+      content: '{ "a": "A", "b": "B" }',
+    })
+    const [a] = (await listKeys(ctx, project.id, { locale: 'de' })).items
+    await setTranslation(ctx, a!.id, 'de', { value: 'A-de' })
+
+    const everything = await listKeys(ctx, project.id, { locale: 'all' })
+    expect(everything.total).toBe(4)
+    expect(everything.items.map((i) => [i.name, i.locale, i.status])).toEqual([
+      ['a', 'de', 'translated'],
+      ['a', 'fr', 'untranslated'],
+      ['b', 'de', 'untranslated'],
+      ['b', 'fr', 'untranslated'],
+    ])
+    const missing = await listKeys(ctx, project.id, { locale: 'all', status: 'untranslated' })
+    expect(missing.total).toBe(3)
+  })
 })

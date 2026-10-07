@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import {
   AlertTriangle,
+  ArrowUpRight,
   Check,
   CornerDownLeft,
   Eye,
@@ -27,6 +28,7 @@ import { Checkbox } from '#/components/ui/checkbox.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs.tsx'
 import { Textarea } from '#/components/ui/textarea.tsx'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip.tsx'
 import { t, unwrap } from '#/lib/api.ts'
 import { formatDateTime } from '#/lib/format.ts'
 import { useAction } from '#/lib/mutations.ts'
@@ -55,9 +57,11 @@ type Props = {
   locale: string
   sourceLocale: string
   onNext?: () => void
+  // opens this key in every target locale
+  onShowAll?: () => void
 }
 
-export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext }: Props) {
+export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext, onShowAll }: Props) {
   const queryClient = useQueryClient()
   const isSource = locale === sourceLocale
   const sourcePlural = useMemo(() => parsePluralIcu(item.source ?? ''), [item.source])
@@ -127,6 +131,24 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext 
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5 p-6">
       <div className="min-w-0">
         <code className="text-sm break-all">{item.name}</code>
+        {onShowAll && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="ml-1 align-text-bottom"
+                  aria-label={m.editor_show_all_languages()}
+                  onClick={onShowAll}
+                />
+              }
+            >
+              <ArrowUpRight />
+            </TooltipTrigger>
+            <TooltipContent>{m.editor_show_all_languages()}</TooltipContent>
+          </Tooltip>
+        )}
         {item.context && (
           <Badge variant="outline" className="ml-2">
             {item.context}
