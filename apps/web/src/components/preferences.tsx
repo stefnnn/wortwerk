@@ -39,7 +39,17 @@ export function ThemeToggle() {
   )
 }
 
-const localeNames: Record<string, string> = { en: 'English', de: 'Deutsch' }
+const localeNames: Record<string, string> = {
+  en: 'English',
+  de: 'Deutsch',
+  fr: 'Français',
+  it: 'Italiano',
+  es: 'Español',
+  pt: 'Português',
+  hi: 'हिन्दी',
+  ja: '日本語',
+  zh: '中文',
+}
 
 export function LocaleSwitch() {
   const current = getLocale()

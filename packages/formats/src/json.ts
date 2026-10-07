@@ -14,14 +14,19 @@ import type { Entry, JsonOptions, ParseContext, ParseResult, SerializeContext } 
 
 const pluralSuffix = new RegExp(`^(.*)_(${pluralCategories.join('|')})$`)
 
+// top-level `$schema` is editor metadata (e.g. inlang message files), not a translation
+const SCHEMA_KEY = '$schema'
+
 function parseTree(content: string): Tree {
   const data: unknown = JSON.parse(content)
   if (!isTree(data)) throw new Error('JSON translation file must contain an object')
   return data
 }
 
+const isSchemaLeaf = (path: string[]) => path.length === 1 && path[0] === SCHEMA_KEY
+
 function resolveOptions(tree: Tree, given: JsonOptions = {}): Required<JsonOptions> {
-  const leaves = collectLeaves(tree)
+  const leaves = collectLeaves(tree).filter((l) => !isSchemaLeaf(l.path))
   const style = given.style ?? (Object.values(tree).some(isTree) ? 'nested' : 'flat')
   const plurals = given.plurals ?? (leaves.some((l) => l.path.at(-1)!.endsWith('_other')) ? 'i18next' : 'icu')
   const interpolation =
@@ -33,7 +38,7 @@ function resolveOptions(tree: Tree, given: JsonOptions = {}): Required<JsonOptio
 export function parseJson(content: string, ctx: ParseContext<'json'>): ParseResult<'json'> {
   const tree = parseTree(content)
   const options = resolveOptions(tree, ctx.options)
-  const leaves = collectLeaves(tree)
+  const leaves = collectLeaves(tree).filter((l) => !isSchemaLeaf(l.path))
   const entries: Entry[] = []
   const plurals = new Map<string, { index: number; branches: Record<string, string> }>()
 
@@ -85,6 +90,10 @@ export function serializeJson(entries: Entry[], ctx: SerializeContext<'json'>): 
   const walk = (node: Tree, path: string[]): Tree => {
     const out: Tree = {}
     for (const [segment, value] of Object.entries(node)) {
+      if (!path.length && segment === SCHEMA_KEY && typeof value === 'string') {
+        out[segment] = value
+        continue
+      }
       if (isTree(value)) {
         const child = walk(value, [...path, segment])
         if (Object.keys(child).length) out[segment] = child

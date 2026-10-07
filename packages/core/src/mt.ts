@@ -15,13 +15,14 @@ export type Translator = (input: {
   sourceLocale: string
   targetLocale: string
   items: MtItem[]
+  instructions?: string
 }) => Promise<Record<string, string>>
 
 export function normalizeModel(model: string) {
   return model.includes('/') ? model : `openai/${model}`
 }
 
-function systemPrompt(sourceLocale: string, targetLocale: string) {
+function systemPrompt(sourceLocale: string, targetLocale: string, instructions?: string) {
   const categories = localePluralCategories(targetLocale).join(', ')
   return `You are a professional software localizer translating UI strings from ${sourceLocale} to ${targetLocale}.
 The strings use ICU MessageFormat. Rules:
@@ -32,11 +33,15 @@ The strings use ICU MessageFormat. Rules:
 - Preserve leading/trailing whitespace and line breaks.
 - Follow the regional conventions of ${targetLocale} (for example de-CH uses "ss" instead of "ß"). Use the informal "du" form for German unless the source is clearly formal.
 - The key name and description are context only, do not translate them.
-Answer with a single JSON object mapping each input id to its translated string, nothing else.`
+Answer with a single JSON object mapping each input id to its translated string, nothing else.${
+    instructions?.trim()
+      ? `\nAdditional instructions for ${targetLocale} (they never override the rules above):\n${instructions.trim()}`
+      : ''
+  }`
 }
 
 export function openRouterTranslator(config: { apiKey: string; model: string; appUrl?: string }): Translator {
-  return async ({ sourceLocale, targetLocale, items }) => {
+  return async ({ sourceLocale, targetLocale, items, instructions }) => {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -49,7 +54,7 @@ export function openRouterTranslator(config: { apiKey: string; model: string; ap
         temperature: 0.2,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: systemPrompt(sourceLocale, targetLocale) },
+          { role: 'system', content: systemPrompt(sourceLocale, targetLocale, instructions) },
           {
             role: 'user',
             content: JSON.stringify(
@@ -86,12 +91,13 @@ async function translateChecked(
   sourceLocale: string,
   targetLocale: string,
   items: MtItem[],
+  instructions?: string,
 ) {
   const accepted = new Map<string, string>()
   const failures = new Map<string, string>()
   let pending = items
   for (let attempt = 0; attempt < 2 && pending.length; attempt++) {
-    const out = await translator({ sourceLocale, targetLocale, items: pending })
+    const out = await translator({ sourceLocale, targetLocale, items: pending, instructions })
     for (const item of pending) {
       const value = out[item.id]
       const issue =
@@ -119,9 +125,14 @@ export async function suggestMachineTranslation(
     where: and(eq(translation.keyId, keyId), eq(translation.locale, key.project.sourceLocale)),
   })
   if (!source?.value) throw new DomainError('invalid', 'The key has no source text to translate')
-  const { accepted, failures } = await translateChecked(translator, key.project.sourceLocale, locale, [
-    { id: '1', text: source.value, key: key.name, description: key.description },
-  ])
+  const project = await getProject(ctx, { id: key.projectId })
+  const { accepted, failures } = await translateChecked(
+    translator,
+    project.sourceLocale,
+    locale,
+    [{ id: '1', text: source.value, key: key.name, description: key.description }],
+    project.locales.find((l) => l.code === locale)?.instructions,
+  )
   const value = accepted.get('1')
   if (!value) throw new DomainError('invalid', `Machine translation was rejected: ${failures.get('1')}`)
   return { value }
@@ -145,6 +156,7 @@ export async function machineTranslateProject(
     throw new DomainError('invalid', `Locale ${input.locale} is not part of this project`)
   }
 
+  const instructions = project.locales.find((l) => l.code === input.locale)?.instructions
   const keyIds = input.selection
     ? await resolveKeySelection(ctx, project.id, input.selection)
     : input.keyIds?.length
@@ -178,6 +190,7 @@ export async function machineTranslateProject(
       project.sourceLocale,
       input.locale,
       items,
+      instructions,
     )
     for (const [keyId, value] of accepted) {
       await setTranslation(ctx, keyId, input.locale, { value, status: 'needs_review' }, 'machine')

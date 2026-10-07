@@ -19,6 +19,7 @@ import {
   removeLocale,
   updateProject,
   updateProjectInput,
+  setLocaleInstructions,
   upsertFile,
   createSyncRun,
   DomainError,
@@ -26,6 +27,7 @@ import {
 } from '@wortwerk/core'
 import { formatFromPath } from '@wortwerk/formats'
 import { enqueueProjectJob } from '@wortwerk/jobs'
+import type { Ctx } from '@wortwerk/core'
 import { requireProject, type Env } from './context.ts'
 import { getBoss } from '../services.ts'
 import { projectGit, queueRun } from './git.ts'
@@ -43,6 +45,15 @@ const importForm = z.object({
     .transform((v) => v === 'true'),
 })
 
+// A new locale or file has no translations yet: fill them from the repo (gaps only, never overwrites).
+async function queueFill(ctx: Ctx, p: { id: string; files: unknown[] }) {
+  if (!p.files.length || !(await getRepoLink(ctx, p.id))) return
+  await queueRun(ctx, p.id, {
+    kind: 'pull',
+    params: { trigger: 'connect', force: true, importTranslations: true },
+  })
+}
+
 const project = new Hono<Env>()
   .use(requireProject)
   .get('/', (c) => c.json(c.get('project')))
@@ -56,7 +67,19 @@ const project = new Hono<Env>()
   .get('/stats', async (c) => c.json(await localeStats(c.get('ctx'), c.get('project').id)))
   .get('/source-sync', async (c) => c.json(await sourceSyncCounts(c.get('ctx'), c.get('project').id)))
   .post('/locales', validate('json', z.object({ code: localeCode })), async (c) => {
-    await addLocale(c.get('ctx'), c.get('project').id, c.req.valid('json').code)
+    const ctx = c.get('ctx')
+    const p = c.get('project')
+    await addLocale(ctx, p.id, c.req.valid('json').code)
+    await queueFill(ctx, p)
+    return c.body(null, 204)
+  })
+  .patch('/locales/:code', validate('json', z.object({ instructions: z.string().max(2000) })), async (c) => {
+    await setLocaleInstructions(
+      c.get('ctx'),
+      c.get('project').id,
+      c.req.param('code'),
+      c.req.valid('json').instructions,
+    )
     return c.body(null, 204)
   })
   .delete('/locales/:code', async (c) => {
@@ -69,7 +92,7 @@ const project = new Hono<Env>()
     const file = await upsertFile(ctx, p.id, c.req.valid('json'))
     if (!p.files.length && (await getRepoLink(ctx, p.id))) {
       await queueRun(ctx, p.id, { kind: 'pull', params: { trigger: 'connect', force: true } })
-    }
+    } else await queueFill(ctx, p)
     return c.json(file, 201)
   })
   .delete('/files/:fileId', async (c) => {

@@ -53,6 +53,8 @@ export const projectLocale = pgTable(
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
     code: text().notNull(),
+    // extra machine translation instructions for this locale, appended to the main prompt
+    instructions: text().default('').notNull(),
     createdAt: createdAt(),
   },
   (t) => [unique().on(t.projectId, t.code)],

@@ -4,7 +4,6 @@ import {
   CircleAlert,
   CircleCheck,
   Copy,
-  Download,
   ExternalLink,
   GitBranch,
   GitPullRequest,
@@ -21,8 +20,8 @@ import { FilePatternForm } from '#/components/app/file-patterns.tsx'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button } from '#/components/ui/button.tsx'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
 import { Checkbox } from '#/components/ui/checkbox.tsx'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/components/ui/field.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { NativeSelect } from '#/components/ui/native-select.tsx'
@@ -56,20 +55,13 @@ export function RepoCard({ tenant, project }: Props) {
   const details = useQuery(queries.project(tenant, project))
   const runs = useQuery(queries.runs(tenant, project))
   const [editing, setEditing] = useState(false)
-  const [importOverwrite, setImportOverwrite] = useState(false)
   const param = { tenant, project }
   const invalidate = [queries.repo(tenant, project).queryKey, queries.runs(tenant, project).queryKey]
 
-  const sync = useAction(
-    (importTranslations: boolean) =>
-      unwrap(
-        t.projects[':project'].repo.sync.$post({
-          param,
-          json: { importTranslations, overwrite: importTranslations && importOverwrite },
-        }),
-      ),
-    { invalidate, success: m.repo_sync_queued() },
-  )
+  const sync = useAction(() => unwrap(t.projects[':project'].repo.sync.$post({ param })), {
+    invalidate,
+    success: m.repo_sync_queued(),
+  })
   const exportNow = useAction(() => unwrap(t.projects[':project'].repo.export.$post({ param })), {
     invalidate,
     success: m.repo_export_queued(),
@@ -184,7 +176,7 @@ export function RepoCard({ tenant, project }: Props) {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => sync.mutate(false)} disabled={sync.isPending || noFiles}>
+          <Button onClick={() => sync.mutate(undefined)} disabled={sync.isPending || noFiles}>
             <RefreshCw /> {m.repo_sync_now()}
           </Button>
           <Button
@@ -204,33 +196,6 @@ export function RepoCard({ tenant, project }: Props) {
           >
             {m.repo_disconnect()}
           </Button>
-        </div>
-
-        <div className="bg-muted/50 grid gap-3 rounded-lg border p-4">
-          <div>
-            <p className="text-sm font-medium">{m.repo_import_title()}</p>
-            <p className="text-muted-foreground text-sm">{m.repo_import_body()}</p>
-          </div>
-          <Field orientation="horizontal">
-            <Checkbox
-              id="repo-overwrite"
-              checked={importOverwrite}
-              onCheckedChange={(v) => setImportOverwrite(v === true)}
-            />
-            <FieldLabel htmlFor="repo-overwrite" className="font-normal">
-              {m.import_overwrite()}
-            </FieldLabel>
-          </Field>
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => sync.mutate(true)}
-              disabled={sync.isPending || noFiles}
-            >
-              <Download /> {m.repo_import_action()}
-            </Button>
-          </div>
         </div>
       </CardContent>
     </Card>

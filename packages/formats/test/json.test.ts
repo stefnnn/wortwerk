@@ -61,3 +61,17 @@ describe('json', () => {
     expect(JSON.parse(out)).toEqual({ ...JSON.parse(flat), 'new.key': 'New' })
   })
 })
+
+describe('$schema', () => {
+  const content = '{\n  "$schema": "https://inlang.com/schema/inlang-message-format",\n  "a": "A"\n}\n'
+
+  it('top-level $schema is not a key and survives serialization', () => {
+    const { entries } = parseJson(content, { locale: 'en' } as never)
+    expect(entries.map((e) => e.key)).toEqual(['a'])
+    const out = serializeJson([{ key: 'a', value: 'B' }], { locale: 'en', template: content } as never)
+    expect(JSON.parse(out)).toEqual({
+      $schema: 'https://inlang.com/schema/inlang-message-format',
+      a: 'B',
+    })
+  })
+})

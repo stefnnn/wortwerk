@@ -61,7 +61,7 @@ wortwerk is a translation management system with git flow.
 - workspace packages are consumed as TypeScript source; relative imports use explicit `.ts` extensions and only erasable syntax (worker runs on Node type stripping)
 - all tenant data access goes through `@wortwerk/core` with a `Ctx` (`tenantId`, `userId`); every query filters on `tenant_id`
 - API routes validate with zod via `validate()` and throw `DomainError`; the Hono error handler maps codes to HTTP status
-- UI strings live in `apps/web/messages/{en,de}.json` (Paraglide); German uses "du" and Swiss spelling (ss, no ß)
+- UI strings live in `apps/web/messages/{locale}.json` (Paraglide); German uses "du" and Swiss spelling (ss, no ß). Supported UI locales: en, de, fr, it, es, pt, hi, ja, zh. Only fill in `en.json`; all other locales are handled by wortwerk itself, so don't hand-edit them (missing messages fall back to English)
 - tests that touch the database only run against databases whose name ends in `_test`
 - git providers implement `GitClient` in `packages/git`; sync logic in `@wortwerk/core` only talks to that interface (tests use `createMemoryRepo`)
 - web only enqueues jobs; anything touching a git provider or OpenRouter in bulk runs in the worker

@@ -139,21 +139,14 @@ export const projectGit = new Hono<Env>()
     await deleteRepoLink(ctx, c.get('project').id)
     return c.body(null, 204)
   })
-  .post(
-    '/repo/sync',
-    validate(
-      'json',
-      z.object({ importTranslations: z.boolean().default(false), overwrite: z.boolean().default(false) }),
-    ),
-    async (c) => {
-      const ctx = c.get('ctx')
-      if (!(await getRepoLink(ctx, c.get('project').id)))
-        throw new DomainError('invalid', 'Connect a repository first')
-      assertFilePatterns(c.get('project'))
-      const params = { ...c.req.valid('json'), force: true, trigger: 'manual' as const }
-      return c.json(await queueRun(ctx, c.get('project').id, { kind: 'pull', params }), 202)
-    },
-  )
+  .post('/repo/sync', async (c) => {
+    const ctx = c.get('ctx')
+    if (!(await getRepoLink(ctx, c.get('project').id)))
+      throw new DomainError('invalid', 'Connect a repository first')
+    assertFilePatterns(c.get('project'))
+    const params = { force: true, trigger: 'manual' as const }
+    return c.json(await queueRun(ctx, c.get('project').id, { kind: 'pull', params }), 202)
+  })
   .post('/repo/export', async (c) => {
     const ctx = c.get('ctx')
     if (!(await getRepoLink(ctx, c.get('project').id)))

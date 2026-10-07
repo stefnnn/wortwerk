@@ -28,7 +28,7 @@ export const updateProjectInput = z.object({
 export async function listProjects(ctx: Ctx) {
   return ctx.db.query.project.findMany({
     where: eq(project.tenantId, ctx.tenantId),
-    with: { locales: { columns: { code: true }, orderBy: asc(projectLocale.code) } },
+    with: { locales: { columns: { code: true, instructions: true }, orderBy: asc(projectLocale.code) } },
     orderBy: asc(project.name),
   })
 }
@@ -41,7 +41,7 @@ export async function getProject(ctx: Ctx, slugOrId: { slug: string } | { id: st
   const row = await ctx.db.query.project.findFirst({
     where,
     with: {
-      locales: { columns: { code: true }, orderBy: asc(projectLocale.code) },
+      locales: { columns: { code: true, instructions: true }, orderBy: asc(projectLocale.code) },
       files: { orderBy: asc(projectFile.path) },
     },
   })
@@ -89,6 +89,21 @@ export async function addLocale(ctx: Ctx, projectId: string, code: string) {
     .insert(projectLocale)
     .values({ tenantId: ctx.tenantId, projectId, code: localeCode.parse(code) })
     .onConflictDoNothing()
+}
+
+export async function setLocaleInstructions(ctx: Ctx, projectId: string, code: string, instructions: string) {
+  const updated = await ctx.db
+    .update(projectLocale)
+    .set({ instructions: instructions.trim() })
+    .where(
+      and(
+        eq(projectLocale.tenantId, ctx.tenantId),
+        eq(projectLocale.projectId, projectId),
+        eq(projectLocale.code, code),
+      ),
+    )
+    .returning({ id: projectLocale.id })
+  if (!updated.length) notFound('Locale')
 }
 
 export async function removeLocale(ctx: Ctx, projectId: string, code: string) {

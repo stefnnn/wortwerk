@@ -10,6 +10,7 @@ import { Button } from '#/components/ui/button.tsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
 import { Field, FieldLabel } from '#/components/ui/field.tsx'
 import { Input } from '#/components/ui/input.tsx'
+import { Textarea } from '#/components/ui/textarea.tsx'
 import { t, unwrap } from '#/lib/api.ts'
 import { localeName } from '#/lib/format.ts'
 import { useAction } from '#/lib/mutations.ts'
@@ -120,6 +121,17 @@ function ProjectSettings() {
               </Badge>
             ))}
           </div>
+          {details.data.locales
+            .filter(({ code }) => code !== details.data.sourceLocale)
+            .map(({ code, instructions }) => (
+              <LocaleInstructions
+                key={`${code}:${instructions}`}
+                tenant={tenant}
+                project={project}
+                code={code}
+                initial={instructions}
+              />
+            ))}
           <form onSubmit={onAddLocale} className="flex max-w-sm gap-2">
             <LocaleInput value={locale} onChange={(e) => setLocale(e.target.value)} placeholder="fr-CH" />
             <Button type="submit" variant="outline" disabled={addLocale.isPending}>
@@ -167,5 +179,54 @@ function ProjectSettings() {
         </CardContent>
       </Card>
     </PageBody>
+  )
+}
+
+function LocaleInstructions({
+  tenant,
+  project,
+  code,
+  initial,
+}: {
+  tenant: string
+  project: string
+  code: string
+  initial: string
+}) {
+  const [value, setValue] = useState(initial)
+  const save = useAction(
+    () =>
+      unwrap(
+        t.projects[':project'].locales[':code'].$patch({
+          param: { tenant, project, code },
+          json: { instructions: value },
+        }),
+      ),
+    { invalidate: [queries.project(tenant, project).queryKey], success: m.saved() },
+  )
+  return (
+    <Field>
+      <FieldLabel htmlFor={`instructions-${code}`}>
+        {m.settings_locale_instructions({ locale: localeName(code) })}
+      </FieldLabel>
+      <Textarea
+        id={`instructions-${code}`}
+        rows={3}
+        maxLength={2000}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={m.settings_locale_instructions_placeholder()}
+      />
+      <div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={save.isPending || value.trim() === initial}
+          onClick={() => save.mutate(undefined)}
+        >
+          {m.action_save()}
+        </Button>
+      </div>
+    </Field>
   )
 }

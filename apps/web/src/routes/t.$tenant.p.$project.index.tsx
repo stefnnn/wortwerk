@@ -25,9 +25,10 @@ function ProjectOverview() {
   const runs = useQuery(queries.runs(tenant, project))
   const sourceSync = useQuery(queries.sourceSync(tenant, project))
   const queryClient = useQueryClient()
-  const machineRunning = runs.data?.some(
+  const activeMachine = runs.data?.filter(
     (r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'),
   )
+  const machineRunning = activeMachine && activeMachine.length > 0
   useEffect(() => {
     if (machineRunning === false)
       void queryClient.invalidateQueries({ queryKey: queries.stats(tenant, project).queryKey })
@@ -38,6 +39,10 @@ function ProjectOverview() {
       unwrap(t.projects[':project'].machine.$post({ param: { tenant, project }, json: { locale } })),
     { invalidate: [queries.runs(tenant, project).queryKey], success: m.machine_queued() },
   )
+  // one locale can be queued while others are still running, so busy is tracked per locale
+  const isTranslating = (locale: string) =>
+    (pretranslate.isPending && pretranslate.variables === locale) ||
+    !!activeMachine?.some((r) => (r.params as { locale?: string }).locale === locale)
   const canMachine = tenantInfo.data?.features.machineTranslation ?? false
 
   if (!stats.data || !details.data) {
@@ -129,10 +134,10 @@ function ProjectOverview() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={pretranslate.isPending || machineRunning}
+                  disabled={isTranslating(s.locale)}
                   onClick={() => pretranslate.mutate(s.locale)}
                 >
-                  <Sparkles className={machineRunning ? 'animate-pulse' : undefined} />{' '}
+                  <Sparkles className={isTranslating(s.locale) ? 'animate-pulse' : undefined} />{' '}
                   {m.machine_pretranslate()}
                 </Button>
               )}
