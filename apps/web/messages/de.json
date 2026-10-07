@@ -209,6 +209,7 @@
   "language_label": "Sprache",
   "loading": "Lädt…",
   "machine_pretranslate": "Vorübersetzen",
+  "machine_translated_count": "{done} von {total} Schlüsseln übersetzt",
   "machine_queued": "Maschinelle Übersetzung gestartet. Ergebnisse sind als «Prüfen» markiert.",
   "magic_link_sent_body": "Wir haben einen Anmeldelink an {email} gesendet.",
   "magic_link_sent_title": "Schau in dein Postfach",
