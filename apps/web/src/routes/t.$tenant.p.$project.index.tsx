@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileUp, GitMerge, GitPullRequestArrow, Languages, Sparkles } from 'lucide-react'
+import { FileUp, GitMerge, GitPullRequestArrow, Sparkles } from 'lucide-react'
 import { useEffect } from 'react'
 import { EmptyState, PageBody } from '#/components/app/page.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
@@ -51,6 +51,9 @@ function ProjectOverview() {
   }
 
   const total = stats.data[0]?.total ?? 0
+  const locales = [...stats.data].sort(
+    (a, b) => Number(b.locale === details.data.sourceLocale) - Number(a.locale === details.data.sourceLocale),
+  )
   if (!details.data.files.length) {
     return (
       <PageBody className="max-w-5xl">
@@ -95,7 +98,7 @@ function ProjectOverview() {
         )}
       </div>
       <div className="grid gap-3">
-        {stats.data.map((s) => {
+        {locales.map((s) => {
           const isSource = s.locale === details.data.sourceLocale
           const done = s.translated + s.approved
           return (
@@ -133,16 +136,14 @@ function ProjectOverview() {
                   {m.machine_pretranslate()}
                 </Button>
               )}
-              {!isSource && (
-                <Link
-                  to="/t/$tenant/p/$project/editor"
-                  params={{ tenant, project }}
-                  search={{ locale: s.locale }}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                >
-                  <Languages /> {m.overview_translate()}
-                </Link>
-              )}
+              <Link
+                to="/t/$tenant/p/$project/editor"
+                params={{ tenant, project }}
+                search={{ locale: s.locale }}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                {m.overview_open()}
+              </Link>
             </div>
           )
         })}
