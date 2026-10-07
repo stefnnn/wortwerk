@@ -112,8 +112,12 @@ function Editor() {
   const pages = Math.max(1, Math.ceil(total / pageSize))
 
   const selectedCount = allMatching ? Math.max(0, total - picked.size) : picked.size
-  const bulk = !all && selectedCount >= 2
+  const bulk = selectedCount >= 2
   const isPicked = (id: string) => (allMatching ? !picked.has(id) : picked.has(id))
+  const asRow = (id: string) => {
+    const at = id.lastIndexOf(':')
+    return { keyId: id.slice(0, at), locale: id.slice(at + 1) }
+  }
   const toggle = (id: string) => {
     const next = new Set(picked)
     if (!next.delete(id)) next.add(id)
@@ -122,12 +126,14 @@ function Editor() {
   const allPicked = total > 0 && selectedCount === total
   const toggleAll = () => setSel({ filterKey, picked: new Set(), allMatching: !allPicked })
   const clearSelection = () => setSel({ filterKey, picked: new Set(), allMatching: false })
-  const selection: KeySelection = allMatching
-    ? {
-        filter: { locale, status: params.status, sync: params.sync, search: params.q },
-        excludeKeyIds: [...picked],
-      }
-    : { keyIds: [...picked] }
+  const filter = { locale, status: params.status, sync: params.sync, search: params.q }
+  const selection: KeySelection = all
+    ? allMatching
+      ? { filter, excludeRows: [...picked].map(asRow) }
+      : { rows: [...picked].map(asRow) }
+    : allMatching
+      ? { filter, excludeKeyIds: [...picked] }
+      : { keyIds: [...picked] }
 
   const select = (key?: string) => navigate({ search: (s) => ({ ...s, key }), replace: true })
   const following = items[selectedIndex + 1]
@@ -156,7 +162,7 @@ function Editor() {
       project={project}
       item={selected}
       locale={selected.locale}
-      onShowAll={all ? undefined : () => showEverywhere(selected.name)}
+      onShowAll={() => showEverywhere(selected.name)}
       sourceLocale={details.data.sourceLocale}
       onNext={next}
     />
@@ -251,12 +257,7 @@ function Editor() {
             </div>
           ) : (
             <>
-              <div
-                className={cn(
-                  'text-muted-foreground flex items-center gap-3 border-b py-2 pr-6 pl-1.5 text-sm md:pr-8 md:pl-3',
-                  all && 'hidden',
-                )}
-              >
+              <div className="text-muted-foreground flex items-center gap-3 border-b py-2 pr-6 pl-1.5 text-sm md:pr-8 md:pl-3">
                 <Checkbox
                   checked={allPicked}
                   indeterminate={selectedCount > 0 && !allPicked}
@@ -278,12 +279,11 @@ function Editor() {
                 {items.map((item) => (
                   <li key={rowKey(item)} className="group/row relative">
                     <Checkbox
-                      checked={isPicked(item.id)}
-                      onCheckedChange={() => toggle(item.id)}
+                      checked={isPicked(rowKey(item))}
+                      onCheckedChange={() => toggle(rowKey(item))}
                       aria-label={m.editor_select_key_row()}
                       className={cn(
                         'absolute top-3 left-1.5 z-10 bg-background md:left-3',
-                        all && 'hidden',
                         'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-checked:opacity-100 pointer-coarse:opacity-100',
                       )}
                     />
@@ -291,7 +291,7 @@ function Editor() {
                       onClick={() => select(rowKey(item))}
                       className={cn(
                         'grid w-full grid-cols-[minmax(0,1fr)] gap-1 px-6 py-3 text-left hover:bg-muted/60 md:px-8',
-                        isPicked(item.id) && 'bg-accent/50',
+                        isPicked(rowKey(item)) && 'bg-accent/50',
                         !bulk && rowKey(item) === params.key && 'bg-accent hover:bg-accent',
                       )}
                     >

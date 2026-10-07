@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
-  keySelection,
+  splitSelection,
   DomainError,
   assertMachineTranslation,
   createProjectToken,
@@ -170,16 +170,28 @@ export const projectGit = new Hono<Env>()
       z.object({
         locale: localeCode,
         keyIds: z.array(z.string()).max(1000).optional(),
-        selection: keySelection.optional(),
+        selection: z.record(z.string(), z.unknown()).optional(),
       }),
     ),
     async (c) => {
       const ctx = c.get('ctx')
       await assertMachineTranslation(ctx)
-      return c.json(
-        await queueRun(ctx, c.get('project').id, { kind: 'machine', params: c.req.valid('json') }),
-        202,
-      )
+      const projectId = c.get('project').id
+      const body = c.req.valid('json')
+      // a selection across locales becomes one job per locale, which then run in parallel
+      const parts = body.selection
+        ? await splitSelection(ctx, projectId, body.locale, body.selection)
+        : [{ locale: body.locale, selection: undefined }]
+      const runs = []
+      for (const part of parts) {
+        runs.push(
+          await queueRun(ctx, projectId, {
+            kind: 'machine',
+            params: { locale: part.locale, keyIds: body.keyIds, selection: part.selection },
+          }),
+        )
+      }
+      return c.json(runs[0] ?? null, 202)
     },
   )
   .get('/tokens', async (c) => c.json(await listProjectTokens(c.get('ctx'), c.get('project').id)))

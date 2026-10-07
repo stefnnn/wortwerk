@@ -8,7 +8,7 @@ import {
   createKey,
   bulkStatuses,
   createKeyInput,
-  keySelection,
+  splitSelection,
   setTranslationStatusBulk,
   deleteComment,
   deleteScreenshot,
@@ -54,18 +54,31 @@ export const projectKeys = new Hono<Env>()
   )
   .post(
     '/status',
-    validate('json', z.object({ locale: z.string(), status: z.enum(bulkStatuses), selection: keySelection })),
+    validate(
+      'json',
+      z.object({
+        locale: z.string(),
+        status: z.enum(bulkStatuses),
+        selection: z.record(z.string(), z.unknown()),
+      }),
+    ),
     async (c) => {
       const body = c.req.valid('json')
-      return c.json(
-        await setTranslationStatusBulk(
-          c.get('ctx'),
-          c.get('project').id,
-          body.locale,
+      const ctx = c.get('ctx')
+      const projectId = c.get('project').id
+      const total = { selected: 0, updated: 0 }
+      for (const part of await splitSelection(ctx, projectId, body.locale, body.selection)) {
+        const result = await setTranslationStatusBulk(
+          ctx,
+          projectId,
+          part.locale,
           body.status,
-          body.selection,
-        ),
-      )
+          part.selection,
+        )
+        total.selected += result.selected
+        total.updated += result.updated
+      }
+      return c.json(total)
     },
   )
   .post('/purge', async (c) =>

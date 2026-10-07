@@ -271,6 +271,43 @@ export const keySelection = z.union([
 ])
 export type KeySelection = z.input<typeof keySelection>
 
+const rowRef = z.object({ keyId: z.string(), locale: z.string() })
+
+/** A selection in the "all languages" list, whose rows are a key in one locale. */
+export const allSelection = z.union([
+  z.object({ rows: z.array(rowRef).min(1).max(1000) }),
+  z.object({ filter: keyFilterInput, excludeRows: z.array(rowRef).max(1000).default([]) }),
+])
+
+/**
+ * Splits a selection into one per locale, so bulk actions can reuse the single-locale code. `locale` is the
+ * list the selection was made in: a locale code, or ALL_LOCALES.
+ */
+export async function splitSelection(
+  ctx: Ctx,
+  projectId: string,
+  locale: string,
+  input: unknown,
+): Promise<Array<{ locale: string; selection: KeySelection }>> {
+  if (locale !== ALL_LOCALES) return [{ locale, selection: keySelection.parse(input) }]
+  const selection = allSelection.parse(input)
+  if ('rows' in selection) {
+    const byLocale = new Map<string, string[]>()
+    for (const r of selection.rows) byLocale.set(r.locale, [...(byLocale.get(r.locale) ?? []), r.keyId])
+    return [...byLocale].map(([code, keyIds]) => ({ locale: code, selection: { keyIds } }))
+  }
+  const project = await getProject(ctx, { id: projectId })
+  return project.locales
+    .filter((l) => l.code !== project.sourceLocale)
+    .map(({ code }) => ({
+      locale: code,
+      selection: {
+        filter: { ...selection.filter, locale: code },
+        excludeKeyIds: selection.excludeRows.filter((r) => r.locale === code).map((r) => r.keyId),
+      },
+    }))
+}
+
 export async function resolveKeySelection(ctx: Ctx, projectId: string, input: KeySelection) {
   const selection = keySelection.parse(input)
   const project = await getProject(ctx, { id: projectId })

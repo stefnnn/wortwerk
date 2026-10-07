@@ -8,17 +8,20 @@ import { useAction } from '#/lib/mutations.ts'
 import { queries } from '#/lib/queries.ts'
 import { m } from '#/paraglide/messages.js'
 
+type Filter = {
+  locale: string
+  status?: 'untranslated' | 'translated' | 'needs_review' | 'approved'
+  sync?: 'pending' | 'conflict'
+  search?: string
+}
+type Row = { keyId: string; locale: string }
+
+// the "all languages" list selects rows, a key in one locale
 export type KeySelection =
   | { keyIds: string[] }
-  | {
-      filter: {
-        locale: string
-        status?: 'untranslated' | 'translated' | 'needs_review' | 'approved'
-        sync?: 'pending' | 'conflict'
-        search?: string
-      }
-      excludeKeyIds: string[]
-    }
+  | { filter: Filter; excludeKeyIds: string[] }
+  | { rows: Row[] }
+  | { filter: Filter; excludeRows: Row[] }
 
 type Props = {
   tenant: string

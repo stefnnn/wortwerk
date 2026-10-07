@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import {
   AlertTriangle,
-  ArrowUpRight,
+  Languages,
   Check,
   CornerDownLeft,
   Eye,
@@ -57,7 +57,7 @@ type Props = {
   locale: string
   sourceLocale: string
   onNext?: () => void
-  // opens this key in every target locale
+  // lists this key in every target locale
   onShowAll?: () => void
 }
 
@@ -144,7 +144,7 @@ export function KeyEditor({ tenant, project, item, locale, sourceLocale, onNext,
                 />
               }
             >
-              <ArrowUpRight />
+              <Languages />
             </TooltipTrigger>
             <TooltipContent>{m.editor_show_all_languages()}</TooltipContent>
           </Tooltip>

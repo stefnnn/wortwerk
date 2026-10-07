@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { createProject, upsertFile } from '../src/projects.ts'
 import { exportFileContent, importFileContent } from '../src/files.ts'
-import { listKeys, localeStats } from '../src/keys.ts'
+import { listKeys, localeStats, setTranslationStatusBulk, splitSelection } from '../src/keys.ts'
 import { listRevisions, setTranslation } from '../src/translations.ts'
 import { tmSuggestions } from '../src/tm.ts'
 import { createTenant, db } from './helpers.ts'
@@ -207,5 +207,54 @@ describe('file import / export', () => {
     ])
     const missing = await listKeys(ctx, project.id, { locale: 'all', status: 'untranslated' })
     expect(missing.total).toBe(3)
+  })
+
+  it('splits a selection across locales into per-locale selections', async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['de', 'fr'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'locales/%locale%.json', format: 'json' })
+    await importFileContent(ctx, {
+      projectId: project.id,
+      fileId: file.id,
+      locale: 'en',
+      content: '{ "a": "A", "b": "B" }',
+    })
+    const [a, b] = (await listKeys(ctx, project.id, { locale: 'de' })).items
+    await setTranslation(ctx, a!.id, 'de', { value: 'A-de' })
+    await setTranslation(ctx, a!.id, 'fr', { value: 'A-fr' })
+    await setTranslation(ctx, b!.id, 'fr', { value: 'B-fr' })
+
+    const rows = await splitSelection(ctx, project.id, 'all', {
+      rows: [
+        { keyId: a!.id, locale: 'de' },
+        { keyId: a!.id, locale: 'fr' },
+        { keyId: b!.id, locale: 'fr' },
+      ],
+    })
+    expect(rows).toEqual([
+      { locale: 'de', selection: { keyIds: [a!.id] } },
+      { locale: 'fr', selection: { keyIds: [a!.id, b!.id] } },
+    ])
+
+    // everything matching, minus one unticked row
+    const parts = await splitSelection(ctx, project.id, 'all', {
+      filter: { locale: 'all', status: 'translated' },
+      excludeRows: [{ keyId: a!.id, locale: 'fr' }],
+    })
+    let updated = 0
+    for (const part of parts)
+      updated += (await setTranslationStatusBulk(ctx, project.id, part.locale, 'approved', part.selection))
+        .updated
+    expect(updated).toBe(2)
+    const all = await listKeys(ctx, project.id, { locale: 'all', status: 'approved' })
+    expect(all.items.map((i) => [i.name, i.locale])).toEqual([
+      ['a', 'de'],
+      ['b', 'fr'],
+    ])
   })
 })
