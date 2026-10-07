@@ -284,6 +284,27 @@ export async function importFileContent(
       )
     }
 
+    // target values from git are never merged, but what the repo holds is recorded so that
+    // "db differs from repo" stays answerable (export status)
+    if (!isSource && input.source === 'git') {
+      const seen = parsed.entries.flatMap((e) => {
+        const k = keyById.get(identity(e.context, e.key))
+        return k && !k.obsoleteAt ? [{ keyId: k.id, value: e.value }] : []
+      })
+      for (const batch of chunks(seen)) {
+        const values = sql.join(
+          batch.map((w) => sql`(${w.keyId}, ${w.value})`),
+          sql`, `,
+        )
+        await tx.execute(sql`
+          update ${translation} set repo_value = v.value
+          from (values ${values}) as v(key_id, value)
+          where ${translation.keyId} = v.key_id and ${translation.locale} = ${input.locale}
+            and ${translation.repoValue} is distinct from v.value
+        `)
+      }
+    }
+
     for (const batch of chunks(changedSourceKeys)) {
       await flagDependentsForReview(tx, ctx.tenantId, batch, project.sourceLocale)
     }

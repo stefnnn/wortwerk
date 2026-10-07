@@ -1,6 +1,14 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { createMemoryRepo } from '@wortwerk/git'
-import { findDueExports, pullFromRepo, pushToRepo, saveConnection, saveRepoLink } from '../src/git.ts'
+import {
+  findDueExports,
+  getExportState,
+  getRepoLink,
+  pullFromRepo,
+  pushToRepo,
+  saveConnection,
+  saveRepoLink,
+} from '../src/git.ts'
 import { createProject, upsertFile } from '../src/projects.ts'
 import { listKeys } from '../src/keys.ts'
 import { setTranslation } from '../src/translations.ts'
@@ -57,7 +65,8 @@ describe('git sync', () => {
 
     repo.push({ 'locales/en.json': '{\n  "hello": "Hello",\n  "save": "Save!"\n}\n' })
     const unchanged = await pullFromRepo(ctx, repo.client, { projectId: project.id })
-    expect(unchanged.files.map((f) => f.locale)).toEqual(['en'])
+    expect(unchanged.files.map((f) => f.locale)).toEqual(['en', 'de-CH'])
+    expect(unchanged.files[1]).toMatchObject({ translationsChanged: 0 })
   })
 
   it('pulls source keys, pushes translations to a PR branch and tracks obsolete keys', async () => {
@@ -104,7 +113,10 @@ describe('git sync', () => {
 
     repo.push({ 'locales/en.json': '{\n  "hello": "Hello"\n}\n' })
     const removed = await pullFromRepo(ctx, repo.client, { projectId: project.id })
-    expect(removed).toMatchObject({ changed: true, files: [expect.objectContaining({ keysObsoleted: 1 })] })
+    expect(removed).toMatchObject({
+      changed: true,
+      files: expect.arrayContaining([expect.objectContaining({ keysObsoleted: 1 })]),
+    })
 
     expect(await pushToRepo(ctx, repo.client, { projectId: project.id })).toMatchObject({ diff: false })
 
@@ -114,6 +126,34 @@ describe('git sync', () => {
     expect(again).toMatchObject({ updated: true, pullRequestUrl: repo.pulls[0]!.url })
     expect(repo.file('wortwerk/translations', 'locales/de.json')).toBe('{\n  "hello": "Hoi"\n}\n')
     expect(repo.pulls).toHaveLength(1)
+  })
+
+  it('derives the export state from repo values: synced, pending, pr, synced after merge', async () => {
+    const { ctx, project } = await setup()
+    const repo = createMemoryRepo({
+      'locales/en.json': '{\n  "hello": "Hello"\n}\n',
+      'locales/de.json': '{\n  "hello": "Grüezi"\n}\n',
+    })
+    const state = async () => getExportState(ctx, (await getRepoLink(ctx, project.id))!)
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(await state()).toBe('synced')
+
+    const [hello] = (await listKeys(ctx, project.id, { locale: 'de-CH' })).items
+    await setTranslation(ctx, hello!.id, 'de-CH', { value: 'Hoi' })
+    expect(await state()).toBe('pending')
+
+    await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(await state()).toBe('pr')
+
+    // an unrelated commit in the repo does not clear the open pull request
+    repo.push({ 'locales/en.json': '{\n  "hello": "Hello",\n  "other": "Other"\n}\n' })
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(await state()).toBe('pr')
+
+    // merging brings the exported values into the tracked branch
+    repo.push({ 'locales/de.json': repo.file('wortwerk/translations', 'locales/de.json')! })
+    await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(await state()).toBe('synced')
   })
 
   it('finds projects with unexported edits after the quiet period', async () => {

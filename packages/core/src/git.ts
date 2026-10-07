@@ -131,6 +131,34 @@ export async function getRepoLink(ctx: Ctx, projectId: string) {
 
 export type RepoLink = NonNullable<Awaited<ReturnType<typeof getRepoLink>>>
 
+export type ExportState = 'synced' | 'pending' | 'pr'
+
+/**
+ * Where wortwerk's translations stand relative to the repo, from `translation.repo_value` (the value last
+ * seen in the repo, tracked for every locale on pull): `synced` = nothing differs, `pending` = some
+ * differing values were edited after the last export, `pr` = everything that differs was exported and
+ * waits for the pull request to be merged.
+ */
+export async function getExportState(ctx: Ctx, link: RepoLink): Promise<ExportState> {
+  const since = link.lastPushedAt ?? link.createdAt
+  const { rows } = await ctx.db.execute<{ differs: boolean; unexported: boolean }>(sql`
+    select
+      coalesce(bool_or(true), false) as differs,
+      coalesce(bool_or(t.updated_at > ${since}), false) as unexported
+    from ${schema.translation} t
+    join ${schema.translationKey} k on k.id = t.key_id
+    where t.tenant_id = ${ctx.tenantId}
+      and k.project_id = ${link.projectId}
+      and k.obsolete_at is null
+      and t.value <> ''
+      and t.repo_value is distinct from t.value
+  `)
+  const { differs, unexported } = rows[0] ?? { differs: false, unexported: false }
+  if (!differs) return 'synced'
+  if (unexported) return 'pending'
+  return link.pullRequestUrl && link.lastPushedAt ? 'pr' : 'synced'
+}
+
 export async function saveRepoLink(ctx: Ctx, projectId: string, input: z.input<typeof repoLinkInput>) {
   const data = repoLinkInput.parse(input)
   if (data.branch === data.exportBranch) {
@@ -245,11 +273,10 @@ export async function pullFromRepo(
     const fresh = [...(await projectKeyIds(ctx, project.id))].filter((id) => !knownKeys.has(id))
     keyIds = new Set(fresh)
   }
-  if (!keyIds || keyIds.size) {
-    const targets = project.locales.map((l) => l.code).filter((l) => l !== project.sourceLocale)
-    for (const file of project.files) {
-      for (const locale of targets) await pull(file, locale, { status: 'needs_review', keyIds })
-    }
+  // target files are always read: values are only filled for `keyIds`, but the repo's values are tracked
+  const targets = project.locales.map((l) => l.code).filter((l) => l !== project.sourceLocale)
+  for (const file of project.files) {
+    for (const locale of targets) await pull(file, locale, { status: 'needs_review', keyIds })
   }
   if (files.every((f) => f.missing)) {
     throw new DomainError(

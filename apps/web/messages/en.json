@@ -406,5 +406,10 @@
   "tokens_subtitle": "Let your CI trigger a sync after deploys or merges. Tokens only work for this project.",
   "tokens_title": "CI tokens",
   "tokens_unused": "never used",
-  "tokens_used": "last used {date}"
+  "tokens_used": "last used {date}",
+  "export_synced": "In sync with repository",
+  "export_pending": "Changes not in a pull request yet",
+  "export_pr_open": "Pull request submitted",
+  "export_last": "Last export: {date}",
+  "export_never": "Not exported yet"
 }

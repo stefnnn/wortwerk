@@ -27,6 +27,7 @@ import {
   tokenInput,
   type BitbucketClient,
   type Ctx,
+  getExportState,
   type RepoLink,
 } from '@wortwerk/core'
 import { schema } from '@wortwerk/db'
@@ -114,7 +115,12 @@ export const tenantGit = new Hono<Env>()
   })
 
 export const projectGit = new Hono<Env>()
-  .get('/repo', async (c) => c.json(publicLink(await getRepoLink(c.get('ctx'), c.get('project').id))))
+  .get('/repo', async (c) => {
+    const ctx = c.get('ctx')
+    const link = await getRepoLink(ctx, c.get('project').id)
+    const exportState = link?.lastPulledAt ? await getExportState(ctx, link) : null
+    return c.json(link && { ...publicLink(link)!, exportState })
+  })
   .put('/repo', validate('json', repoLinkInput), async (c) => {
     const ctx = c.get('ctx')
     const project = c.get('project')

@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileUp, GitMerge, GitPullRequestArrow, Sparkles } from 'lucide-react'
+import { Check, FileUp, GitMerge, GitPullRequestArrow, Sparkles, Upload } from 'lucide-react'
 import { useEffect } from 'react'
 import { EmptyState, PageBody } from '#/components/app/page.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
 import { Skeleton } from '#/components/ui/skeleton.tsx'
-import { formatNumber, localeName, percent } from '#/lib/format.ts'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip.tsx'
+import { formatDateTime, formatNumber, localeName, percent } from '#/lib/format.ts'
 import { t, unwrap } from '#/lib/api.ts'
 import { useAction } from '#/lib/mutations.ts'
 import { queries } from '#/lib/queries.ts'
@@ -24,6 +25,7 @@ function ProjectOverview() {
   const tenantInfo = useQuery(queries.tenant(tenant))
   const runs = useQuery(queries.runs(tenant, project))
   const sourceSync = useQuery(queries.sourceSync(tenant, project))
+  const repo = useQuery(queries.repo(tenant, project))
   const queryClient = useQueryClient()
   const activeMachine = runs.data?.filter(
     (r) => r.kind === 'machine' && (r.status === 'queued' || r.status === 'running'),
@@ -102,6 +104,7 @@ function ProjectOverview() {
           </Link>
         )}
       </div>
+      {repo.data?.exportState && <ExportStatus repo={repo.data} state={repo.data.exportState} />}
       <div className="grid gap-3">
         {locales.map((s) => {
           const isSource = s.locale === details.data.sourceLocale
@@ -154,5 +157,53 @@ function ProjectOverview() {
         })}
       </div>
     </PageBody>
+  )
+}
+
+function ExportStatus({
+  repo,
+  state,
+}: {
+  repo: { lastPushedAt: string | Date | null; pullRequestUrl: string | null }
+  state: 'synced' | 'pending' | 'pr'
+}) {
+  const label = { synced: m.export_synced(), pending: m.export_pending(), pr: m.export_pr_open() }[state]
+  const content = (
+    <>
+      {state === 'synced' ? (
+        <span className="bg-success/15 text-success flex size-5 items-center justify-center rounded-full">
+          <Check className="size-3" />
+        </span>
+      ) : (
+        <Upload className="size-4" />
+      )}
+      {label}
+    </>
+  )
+  const className = 'flex items-center gap-1.5 text-sm'
+  return (
+    <div className="-mb-3 flex justify-end">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            state === 'pr' && repo.pullRequestUrl ? (
+              <a
+                href={repo.pullRequestUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={`${className} text-primary hover:underline`}
+              />
+            ) : (
+              <span className={`${className} text-muted-foreground`} />
+            )
+          }
+        >
+          {content}
+        </TooltipTrigger>
+        <TooltipContent>
+          {repo.lastPushedAt ? m.export_last({ date: formatDateTime(repo.lastPushedAt) }) : m.export_never()}
+        </TooltipContent>
+      </Tooltip>
+    </div>
   )
 }
