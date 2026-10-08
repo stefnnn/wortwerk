@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { openAPIRouteHandler } from 'hono-openapi'
+import { generateSpecs, openAPIRouteHandler } from 'hono-openapi'
 import { z } from 'zod'
 import {
   DomainError,
@@ -526,38 +526,26 @@ const authed = new Hono<V1Env>()
 
 const routes = new Hono<V1Env>().route('/auth', device).route('/', authed)
 
-const docsPage = `<!doctype html>
-<html>
-  <head>
-    <title>wortwerk API</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body>
-    <script id="api-reference" data-url="/api/v1/openapi.json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.69.2"></script>
-  </body>
-</html>`
+const specOptions = {
+  documentation: {
+    info: {
+      title: 'wortwerk API',
+      version: '1.0.0',
+      description:
+        'Authenticate with `Authorization: Bearer <token>`: a personal access token (`wwu_…`, account settings or `wortwerk login`) acts as its user; a project token (`ww_…`, project settings) is limited to reading and syncing its project. Errors are `{ "error": code, "message": text }`.',
+    },
+    servers: [{ url: `${env.APP_URL}/api/v1` }],
+    components: { securitySchemes: { bearer: { type: 'http' as const, scheme: 'bearer' } } },
+    security: [{ bearer: [] }],
+  },
+}
+
+export const openApiDocument = () => generateSpecs(routes, specOptions)
 
 // the spec and docs are registered before `routes`, whose authentication middleware matches every path
 export const v1 = new Hono<V1Env>()
-  .get(
-    '/openapi.json',
-    openAPIRouteHandler(routes, {
-      documentation: {
-        info: {
-          title: 'wortwerk API',
-          version: '1.0.0',
-          description:
-            'Authenticate with `Authorization: Bearer <token>`: a personal access token (`wwu_…`, account settings or `wortwerk login`) acts as its user; a project token (`ww_…`, project settings) is limited to reading and syncing its project. Errors are `{ "error": code, "message": text }`.',
-        },
-        servers: [{ url: `${env.APP_URL}/api/v1` }],
-        components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
-        security: [{ bearer: [] }],
-      },
-    }),
-  )
-  .get('/docs', (c) => c.html(docsPage))
+  .get('/openapi.json', openAPIRouteHandler(routes, specOptions))
+  .get('/docs', (c) => c.redirect('/docs/api/reference'))
   .route('/', routes)
 
 export type V1 = typeof routes

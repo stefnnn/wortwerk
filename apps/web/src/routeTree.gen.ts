@@ -19,8 +19,11 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
+import { Route as DocsIndexRouteImport } from './routes/docs.index'
+import { Route as DocsSlugRouteImport } from './routes/docs.$slug'
 import { Route as InvitationsIdRouteImport } from './routes/invitations.$id'
 import { Route as TTenantRouteImport } from './routes/t.$tenant'
+import { Route as DocsApiReferenceRouteImport } from './routes/docs.api.reference'
 import { Route as TTenantIndexRouteImport } from './routes/t.$tenant.index'
 import { Route as TTenantAccountRouteImport } from './routes/t.$tenant.account'
 import { Route as TTenantSettingsRouteImport } from './routes/t.$tenant.settings'
@@ -81,6 +84,16 @@ const CompareSlugRoute = CompareSlugRouteImport.update({
   path: '/compare/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/docs/',
+  path: '/docs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSlugRoute = DocsSlugRouteImport.update({
+  id: '/docs/$slug',
+  path: '/docs/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InvitationsIdRoute = InvitationsIdRouteImport.update({
   id: '/invitations/$id',
   path: '/invitations/$id',
@@ -89,6 +102,11 @@ const InvitationsIdRoute = InvitationsIdRouteImport.update({
 const TTenantRoute = TTenantRouteImport.update({
   id: '/t/$tenant',
   path: '/t/$tenant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsApiReferenceRoute = DocsApiReferenceRouteImport.update({
+  id: '/docs/api/reference',
+  path: '/docs/api/reference',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TTenantIndexRoute = TTenantIndexRouteImport.update({
@@ -147,9 +165,12 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
   '/t/$tenant': typeof TTenantRouteWithChildren
   '/compare/': typeof CompareIndexRoute
+  '/docs/': typeof DocsIndexRoute
+  '/docs/api/reference': typeof DocsApiReferenceRoute
   '/t/$tenant/account': typeof TTenantAccountRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant/': typeof TTenantIndexRoute
@@ -170,8 +191,11 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
   '/compare': typeof CompareIndexRoute
+  '/docs': typeof DocsIndexRoute
+  '/docs/api/reference': typeof DocsApiReferenceRoute
   '/t/$tenant/account': typeof TTenantAccountRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant': typeof TTenantIndexRoute
@@ -192,9 +216,12 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
   '/t/$tenant': typeof TTenantRouteWithChildren
   '/compare/': typeof CompareIndexRoute
+  '/docs/': typeof DocsIndexRoute
+  '/docs/api/reference': typeof DocsApiReferenceRoute
   '/t/$tenant/account': typeof TTenantAccountRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant/': typeof TTenantIndexRoute
@@ -217,9 +244,12 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/compare/$slug'
+    | '/docs/$slug'
     | '/invitations/$id'
     | '/t/$tenant'
     | '/compare/'
+    | '/docs/'
+    | '/docs/api/reference'
     | '/t/$tenant/account'
     | '/t/$tenant/settings'
     | '/t/$tenant/'
@@ -240,8 +270,11 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/compare/$slug'
+    | '/docs/$slug'
     | '/invitations/$id'
     | '/compare'
+    | '/docs'
+    | '/docs/api/reference'
     | '/t/$tenant/account'
     | '/t/$tenant/settings'
     | '/t/$tenant'
@@ -261,9 +294,12 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/compare/$slug'
+    | '/docs/$slug'
     | '/invitations/$id'
     | '/t/$tenant'
     | '/compare/'
+    | '/docs/'
+    | '/docs/api/reference'
     | '/t/$tenant/account'
     | '/t/$tenant/settings'
     | '/t/$tenant/'
@@ -285,9 +321,12 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   CompareSlugRoute: typeof CompareSlugRoute
+  DocsSlugRoute: typeof DocsSlugRoute
   InvitationsIdRoute: typeof InvitationsIdRoute
   TTenantRoute: typeof TTenantRouteWithChildren
   CompareIndexRoute: typeof CompareIndexRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+  DocsApiReferenceRoute: typeof DocsApiReferenceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -362,6 +401,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompareSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/docs'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$slug': {
+      id: '/docs/$slug'
+      path: '/docs/$slug'
+      fullPath: '/docs/$slug'
+      preLoaderRoute: typeof DocsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invitations/$id': {
       id: '/invitations/$id'
       path: '/invitations/$id'
@@ -374,6 +427,13 @@ declare module '@tanstack/react-router' {
       path: '/t/$tenant'
       fullPath: '/t/$tenant'
       preLoaderRoute: typeof TTenantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/api/reference': {
+      id: '/docs/api/reference'
+      path: '/docs/api/reference'
+      fullPath: '/docs/api/reference'
+      preLoaderRoute: typeof DocsApiReferenceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/t/$tenant/': {
@@ -489,10 +549,22 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   CompareSlugRoute: CompareSlugRoute,
+  DocsSlugRoute: DocsSlugRoute,
   InvitationsIdRoute: InvitationsIdRoute,
   TTenantRoute: TTenantRouteWithChildren,
   CompareIndexRoute: CompareIndexRoute,
+  DocsIndexRoute: DocsIndexRoute,
+  DocsApiReferenceRoute: DocsApiReferenceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

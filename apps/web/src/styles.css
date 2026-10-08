@@ -192,3 +192,94 @@
     animation: none;
   }
 }
+
+.docs-prose {
+  @apply text-[0.95rem] leading-7;
+  & > * + * {
+    @apply mt-5;
+  }
+  & h2 {
+    @apply mt-12 scroll-mt-6 border-t pt-8 text-2xl font-semibold tracking-tight;
+  }
+  & > h2:first-child {
+    @apply mt-0 border-t-0 pt-0;
+  }
+  & h3 {
+    @apply mt-8 scroll-mt-6 text-lg font-semibold;
+  }
+  & h4 {
+    @apply mt-6 font-semibold;
+  }
+  & :is(h2, h3, h4) {
+    @apply relative;
+  }
+  & .docs-anchor {
+    @apply text-muted-foreground absolute -left-5 font-normal no-underline opacity-0 transition-opacity;
+  }
+  & :is(h2, h3, h4):hover .docs-anchor {
+    @apply opacity-100;
+  }
+  & h2:not(:first-child) .docs-anchor {
+    @apply top-8;
+  }
+  & a {
+    @apply text-primary underline decoration-[var(--jade-7)] underline-offset-4 hover:decoration-current;
+  }
+  & strong {
+    @apply font-semibold;
+  }
+  & :is(ul, ol) {
+    @apply grid gap-1.5 pl-6;
+  }
+  & ul {
+    @apply list-disc marker:text-[var(--jade-9)];
+  }
+  & ol {
+    @apply marker:text-muted-foreground list-decimal;
+  }
+  & li > :is(ul, ol) {
+    @apply mt-1.5;
+  }
+  & blockquote {
+    @apply rounded-lg border-l-4 border-[var(--jade-8)] bg-[var(--jade-2)] px-4 py-3 text-[var(--sage-12)];
+    & > * + * {
+      @apply mt-2;
+    }
+  }
+  & hr {
+    @apply my-10;
+  }
+  & img {
+    @apply rounded-lg border;
+  }
+}
+
+:is(.docs-prose, .docs-inline) :not(pre) > code {
+  @apply bg-muted rounded px-1.5 py-0.5 font-mono text-[0.85em] break-words;
+}
+
+.docs-code {
+  @apply overflow-hidden rounded-lg border bg-[var(--sage-2)];
+  & .docs-code-bar {
+    @apply text-muted-foreground flex items-center justify-between border-b px-3 py-1.5 font-mono text-xs;
+  }
+  & button {
+    @apply hover:text-foreground rounded px-1.5 transition-colors;
+  }
+  & pre {
+    @apply overflow-x-auto px-4 py-3 font-mono text-[0.8rem] leading-6;
+  }
+}
+
+.docs-table {
+  @apply overflow-x-auto rounded-lg border;
+  & table {
+    @apply w-full text-left text-sm;
+  }
+  & th {
+    @apply bg-muted/60 px-4 py-2 font-medium;
+  }
+  & td {
+    @apply border-t px-4 py-2 align-top;
+  }
+}

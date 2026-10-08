@@ -41,7 +41,7 @@ wortwerk is a translation management system with git flow.
 - email: Resend behind a mail abstraction (magic links, invites)
 - file storage: local disk behind a storage abstraction (S3-compatible later)
 - deploy: Docker compose on the host (web, worker, postgres)
-- public website (en/de) lives in the same Start app as prerendered routes
+- public website (en/de) lives in the same Start app as prerendered routes. User docs at `/docs` are Markdown in `apps/web/src/content/docs/{en,de}` (nav in `src/lib/docs-nav.ts`); the API reference page renders the v1 OpenAPI document, so documenting a route means `doc()` in `packages/api`, not editing the page
 - theme: Radix Colors, `jade` accent + `sage` neutrals, light/dark scales mapped to tokens. no per-tenant colors
 
 ### Translations

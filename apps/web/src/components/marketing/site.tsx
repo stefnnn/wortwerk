@@ -39,6 +39,9 @@ function SiteHeader() {
         >
           {m.nav_faq()}
         </Link>
+        <Link to="/docs" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          {m.nav_docs()}
+        </Link>
         <LocaleSwitch />
         <ThemeToggle />
         <Link to="/sign-in" className={buttonVariants({ size: 'sm' })}>
@@ -70,6 +73,8 @@ function SiteFooter() {
           <Link to="/" hash="faq">
             {m.nav_faq()}
           </Link>
+          <Link to="/docs">{m.docs_title()}</Link>
+          <Link to="/docs/api/reference">{m.docs_api_reference()}</Link>
           <Link to="/privacy">{m.privacy_title()}</Link>
           <a href="https://github.com/stefnnn/wortwerk">{m.footer_source()}</a>
         </FooterLinks>

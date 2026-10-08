@@ -38,6 +38,7 @@
 
 - `packages/api`: Hono routes, auth and services extracted from `apps/web`
 - public API v1 with OpenAPI + reference docs, personal access tokens (account page), scoped project tokens
+- documentation at `/docs` (en/de): getting started, GitHub / Bitbucket, sync logic, CLI, API, plus an API reference rendered from the OpenAPI spec
 - device-flow login and the `wortwerk` CLI: init (file pattern detection), pull / push, sync, status / check, offline lint, keys / translate, mt
 
 ## Later

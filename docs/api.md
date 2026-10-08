@@ -59,7 +59,7 @@ Errors: `{ "error": "not_found" | "conflict" | "invalid" | "limit_reached" | "ht
 
 ## Public API v1
 
-`/api/v1`, versioned and token-authenticated. Same domain services (`@wortwerk/core`) as the internal API, projects addressed by id. OpenAPI document at `/api/v1/openapi.json`, interactive reference at `/api/v1/docs`.
+`/api/v1`, versioned and token-authenticated. Same domain services (`@wortwerk/core`) as the internal API, projects addressed by id. OpenAPI document at `/api/v1/openapi.json`; the public reference at `/docs/api/reference` is rendered from it (`openApiDocument()`), and `/api/v1/docs` redirects there.
 
 ### Tokens
 
