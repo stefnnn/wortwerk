@@ -17,7 +17,7 @@ async function deviceLogin(host: string) {
     'Your code',
   )
   openBrowser(started.verificationUriComplete)
-  const s = spinner()
+  const s = spinner({ delay: 250 })
   s.start('Waiting for approval in the browser')
   let interval = started.interval
   const deadline = Date.now() + started.expiresIn * 1000
