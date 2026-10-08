@@ -32,11 +32,11 @@ wortwerk is a translation management system with git flow.
 
 ### Platform
 
-- pnpm monorepo: `apps/web` (TanStack Start with Hono mounted at `/api/*`), `apps/worker` (pg-boss consumers), shared `packages/*` (db schema, domain logic, adapters)
+- pnpm monorepo: `apps/web` (TanStack Start, mounts the Hono app from `packages/api` at `/api/*`), `apps/worker` (pg-boss consumers), `apps/cli` (the `wortwerk` npm CLI), shared `packages/*` (api routes + auth, db schema, domain logic, adapters)
 - single Postgres DB, every tenant-owned table has `tenant_id`, all queries scoped through a helper
 - background jobs: pg-boss, web only enqueues, worker processes. per-project serialization via a single `project` queue with pg-boss groups (`groupConcurrency: 1`), idempotent webhook handling
 - auth: Better Auth (magic links never create accounts, sign-up is explicit), path-based tenant (`/t/:tenantSlug/...`), users can belong to multiple tenants
-- guests: a workspace member with role `guest` only reaches the projects (and optionally locales) granted in `project_member`, can edit translations (all locales including source unless the grant lists some), comments and screenshots and use per-key machine translation there, and nothing else (no settings, keys, repo sync, bulk pre-translation, members). They are invited with a project selection (`invitation.grants`), count towards the plan's user limit, and don't get a workspace of their own. The scope is `Ctx.guest` (unset in the worker, webhooks and project-token contexts): core filters projects, keys and translation memory by it and checks locales on writes, and `requireTenant` only lets guests call the allow-listed routes in `apps/web/src/server/api/context.ts` (new routes are members-only until added)
+- guests: a workspace member with role `guest` only reaches the projects (and optionally locales) granted in `project_member`, can edit translations (all locales including source unless the grant lists some), comments and screenshots and use per-key machine translation there, and nothing else (no settings, keys, repo sync, bulk pre-translation, members). They are invited with a project selection (`invitation.grants`), count towards the plan's user limit, and don't get a workspace of their own. The scope is `Ctx.guest` (unset in the worker, webhooks and project-token contexts): core filters projects, keys and translation memory by it and checks locales on writes, and `requireTenant` only lets guests call the allow-listed routes in `packages/api/src/routes/context.ts` (new routes are members-only until added). In `/api/v1` guests only reach routes declared with `allow(scope, { guests: true })`
 - plans modeled on the tenant from day one, limits (users, keys, machine translation) enforced in code; stripe only wires into this in phase 2
 - email: Resend behind a mail abstraction (magic links, invites)
 - file storage: local disk behind a storage abstraction (S3-compatible later)
@@ -52,16 +52,22 @@ wortwerk is a translation management system with git flow.
 - translation memory (tenant-wide), comments + screenshots per key
 - machine translation via OpenRouter, model configurable (default `openai/gpt-6-luna`), paid plans only (project, agency), no quota for now. ICU placeholders protected in prompts and validated on output
 
+### Public API and CLI
+
+- `/api/v1` is the stable, versioned contract (OpenAPI at `/api/v1/openapi.json`); the internal `/api/t/:tenant` API stays free to change with the UI
+- personal access tokens (`wwu_`, read or write, optionally one workspace, optional expiry) act as their user incl. guest scope; project tokens (`ww_`) are for CI: one project, read + sync
+- CLI login is an OAuth device flow (RFC 8628) implemented in core; the personal token is minted when the CLI claims the approved code, never stored in plain text
+- the CLI only talks to v1 and never adds keys to repo-connected projects (push of source files is refused there, `sync` instead)
+
 ### Phase 2
 
 - stripe billing
-- CLI and public API, except for what webhooks and basic CI flows need (phase 1: provider webhooks + a project-token "trigger sync" endpoint)
 
 ## Conventions
 
 - workspace packages are consumed as TypeScript source; relative imports use explicit `.ts` extensions and only erasable syntax (worker runs on Node type stripping)
 - all tenant data access goes through `@wortwerk/core` with a `Ctx` (`tenantId`, `userId`); every query filters on `tenant_id`
-- API routes validate with zod via `validate()` and throw `DomainError`; the Hono error handler maps codes to HTTP status
+- API routes validate with zod via `validate()` (v1: `input()` plus `doc()` for OpenAPI) and throw `DomainError`; the Hono error handler maps codes to HTTP status
 - UI strings live in `apps/web/messages/{locale}.json` (Paraglide); German uses "du" and Swiss spelling (ss, no ß). Supported UI locales: en, de, fr, it, es, pt, hi, ja, zh. Only fill in `en.json`; all other locales are handled by wortwerk itself, so don't hand-edit them (missing messages fall back to English)
 - tests that touch the database only run against databases whose name ends in `_test`
 - git providers implement `GitClient` in `packages/git`; sync logic in `@wortwerk/core` only talks to that interface (tests use `createMemoryRepo`)

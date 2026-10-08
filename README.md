@@ -5,8 +5,10 @@ Translation management with git flow. See [AGENTS.md](AGENTS.md) for decisions a
 ## Layout
 
 ```
-apps/web         TanStack Start app, Hono API at /api/*, marketing site + admin UI (en/de)
+apps/web         TanStack Start app serving the API at /api/*, marketing site + admin UI (en/de)
+apps/cli         `wortwerk` CLI (npm), device-flow login, pull / push / sync / lint
 apps/worker      pg-boss consumer (imports, git pull / push, machine translation, auto-export sweep)
+packages/api     Hono API: internal routes for the UI, public v1 (OpenAPI), auth, services
 packages/db      Drizzle schema, migrations, client
 packages/core    tenant-scoped domain services
 packages/formats JSON / YAML / PO / TS+JS (static, never executed) adapters, ICU conversion

@@ -34,11 +34,17 @@
 - production deploy to https://wortwerk.li: docker compose on one.adaptive-publishing.com (`wortwerk` user, ssh key), GitHub Actions CD, Caddy / TLS, Postgres backups
 - logs via Docker (rotated); external error monitoring later
 
+## Phase 5 — API & CLI ✅
+
+- `packages/api`: Hono routes, auth and services extracted from `apps/web`
+- public API v1 with OpenAPI + reference docs, personal access tokens (account page), scoped project tokens
+- device-flow login and the `wortwerk` CLI: init (file pattern detection), pull / push, sync, status / check, offline lint, keys / translate, mt
+
 ## Later
 
 - error monitoring (Sentry or similar), off-host backups
 - imprint / privacy pages for the public site
 
 - Stripe billing on top of the existing plan model
-- public API v1 + CLI (`wortwerk push / pull`)
+- publish the CLI to npm, rate limits for v1, keychain storage for CLI credentials
 - S3 storage driver, branch-aware keys, access management

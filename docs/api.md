@@ -2,7 +2,7 @@
 
 ## Internal API
 
-Used by the admin UI through the typed Hono client (`apps/web/src/lib/api.ts`). Session cookie auth, tenant resolved from the path, membership checked on every request.
+Lives in `packages/api` and is mounted by `apps/web` at `/api/*`. Used by the admin UI through the typed Hono client (`apps/web/src/lib/api.ts`). Session cookie auth, tenant resolved from the path, membership checked on every request.
 
 ```
 /api/auth/*                                         Better Auth (sessions, magic link, organizations, invitations)
@@ -43,6 +43,10 @@ Used by the admin UI through the typed Hono client (`apps/web/src/lib/api.ts`). 
 /api/t/:tenant/projects/:project/tokens             GET, POST { name } -> { token } (shown once)
 /api/t/:tenant/projects/:project/tokens/:id         DELETE
 
+/api/account/tokens                                 GET, POST { name, access, tenantId | null, expiresInDays | null } -> { token } (shown once)
+/api/account/tokens/:id                             DELETE
+/api/account/device/:userCode                       GET pending CLI login, POST { approve } (the /device page)
+
 /api/integrations/github/callback                   GitHub App install callback (state + user OAuth code verified)
 /api/integrations/bitbucket/callback                Bitbucket OAuth callback
 /api/webhooks/github                                App webhook, X-Hub-Signature-256
@@ -55,11 +59,50 @@ Errors: `{ "error": "not_found" | "conflict" | "invalid" | "limit_reached" | "ht
 
 ## Public API v1
 
-Implemented now (CI flow):
+`/api/v1`, versioned and token-authenticated. Same domain services (`@wortwerk/core`) as the internal API, projects addressed by id. OpenAPI document at `/api/v1/openapi.json`, interactive reference at `/api/v1/docs`.
+
+### Tokens
+
+`Authorization: Bearer <token>`:
+
+- personal access tokens `wwu_…` (account page or `wortwerk login`): act as their user, so memberships, guest scope (`Ctx.guest`) and revision authorship apply. Access `read` or `write`, optionally limited to one workspace, optional expiry. Stored as sha256 hashes in `api_token`
+- project tokens `ww_…` (project settings, for CI): one project, read + sync only, no user (`Ctx.userId` unset)
+
+Scopes per route: `read` (personal read/write, project), `write` (personal write), `sync` (personal write, project). Guests reach only routes that opt in (project, stats, keys, set translation); everything else is members-only, mirroring the internal guest allow-list.
+
+### CLI login (device flow, RFC 8628)
+
+1. `POST /auth/device { clientName }` -> `{ deviceCode, userCode, verificationUriComplete, interval, expiresIn }` (10 min)
+2. the user opens `/device?code=XXXX-XXXX`, signs in and approves (`POST /api/account/device/:userCode`)
+3. the CLI polls `POST /auth/token { deviceCode }`: 400 `authorization_pending` / `slow_down` / `access_denied` / `expired_token`, then once 200 `{ token, user }`. The personal token (write, all workspaces, 1 year) is created at that moment, so no plaintext token is ever stored
+
+### Endpoints
 
 ```
-POST /api/v1/projects/:id/sync          { export?: boolean } -> 202 { runs: [{ id, kind, status }] }
-GET  /api/v1/projects/:id/runs/:runId   -> { id, kind, status, result, error, createdAt, finishedAt }
+POST   /auth/device                                     start a device login (no token)
+POST   /auth/token                                      poll a device login (no token)
+GET    /me                                              token, user, workspaces
+DELETE /me/token                                        revoke the calling personal token (logout)
+
+GET    /workspaces                                      personal tokens only
+GET    /workspaces/:workspace                           slug or id, plan + usage
+GET    /workspaces/:workspace/projects
+POST   /workspaces/:workspace/projects                  { name, slug, sourceLocale, locales }
+
+GET    /projects/:id                                    locales, files, repo (provider, repo, branch, localeAliases)
+GET    /projects/:id/stats                              per-locale progress
+POST   /projects/:id/locales                            { code }
+DELETE /projects/:id/locales/:code
+POST   /projects/:id/files                              { path, format? } file mapping
+GET    /projects/:id/files/:fileId/download?locale=     raw file, x-wortwerk-path = path in the repo (aliases applied)
+POST   /projects/:id/files/:fileId/import?locale=&overwrite=   raw body -> 202 import run. Not for the source of repo-connected projects
+GET    /projects/:id/keys?locale=&status=&search=&name=&fileId=&limit=&cursor=   { data, total, nextCursor }
+POST   /projects/:id/keys                               only without a repository
+PUT    /projects/:id/keys/:keyId/translations/:locale   { value, status? }
+POST   /projects/:id/sync                               { export? } -> 202 { runs }
+POST   /projects/:id/machine                            { locale } -> 202 run (paid plans)
+GET    /projects/:id/runs
+GET    /projects/:id/runs/:runId
 ```
 
 ```sh
@@ -67,20 +110,19 @@ curl -X POST https://wortwerk.li/api/v1/projects/$PROJECT_ID/sync \
   -H "Authorization: Bearer $WORTWERK_TOKEN" -H "Content-Type: application/json" -d '{"export": true}'
 ```
 
-### Later (draft)
+Cursors are opaque (currently an encoded offset). Routes are documented with `doc()` and validated with `input()` from `packages/api/src/routes/v1/docs.ts`, which feed the OpenAPI document.
 
-Versioned, token-authenticated, stable. Same domain services (`@wortwerk/core`) as the internal API, different auth and resource ids.
+## CLI
 
-- Auth: `Authorization: Bearer ww_<token>`. Project tokens (phase 3, scoped to one project, used by CI) and personal tokens (later, all tenants of the user).
-- Ids: projects addressed by `id`, keys by `id` or by `name` + `context` + `file` for CLI use.
-- Pagination: `?limit=&cursor=`, responses `{ data: [...], nextCursor }`.
+`apps/cli`, published to npm as `wortwerk` (bundled with tsdown; the format parsers stay runtime dependencies). It talks only to v1 through a typed `hc<V1>` client. `wortwerk.json` at the project root holds the project id and a cache of its locales and file mappings (refreshed by `init`, `pull`, `push`) so `lint` works offline. Credentials live in `~/.config/wortwerk/credentials.json` (0600); `WORTWERK_TOKEN` and `WORTWERK_HOST` override them, e.g. in CI.
 
 ```
-GET  /api/v1/projects/:id                                   project, locales, files
-GET  /api/v1/projects/:id/files/:fileId/download?locale=    CLI pull
-POST /api/v1/projects/:id/files/:fileId/upload?locale=      CLI push, returns sync run
-GET  /api/v1/projects/:id/keys                              list with translations ?locale=
-PUT  /api/v1/projects/:id/keys/:keyId/translations/:locale
+wortwerk login | logout | whoami
+wortwerk init                     link the folder to a project, detect %locale% file patterns
+wortwerk pull [-l de,fr] [--source]
+wortwerk push [-l de] [--overwrite]   source by default, refused for repo-connected projects
+wortwerk sync [--export]          pull the repository, optionally export a PR
+wortwerk status | check --min 100 [--approved]
+wortwerk lint [--strict]          offline ICU / placeholder / markup / plural checks
+wortwerk keys [search] | translate <key> [value] -l de | mt <locale> | open
 ```
-
-CLI (`wortwerk push / pull`) reads a `wortwerk.json` with project id and file mappings and talks only to v1.
