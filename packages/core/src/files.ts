@@ -370,15 +370,17 @@ export async function exportFileContent(ctx: Ctx, input: { fileId: string; local
     )
   const sourceTemplate = snapshots.find((s) => s.locale === project.sourceLocale)?.content
   const ownTemplate = snapshots.find((s) => s.locale === input.locale)?.content
-  // data files take their shape from the source; scripts carry code around the data (identifier names,
-  // type exports) that belongs to each locale's own file, so it is patched in place instead
-  const template =
-    file.format === 'script' ? (ownTemplate ?? sourceTemplate) : (sourceTemplate ?? ownTemplate)
+  // json and po take their shape from the source. scripts carry code around the data (identifier names,
+  // type exports) and yaml files carry comments, folding and keys the source doesn't know, so those are
+  // patched in place in the locale's own file
+  const ownShape = file.format === 'script' || file.format === 'yaml'
+  const template = ownShape ? (ownTemplate ?? sourceTemplate) : (sourceTemplate ?? ownTemplate)
 
   const content = serializeFile(file.format as FileFormat, entries, {
     locale: input.locale,
     isSource,
     template,
+    keepUnknown: ownShape && template !== undefined && template === ownTemplate && !isSource,
     options: file.options as never,
   })
   return { path: filePathFor(file.path, input.locale), content, count: entries.length }

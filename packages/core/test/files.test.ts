@@ -91,6 +91,81 @@ describe('file import / export', () => {
     expect(exported.content).toBe(bg)
   })
 
+  it("exports a yaml file by patching the locale's own file, not the source", async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'de',
+      locales: ['fr'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'config/locales/%locale%.yml', format: 'yaml' })
+    const input = { projectId: project.id, fileId: file.id }
+    await importFileContent(ctx, {
+      ...input,
+      locale: 'de',
+      content: [
+        'de:',
+        '  activerecord:',
+        '    title: Titel',
+        '  common:',
+        '    intro: >-',
+        '      Ein langer Text,',
+        '      der gefaltet ist.',
+        '    count:',
+        '      one: 1 Kapitel',
+        '      other: "%{count} Kapitel"',
+        '    extra: Neu',
+        '',
+      ].join('\n'),
+    })
+    const fr = [
+      'fr:',
+      '  nav:',
+      '    home: Accueil',
+      '  common:',
+      '    # kept',
+      '    intro: >-',
+      '      Un long texte,',
+      '      qui est plié.',
+      '    count:',
+      '      one: 1 chapitre',
+      '      other: "%{count} chapitres"',
+      '',
+    ].join('\n')
+    await importFileContent(ctx, { ...input, locale: 'fr', content: fr })
+
+    const { items } = await listKeys(ctx, project.id, { locale: 'fr' })
+    await setTranslation(ctx, items.find((i) => i.name === 'activerecord.title')!.id, 'fr', {
+      value: 'Titre',
+    })
+    await setTranslation(ctx, items.find((i) => i.name === 'common.extra')!.id, 'fr', { value: 'Nouveau' })
+    await setTranslation(ctx, items.find((i) => i.name === 'common.count')!.id, 'fr', {
+      value: '{count, plural, one {1 chapitre} other {# chapitres !}}',
+    })
+
+    const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'fr' })
+    expect(exported.content).toBe(
+      [
+        'fr:',
+        '  nav:',
+        '    home: Accueil',
+        '  common:',
+        '    # kept',
+        '    intro: >-',
+        '      Un long texte,',
+        '      qui est plié.',
+        '    count:',
+        '      one: 1 chapitre',
+        '      other: "%{count} chapitres !"',
+        '    extra: Nouveau',
+        '  activerecord:',
+        '    title: Titre',
+        '',
+      ].join('\n'),
+    )
+  })
+
   it('soft-deletes, restores and flags changed source strings', async () => {
     const ctx = await createTenant()
     const project = await createProject(ctx, {

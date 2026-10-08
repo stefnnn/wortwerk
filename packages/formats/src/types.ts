@@ -19,6 +19,10 @@ export type JsonOptions = {
 export type YamlOptions = {
   rootLocaleKey?: boolean
   interpolation?: Interpolation
+  /** locale of the file, needed to render plural forms that the file doesn't have yet */
+  locale?: string
+  /** leave keys alone that aren't in the entries (the file is the locale's own, not derived from the source) */
+  keepUnknown?: boolean
 }
 
 export type PoOptions = Record<string, never>
@@ -50,4 +54,6 @@ export type ParseResult<F extends FileFormat> = {
 
 export type SerializeContext<F extends FileFormat> = ParseContext<F> & {
   template?: string
+  /** the template is this locale's own file: keys it has beyond the entries are kept */
+  keepUnknown?: boolean
 }
