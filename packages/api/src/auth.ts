@@ -13,6 +13,9 @@ import { ac, roles } from './roles.ts'
 
 const mailer = createMailer()
 
+// better-auth swallows errors thrown by sendInvitationEmail, so they are parked here and rethrown by the after hook
+const invitationMailErrors = new WeakMap<Request, unknown>()
+
 // listings that would show a guest the other members' emails and pending invitations
 const guestBlockedPaths = new Set([
   '/organization/get-full-organization',
@@ -49,6 +52,20 @@ export const auth = betterAuth({
           ),
         )
       if (row?.role === guestRole) throw new APIError('FORBIDDEN', { message: 'Guests cannot list members' })
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== '/organization/invite-member' || !ctx.request) return
+      if (!invitationMailErrors.has(ctx.request)) return
+      console.error('invitation mail failed', invitationMailErrors.get(ctx.request))
+      invitationMailErrors.delete(ctx.request)
+      const created = ctx.context.returned as { id?: string } | undefined
+      if (created?.id && !(ctx.body as { resend?: boolean })?.resend) {
+        await getDb().delete(schema.invitation).where(eq(schema.invitation.id, created.id))
+      }
+      throw new APIError('INTERNAL_SERVER_ERROR', {
+        code: 'invitation_mail_failed',
+        message: 'The invitation email could not be sent. Please try again later.',
+      })
     }),
   },
   plugins: [
@@ -140,14 +157,19 @@ export const auth = betterAuth({
       sendInvitationEmail: async ({ id, email, organization: org, inviter }, request) => {
         const locale = mailLocale(request?.headers)
         const url = `${env.APP_URL}${locale === 'de' ? '/de' : ''}/invitations/${id}`
-        await mailer.send(
-          invitationMail(
-            email,
-            url,
-            { inviter: inviter.user.name || inviter.user.email, team: org.name },
-            locale,
-          ),
-        )
+        try {
+          await mailer.send(
+            invitationMail(
+              email,
+              url,
+              { inviter: inviter.user.name || inviter.user.email, team: org.name },
+              locale,
+            ),
+          )
+        } catch (error) {
+          if (request) invitationMailErrors.set(request, error)
+          throw error
+        }
       },
     }),
     tanstackStartCookies(),
