@@ -56,14 +56,16 @@ function ProjectOverview() {
   }, [machineRunning, queryClient, tenant, project])
 
   const pretranslate = useAction(
-    (locale: string) =>
-      unwrap(t.projects[':project'].machine.$post({ param: { tenant, project }, json: { locale } })),
+    async (targets: string[]) => {
+      for (const locale of targets)
+        await unwrap(t.projects[':project'].machine.$post({ param: { tenant, project }, json: { locale } }))
+    },
     { invalidate: [queries.runs(tenant, project).queryKey], success: m.machine_queued() },
   )
   // one locale can be queued while others are still running, so busy is tracked per locale
   // a run that has been going for a long time is probably dead: allow starting again
   const isTranslating = (locale: string) =>
-    (pretranslate.isPending && pretranslate.variables === locale) ||
+    (pretranslate.isPending && !!pretranslate.variables?.includes(locale)) ||
     !!activeMachine?.some(
       (r) =>
         (r.params as { locale?: string }).locale === locale &&
@@ -71,6 +73,11 @@ function ProjectOverview() {
     )
   // pre-translating a whole language is a bulk job: members only
   const canMachine = (tenantInfo.data?.features.machineTranslation ?? false) && !guest
+
+  const missing = (stats.data ?? []).filter(
+    (s) => s.locale !== details.data?.sourceLocale && s.untranslated > 0 && !isTranslating(s.locale),
+  )
+  const missingKeys = missing.reduce((sum, s) => sum + s.untranslated, 0)
 
   if (!stats.data || !details.data) {
     return (
@@ -181,14 +188,14 @@ function ProjectOverview() {
                       variant="ghost"
                       size="sm"
                       disabled={isTranslating(s.locale)}
-                      onClick={() => pretranslate.mutate(s.locale)}
+                      onClick={() => pretranslate.mutate([s.locale])}
                     >
                       <WandSparkles className={isTranslating(s.locale) ? 'animate-pulse' : undefined} />{' '}
                       {m.machine_pretranslate()}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {m.machine_translated_count({ done: formatNumber(done), total: formatNumber(s.total) })}
+                    {m.machine_translate_keys({ count: formatNumber(s.untranslated) })}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -203,6 +210,23 @@ function ProjectOverview() {
             </div>
           )
         })}
+        {canMachine && missing.length > 0 && (
+          <div className="flex justify-end">
+            <Tooltip>
+              <TooltipTrigger render={<span />}>
+                <Button variant="outline" onClick={() => pretranslate.mutate(missing.map((s) => s.locale))}>
+                  <WandSparkles /> {m.machine_translate_all()}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {m.machine_translate_all_hint({
+                  keys: formatNumber(missingKeys),
+                  languages: formatNumber(missing.length),
+                })}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
       </div>
     </PageBody>
   )
