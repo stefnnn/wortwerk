@@ -1,0 +1,21 @@
+{
+  "project": "278249a0-80e8-4f68-bf52-6f69147817a1",
+  "sourceLocale": "en",
+  "locales": [
+    "de",
+    "en",
+    "es",
+    "fr",
+    "hi",
+    "it",
+    "ja",
+    "pt",
+    "zh"
+  ],
+  "files": [
+    {
+      "path": "apps/web/messages/%locale%.json",
+      "format": "json"
+    }
+  ]
+}
