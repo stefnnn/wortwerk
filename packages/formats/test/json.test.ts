@@ -75,3 +75,16 @@ describe('$schema', () => {
     })
   })
 })
+
+describe("serializeJson with the locale's own file as template", () => {
+  it('keeps keys the entries do not have and appends new ones', () => {
+    const own = '{\n    "nav": { "home": "Accueil", "legacy": "Ancien" },\n    "bye": "Salut"\n}\n'
+    const { entries } = parseJson(own, { locale: 'fr' })
+    const edited = entries.filter((e) => e.key !== 'nav.legacy')
+    edited.push({ key: 'nav.new', value: 'Nouveau', isPlural: false })
+    expect(serializeJson(edited, { locale: 'fr', template: own, keepUnknown: true })).toBe(
+      JSON.stringify({ nav: { home: 'Accueil', legacy: 'Ancien', new: 'Nouveau' }, bye: 'Salut' }, null, 4) +
+        '\n',
+    )
+  })
+})

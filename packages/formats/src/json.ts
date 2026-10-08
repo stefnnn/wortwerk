@@ -78,6 +78,7 @@ export function serializeJson(entries: Entry[], ctx: SerializeContext<'json'>): 
   const options = resolveOptions(template ?? {}, ctx.options)
   const byKey = new Map(entries.map((e) => [e.key, e]))
   const used = new Set<string>()
+  const keepUnknown = ctx.keepUnknown ?? false
 
   const render = (entry: Entry): Array<[string, string]> => {
     if (entry.isPlural && options.plurals === 'i18next') {
@@ -104,6 +105,7 @@ export function serializeJson(entries: Entry[], ctx: SerializeContext<'json'>): 
       const key = pluralKey && byKey.get(pluralKey)?.isPlural ? pluralKey : [...path, segment].join('.')
       const base = key === pluralKey ? match![1]! : segment
       const entry = byKey.get(key)
+      if (!entry && keepUnknown) out[segment] = value
       if (!entry || used.has(key)) continue
       used.add(key)
       for (const [suffix, text] of render(entry)) out[base + suffix] = text

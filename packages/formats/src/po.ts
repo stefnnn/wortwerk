@@ -51,6 +51,7 @@ const msgidFallback = (t: GetTextTranslation) =>
   t.msgid_plural === undefined ? t.msgid : buildPluralIcu({ one: t.msgid, other: t.msgid_plural })
 
 export function serializePo(entries: Entry[], ctx: SerializeContext<'po'>): string {
+  if (ctx.template && ctx.keepUnknown) return patchPoFile(ctx.template, entries, ctx)
   const data: GetTextTranslations = ctx.template
     ? po.parse(ctx.template)
     : { charset: 'utf-8', headers: {}, translations: { '': { '': { msgid: '', msgstr: [''] } } } }
@@ -151,12 +152,15 @@ export function patchPo(content: string, entries: Entry[], ctx: ParseContext<'po
       while (end < lines.length && (lines[end]!.startsWith('msgstr') || lines[end]!.startsWith('"'))) end++
       const entry = byId.get(entryId(msgctxt, msgid))
       if (!entry) out.push(...lines.slice(i, end))
-      else if (line.startsWith('msgstr[')) {
-        const message = parsePluralIcu(entry.value)
-        categories.forEach((c, index) =>
-          out.push(`msgstr[${index}] ${quote(message ? pluralBranchFor(message, c) : entry.value)}`),
-        )
-      } else out.push(`msgstr ${quote(entry.value)}`)
+      else {
+        if (!entry.needsReview) clearFuzzy(out)
+        if (line.startsWith('msgstr[')) {
+          const message = parsePluralIcu(entry.value)
+          categories.forEach((c, index) =>
+            out.push(`msgstr[${index}] ${quote(message ? pluralBranchFor(message, c) : entry.value)}`),
+          )
+        } else out.push(`msgstr ${quote(entry.value)}`)
+      }
       msgctxt = ''
       msgid = null
       i = end
@@ -167,4 +171,56 @@ export function patchPo(content: string, entries: Entry[], ctx: ParseContext<'po
     }
   }
   return out.join('\n')
+}
+
+// drops `fuzzy` from the flag line of the message being written, `out` ends with that message's comments
+function clearFuzzy(out: string[]) {
+  for (let i = out.length - 1; i >= 0 && out[i]!.trim(); i--) {
+    if (!out[i]!.startsWith('#,')) continue
+    const flags = out[i]!.slice(2)
+      .split(',')
+      .map((f) => f.trim())
+      .filter((f) => f && f !== 'fuzzy')
+    if (flags.length) out[i] = `#, ${flags.join(', ')}`
+    else out.splice(i, 1)
+    return
+  }
+}
+
+/**
+ * Exports into a locale's own .po file: changed translations are patched in place, messages the file
+ * doesn't have yet are appended, and messages wortwerk doesn't know are left alone.
+ */
+function patchPoFile(template: string, entries: Entry[], ctx: SerializeContext<'po'>): string {
+  const data = po.parse(template)
+  const known = new Set(messages(data).map((t) => entryId(t.msgctxt ?? '', t.msgid)))
+  const current = new Map(
+    parsePo(template, { locale: ctx.locale }).entries.map((e) => [entryId(e.context ?? '', e.key), e]),
+  )
+  const changed = entries.filter((e) => {
+    const id = entryId(e.context ?? '', e.key)
+    return known.has(id) && current.get(id)?.value !== e.value
+  })
+  let out = patchPo(template, changed, ctx)
+
+  const added = entries.filter((e) => !known.has(entryId(e.context ?? '', e.key)))
+  if (!added.length) return out
+  const categories = pluralIndexCategories(ctx.locale, pluralFormsOf(data, ctx.locale))
+  const blocks = added.map((entry) => {
+    const lines: string[] = []
+    if (entry.description) lines.push(...entry.description.split('\n').map((l) => `#. ${l}`))
+    if (entry.context) lines.push(`msgctxt ${quote(entry.context)}`)
+    lines.push(`msgid ${quote(entry.key)}`)
+    if (entry.isPlural) {
+      const source = parsePluralIcu(entry.source ?? entry.value)
+      lines.push(`msgid_plural ${quote(source ? pluralBranchFor(source, 'other') : entry.key)}`)
+      const message = parsePluralIcu(entry.value)
+      categories.forEach((c, index) =>
+        lines.push(`msgstr[${index}] ${quote(message ? pluralBranchFor(message, c) : '')}`),
+      )
+    } else lines.push(`msgstr ${quote(entry.value)}`)
+    return lines.join('\n')
+  })
+  out = out.replace(/\n*$/, '\n')
+  return out + '\n' + blocks.join('\n\n') + '\n'
 }
