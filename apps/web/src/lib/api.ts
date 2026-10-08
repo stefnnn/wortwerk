@@ -1,5 +1,5 @@
 import { hc, type ClientResponse } from 'hono/client'
-import type { Api } from '#/server/api/index.ts'
+import type { Api } from '@wortwerk/api'
 
 export const client = hc<Api>(typeof window === 'undefined' ? 'http://localhost' : window.location.origin)
 

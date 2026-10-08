@@ -32,7 +32,7 @@ import { requireProject, type Env } from './context.ts'
 import { getBoss } from '../services.ts'
 import { projectGit, queueRun } from './git.ts'
 
-const maxUploadBytes = 20 * 1024 * 1024
+export const maxUploadBytes = 20 * 1024 * 1024
 
 const importForm = z.object({
   file: z.instanceof(File),
@@ -46,12 +46,30 @@ const importForm = z.object({
 })
 
 // A new locale or file has no translations yet: fill them from the repo (gaps only, never overwrites).
-async function queueFill(ctx: Ctx, p: { id: string; files: unknown[] }) {
+export async function queueFill(ctx: Ctx, p: { id: string; files: unknown[] }) {
   if (!p.files.length || !(await getRepoLink(ctx, p.id))) return
   await queueRun(ctx, p.id, {
     kind: 'pull',
     params: { trigger: 'connect', force: true, importTranslations: true },
   })
+}
+
+export async function queueImport(
+  ctx: Ctx,
+  projectId: string,
+  input: { fileId: string; locale: string; bytes: Uint8Array; overwrite: boolean; filename: string },
+) {
+  const { bytes, ...params } = input
+  const storageKey = `tenants/${ctx.tenantId}/imports/${crypto.randomUUID()}`
+  await ctx.storage!.put(storageKey, bytes)
+  const run = await createSyncRun(ctx, projectId, 'import', { ...params, storageKey })
+  await enqueueProjectJob(await getBoss(), {
+    type: 'import',
+    tenantId: ctx.tenantId,
+    projectId,
+    syncRunId: run.id,
+  })
+  return run
 }
 
 const project = new Hono<Env>()
@@ -132,20 +150,12 @@ const project = new Hono<Env>()
       throw new DomainError('not_found', 'File not found')
     }
 
-    const storageKey = `tenants/${ctx.tenantId}/imports/${crypto.randomUUID()}`
-    await ctx.storage!.put(storageKey, new Uint8Array(await form.file.arrayBuffer()))
-    const run = await createSyncRun(ctx, p.id, 'import', {
+    const run = await queueImport(ctx, p.id, {
       fileId,
       locale: form.locale,
-      storageKey,
+      bytes: new Uint8Array(await form.file.arrayBuffer()),
       overwrite: form.overwrite,
       filename: form.file.name,
-    })
-    await enqueueProjectJob(await getBoss(), {
-      type: 'import',
-      tenantId: ctx.tenantId,
-      projectId: p.id,
-      syncRunId: run.id,
     })
     return c.json(run, 202)
   })

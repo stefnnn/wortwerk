@@ -17,6 +17,11 @@ export const queries = {
       queryKey: ['admin', 'overview'],
       queryFn: () => unwrap(client.api.admin.overview.$get()),
     }),
+  apiTokens: () =>
+    queryOptions({
+      queryKey: ['account', 'tokens'],
+      queryFn: () => unwrap(client.api.account.tokens.$get()),
+    }),
   tenant: (tenant: string) =>
     queryOptions({
       queryKey: ['tenant', tenant],

@@ -9,7 +9,7 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/a
 import { and, count, eq } from 'drizzle-orm'
 import { createMailer, invitationMail, magicLinkMail, mailLocale, noAccountMail } from '@wortwerk/mail'
 import { env } from './env.ts'
-import { ac, roles } from '../lib/roles.ts'
+import { ac, roles } from './roles.ts'
 
 const mailer = createMailer()
 

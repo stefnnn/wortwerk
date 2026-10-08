@@ -1,0 +1,31 @@
+{
+  "name": "@wortwerk/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./roles": "./src/roles.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "@tanstack/react-start": "1.168.60",
+    "@wortwerk/core": "workspace:*",
+    "@wortwerk/db": "workspace:*",
+    "@wortwerk/formats": "workspace:*",
+    "@wortwerk/git": "workspace:*",
+    "@wortwerk/jobs": "workspace:*",
+    "@wortwerk/mail": "workspace:*",
+    "@wortwerk/storage": "workspace:*",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.13",
+    "hono-openapi": "1.3.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  }
+}

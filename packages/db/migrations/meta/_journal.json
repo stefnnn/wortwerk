@@ -50,6 +50,13 @@
       "when": 1791394861318,
       "tag": "0006_guest_access",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791447944503,
+      "tag": "0007_api_tokens",
+      "breakpoints": true
     }
   ]
 }

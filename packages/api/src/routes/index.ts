@@ -1,26 +1,18 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { count, eq } from 'drizzle-orm'
 import { ZodError, z } from 'zod'
 import { validate } from './validate.ts'
-import {
-  DomainError,
-  countActiveKeys,
-  countProjects,
-  getPlan,
-  listGuestAccess,
-  setGuestAccess,
-} from '@wortwerk/core'
-import { schema } from '@wortwerk/db'
+import { DomainError, listGuestAccess, setGuestAccess } from '@wortwerk/core'
 import { auth } from '../auth.ts'
 import { env } from '../env.ts'
-import { db, translator } from '../services.ts'
 import { admin } from './admin.ts'
 import { requireSession, requireTenant, type Env } from './context.ts'
 import { comments, keys, projectKeys, screenshots } from './keys.ts'
 import { integrations, tenantGit, webhooks } from './git.ts'
 import { projects } from './projects.ts'
-import { v1 } from './v1.ts'
+import { v1 } from './v1/index.ts'
+import { account } from './account.ts'
+import { workspaceSummary } from './workspace.ts'
 
 const statusFor = { not_found: 404, conflict: 409, invalid: 400, limit_reached: 402, forbidden: 403 } as const
 
@@ -28,19 +20,9 @@ const tenant = new Hono<Env>()
   .use(requireSession, requireTenant)
   .get('/', async (c) => {
     const t = c.get('tenant')
-    const [members] = await db
-      .select({ n: count() })
-      .from(schema.member)
-      .where(eq(schema.member.organizationId, t.id))
     return c.json({
       ...t,
-      plan: getPlan(t.plan),
-      features: { machineTranslation: getPlan(t.plan).machineTranslation && Boolean(translator) },
-      usage: {
-        projects: await countProjects(c.get('ctx')),
-        keys: await countActiveKeys(c.get('ctx')),
-        members: members?.n ?? 0,
-      },
+      ...(await workspaceSummary(c.get('ctx'), t.plan)),
       contact: env.ADMIN_EMAIL ?? null,
     })
   })
@@ -64,6 +46,7 @@ export const api = new Hono<Env>()
   .route('/admin', admin)
   .route('/webhooks', webhooks)
   .route('/integrations', integrations)
+  .route('/account', account)
   .route('/v1', v1)
   .onError((error, c) => {
     if (error instanceof DomainError)

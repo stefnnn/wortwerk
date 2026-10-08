@@ -319,6 +319,45 @@ export const projectToken = pgTable(
   (t) => [index().on(t.projectId)],
 )
 
+export const apiTokenAccess = pgEnum('api_token_access', ['read', 'write'])
+
+// Personal access tokens (CLI, scripts): act as their user, with that user's memberships and guest scope.
+export const apiToken = pgTable(
+  'api_token',
+  {
+    id: id(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // null = every workspace the user belongs to
+    tenantId: text().references(() => tenant.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    access: apiTokenAccess().notNull(),
+    tokenHash: text().notNull().unique(),
+    tokenPrefix: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.userId)],
+)
+
+export const deviceAuthStatus = pgEnum('device_auth_status', ['pending', 'approved', 'denied', 'consumed'])
+
+// OAuth device flow (RFC 8628) for `wortwerk login`: the CLI polls with the device code until the user
+// approves the user code in the browser, then receives a personal token
+export const deviceAuth = pgTable('device_auth', {
+  id: id(),
+  deviceCodeHash: text().notNull().unique(),
+  userCode: text().notNull().unique(),
+  clientName: text().notNull(),
+  status: deviceAuthStatus().default('pending').notNull(),
+  userId: text().references(() => user.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  lastPolledAt: timestamp({ withTimezone: true }),
+  createdAt: createdAt(),
+})
+
 export const projectRelations = relations(project, ({ one, many }) => ({
   repo: one(projectRepo),
   locales: many(projectLocale),

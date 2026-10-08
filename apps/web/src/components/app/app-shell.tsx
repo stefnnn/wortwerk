@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronsUpDown, FolderKanban, LogOut, Menu, Plus, Settings, Shield } from 'lucide-react'
+import { ChevronsUpDown, FolderKanban, KeyRound, LogOut, Menu, Plus, Settings, Shield } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Logo } from '#/components/brand.tsx'
 import { LocaleSwitch, ThemeToggle } from '#/components/preferences.tsx'
@@ -125,7 +125,7 @@ function Sidebar({
       >
         {m.footer_source()}
       </a>
-      <UserMenu viewer={viewer} />
+      <UserMenu viewer={viewer} tenant={tenant} />
     </div>
   )
 }
@@ -170,7 +170,7 @@ function TenantSwitcher({ viewer, tenant }: { viewer: Viewer; tenant: Tenant }) 
   )
 }
 
-function UserMenu({ viewer }: { viewer: Viewer }) {
+function UserMenu({ viewer, tenant }: { viewer: Viewer; tenant: Tenant }) {
   const router = useRouter()
   const initials = (viewer.user.name || viewer.user.email).slice(0, 2).toUpperCase()
   const signOut = async () => {
@@ -194,6 +194,11 @@ function UserMenu({ viewer }: { viewer: Viewer }) {
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" className="w-56">
+          <DropdownMenuItem
+            onClick={() => router.navigate({ to: '/t/$tenant/account', params: { tenant: tenant.slug } })}
+          >
+            <KeyRound /> {m.nav_account()}
+          </DropdownMenuItem>
           {viewer.isAdmin && (
             <DropdownMenuItem onClick={() => router.navigate({ to: '/admin' })}>
               <Shield /> {m.admin_title()}

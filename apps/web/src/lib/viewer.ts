@@ -8,10 +8,8 @@ export type Viewer = {
 }
 
 export const getViewer = createServerFn({ method: 'GET' }).handler(async (): Promise<Viewer | null> => {
-  const [{ auth }, { isAdminUser }, { db }, { schema }, { eq, asc }] = await Promise.all([
-    import('#/server/auth.ts'),
-    import('#/server/admin-access.ts'),
-    import('#/server/services.ts'),
+  const [{ auth, isAdminUser, db }, { schema }, { eq, asc }] = await Promise.all([
+    import('@wortwerk/api'),
     import('@wortwerk/db'),
     import('drizzle-orm'),
   ])

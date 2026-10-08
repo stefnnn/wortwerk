@@ -41,6 +41,8 @@ export const listKeysInput = z.object({
   // source sync state: wording not in the repo yet, or an open conflict with the repo
   sync: z.enum(['pending', 'conflict']).optional(),
   search: z.string().trim().max(200).optional(),
+  // exact key name, for API clients that address keys by name
+  name: z.string().max(500).optional(),
   fileId: z.string().optional(),
   obsolete: z.coerce.boolean().default(false),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -70,6 +72,7 @@ function keyFilter(
         ? isNotNull(translationKey.obsoleteAt)
         : isNull(translationKey.obsoleteAt),
     q.fileId ? eq(translationKey.fileId, q.fileId) : undefined,
+    q.name !== undefined ? eq(translationKey.name, q.name) : undefined,
   ]
   if (q.status === 'untranslated') filters.push(or(isNull(tgt.id), eq(tgt.status, 'untranslated')))
   else if (q.status) filters.push(eq(tgt.status, q.status))

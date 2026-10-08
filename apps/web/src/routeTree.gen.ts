@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as DeviceRouteImport } from './routes/device'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
@@ -21,6 +22,7 @@ import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as InvitationsIdRouteImport } from './routes/invitations.$id'
 import { Route as TTenantRouteImport } from './routes/t.$tenant'
 import { Route as TTenantIndexRouteImport } from './routes/t.$tenant.index'
+import { Route as TTenantAccountRouteImport } from './routes/t.$tenant.account'
 import { Route as TTenantSettingsRouteImport } from './routes/t.$tenant.settings'
 import { Route as TTenantPProjectRouteImport } from './routes/t.$tenant.p.$project'
 import { Route as TTenantPProjectIndexRouteImport } from './routes/t.$tenant.p.$project.index'
@@ -42,6 +44,11 @@ const AdminRoute = AdminRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeviceRoute = DeviceRouteImport.update({
+  id: '/device',
+  path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -89,6 +96,11 @@ const TTenantIndexRoute = TTenantIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TTenantRoute,
 } as any)
+const TTenantAccountRoute = TTenantAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => TTenantRoute,
+} as any)
 const TTenantSettingsRoute = TTenantSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -129,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/device': typeof DeviceRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
@@ -137,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/invitations/$id': typeof InvitationsIdRoute
   '/t/$tenant': typeof TTenantRouteWithChildren
   '/compare/': typeof CompareIndexRoute
+  '/t/$tenant/account': typeof TTenantAccountRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant/': typeof TTenantIndexRoute
   '/t/$tenant/p/$project': typeof TTenantPProjectRouteWithChildren
@@ -150,6 +164,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/device': typeof DeviceRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
@@ -157,6 +172,7 @@ export interface FileRoutesByTo {
   '/compare/$slug': typeof CompareSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
   '/compare': typeof CompareIndexRoute
+  '/t/$tenant/account': typeof TTenantAccountRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant': typeof TTenantIndexRoute
   '/t/$tenant/p/$project/editor': typeof TTenantPProjectEditorRoute
@@ -170,6 +186,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRoute
+  '/device': typeof DeviceRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
@@ -178,6 +195,7 @@ export interface FileRoutesById {
   '/invitations/$id': typeof InvitationsIdRoute
   '/t/$tenant': typeof TTenantRouteWithChildren
   '/compare/': typeof CompareIndexRoute
+  '/t/$tenant/account': typeof TTenantAccountRoute
   '/t/$tenant/settings': typeof TTenantSettingsRoute
   '/t/$tenant/': typeof TTenantIndexRoute
   '/t/$tenant/p/$project': typeof TTenantPProjectRouteWithChildren
@@ -193,6 +211,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/device'
     | '/onboarding'
     | '/privacy'
     | '/sign-in'
@@ -201,6 +220,7 @@ export interface FileRouteTypes {
     | '/invitations/$id'
     | '/t/$tenant'
     | '/compare/'
+    | '/t/$tenant/account'
     | '/t/$tenant/settings'
     | '/t/$tenant/'
     | '/t/$tenant/p/$project'
@@ -214,6 +234,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/device'
     | '/onboarding'
     | '/privacy'
     | '/sign-in'
@@ -221,6 +242,7 @@ export interface FileRouteTypes {
     | '/compare/$slug'
     | '/invitations/$id'
     | '/compare'
+    | '/t/$tenant/account'
     | '/t/$tenant/settings'
     | '/t/$tenant'
     | '/t/$tenant/p/$project/editor'
@@ -233,6 +255,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/device'
     | '/onboarding'
     | '/privacy'
     | '/sign-in'
@@ -241,6 +264,7 @@ export interface FileRouteTypes {
     | '/invitations/$id'
     | '/t/$tenant'
     | '/compare/'
+    | '/t/$tenant/account'
     | '/t/$tenant/settings'
     | '/t/$tenant/'
     | '/t/$tenant/p/$project'
@@ -255,6 +279,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRoute
+  DeviceRoute: typeof DeviceRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
@@ -286,6 +311,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/device': {
+      id: '/device'
+      path: '/device'
+      fullPath: '/device'
+      preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -349,6 +381,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/t/$tenant/'
       preLoaderRoute: typeof TTenantIndexRouteImport
+      parentRoute: typeof TTenantRoute
+    }
+    '/t/$tenant/account': {
+      id: '/t/$tenant/account'
+      path: '/account'
+      fullPath: '/t/$tenant/account'
+      preLoaderRoute: typeof TTenantAccountRouteImport
       parentRoute: typeof TTenantRoute
     }
     '/t/$tenant/settings': {
@@ -424,12 +463,14 @@ const TTenantPProjectRouteWithChildren = TTenantPProjectRoute._addFileChildren(
 )
 
 interface TTenantRouteChildren {
+  TTenantAccountRoute: typeof TTenantAccountRoute
   TTenantSettingsRoute: typeof TTenantSettingsRoute
   TTenantIndexRoute: typeof TTenantIndexRoute
   TTenantPProjectRoute: typeof TTenantPProjectRouteWithChildren
 }
 
 const TTenantRouteChildren: TTenantRouteChildren = {
+  TTenantAccountRoute: TTenantAccountRoute,
   TTenantSettingsRoute: TTenantSettingsRoute,
   TTenantIndexRoute: TTenantIndexRoute,
   TTenantPProjectRoute: TTenantPProjectRouteWithChildren,
@@ -442,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AppRoute: AppRoute,
+  DeviceRoute: DeviceRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
