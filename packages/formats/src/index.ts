@@ -68,7 +68,7 @@ export function patchFile<F extends FileFormat>(
   }
   const options = ctx.options ?? parsed.options
   if (format === 'yaml') {
-    const patched = patchYaml(content, entries, options as YamlOptions)
+    const patched = patchYaml(content, entries, { ...(options as YamlOptions), locale: ctx.locale })
     if (patched !== null) return patched
   }
   return serializeFile(format, entries, { ...ctx, options, template: content })

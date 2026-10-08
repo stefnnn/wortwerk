@@ -19,7 +19,7 @@ const en = (extra = '') => `{
 `
 
 describe('file import / export', () => {
-  it('imports source and target files and exports a structure-preserving file', async () => {
+  it("imports source and target files and exports the target's own file with new keys", async () => {
     const ctx = await createTenant()
     const project = await createProject(ctx, {
       name: 'Web',
@@ -60,12 +60,12 @@ describe('file import / export', () => {
     expect(exported.path).toBe('locales/de.json')
     expect(exported.content).toBe(`{
   "nav": {
-    "home": "Start"
+    "home": "Start",
+    "unknown": "x"
   },
   "items_one": "{{count}} Eintrag",
   "items_other": "{{count}} Einträge"
-}
-`)
+}`)
   })
 
   it("exports a script file by patching the locale's own file, not the source", async () => {
@@ -89,6 +89,142 @@ describe('file import / export', () => {
     const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'bg' })
     expect(exported.path).toBe('src/bg.ts')
     expect(exported.content).toBe(bg)
+  })
+
+  it("exports a yaml file by patching the locale's own file, not the source", async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'de',
+      locales: ['fr'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'config/locales/%locale%.yml', format: 'yaml' })
+    const input = { projectId: project.id, fileId: file.id }
+    await importFileContent(ctx, {
+      ...input,
+      locale: 'de',
+      content: [
+        'de:',
+        '  activerecord:',
+        '    title: Titel',
+        '  common:',
+        '    intro: >-',
+        '      Ein langer Text,',
+        '      der gefaltet ist.',
+        '    count:',
+        '      one: 1 Kapitel',
+        '      other: "%{count} Kapitel"',
+        '    extra: Neu',
+        '',
+      ].join('\n'),
+    })
+    const fr = [
+      'fr:',
+      '  nav:',
+      '    home: Accueil',
+      '  common:',
+      '    # kept',
+      '    intro: >-',
+      '      Un long texte,',
+      '      qui est plié.',
+      '    count:',
+      '      one: 1 chapitre',
+      '      other: "%{count} chapitres"',
+      '',
+    ].join('\n')
+    await importFileContent(ctx, { ...input, locale: 'fr', content: fr })
+
+    const { items } = await listKeys(ctx, project.id, { locale: 'fr' })
+    await setTranslation(ctx, items.find((i) => i.name === 'activerecord.title')!.id, 'fr', {
+      value: 'Titre',
+    })
+    await setTranslation(ctx, items.find((i) => i.name === 'common.extra')!.id, 'fr', { value: 'Nouveau' })
+    await setTranslation(ctx, items.find((i) => i.name === 'common.count')!.id, 'fr', {
+      value: '{count, plural, one {1 chapitre} other {# chapitres !}}',
+    })
+
+    const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'fr' })
+    expect(exported.content).toBe(
+      [
+        'fr:',
+        '  nav:',
+        '    home: Accueil',
+        '  common:',
+        '    # kept',
+        '    intro: >-',
+        '      Un long texte,',
+        '      qui est plié.',
+        '    count:',
+        '      one: 1 chapitre',
+        '      other: "%{count} chapitres !"',
+        '    extra: Nouveau',
+        '  activerecord:',
+        '    title: Titre',
+        '',
+      ].join('\n'),
+    )
+  })
+
+  it("exports a po file by patching the locale's own file", async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['ru'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'po/%locale%.po', format: 'po' })
+    const input = { projectId: project.id, fileId: file.id }
+    await importFileContent(ctx, {
+      ...input,
+      locale: 'en',
+      content: [
+        'msgid ""',
+        'msgstr ""',
+        '"Language: en\\n"',
+        '"Plural-Forms: nplurals=2; plural=(n != 1);\\n"',
+        '',
+        'msgid "Hello"',
+        'msgstr ""',
+        '',
+        'msgid "Bye"',
+        'msgstr ""',
+        '',
+        'msgid "New"',
+        'msgstr ""',
+        '',
+      ].join('\n'),
+    })
+    const ru = [
+      'msgid ""',
+      'msgstr ""',
+      '"Language: ru\\n"',
+      '"Last-Translator: Ivan\\n"',
+      '"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : 1);\\n"',
+      '',
+      '# translator note',
+      '#, fuzzy',
+      'msgid "Hello"',
+      'msgstr "Привет"',
+      '',
+      'msgid "Bye"',
+      'msgstr "Пока"',
+      '',
+      'msgid "Only in repo"',
+      'msgstr "Только в репозитории"',
+      '',
+    ].join('\n')
+    await importFileContent(ctx, { ...input, locale: 'ru', content: ru })
+
+    const { items } = await listKeys(ctx, project.id, { locale: 'ru' })
+    await setTranslation(ctx, items.find((i) => i.name === 'Hello')!.id, 'ru', { value: 'Здравствуйте' })
+    await setTranslation(ctx, items.find((i) => i.name === 'New')!.id, 'ru', { value: 'Новый' })
+
+    const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'ru' })
+    expect(exported.content).toBe(
+      ru.replace('#, fuzzy\n', '').replace('"Привет"', '"Здравствуйте"') + '\nmsgid "New"\nmsgstr "Новый"\n',
+    )
   })
 
   it('soft-deletes, restores and flags changed source strings', async () => {

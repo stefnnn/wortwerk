@@ -370,15 +370,15 @@ export async function exportFileContent(ctx: Ctx, input: { fileId: string; local
     )
   const sourceTemplate = snapshots.find((s) => s.locale === project.sourceLocale)?.content
   const ownTemplate = snapshots.find((s) => s.locale === input.locale)?.content
-  // data files take their shape from the source; scripts carry code around the data (identifier names,
-  // type exports) that belongs to each locale's own file, so it is patched in place instead
-  const template =
-    file.format === 'script' ? (ownTemplate ?? sourceTemplate) : (sourceTemplate ?? ownTemplate)
+  // a locale that already has a file is patched in place (key order, comments, folding, headers and keys
+  // wortwerk doesn't know stay); only a new locale takes its shape from the source
+  const template = ownTemplate ?? sourceTemplate
 
   const content = serializeFile(file.format as FileFormat, entries, {
     locale: input.locale,
     isSource,
     template,
+    keepUnknown: ownTemplate !== undefined && !isSource,
     options: file.options as never,
   })
   return { path: filePathFor(file.path, input.locale), content, count: entries.length }

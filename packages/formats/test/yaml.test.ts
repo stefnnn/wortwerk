@@ -111,3 +111,31 @@ describe('serializeYaml with a template', () => {
     expect(out).toBe(template.replace('  b: gone\n', ''))
   })
 })
+
+describe("serializeYaml with the locale's own file as template", () => {
+  const own = [
+    'fr:',
+    '  nav:',
+    '    home: Accueil',
+    '  a: >-',
+    '    Un long texte',
+    '    plié.',
+    '  count:',
+    '    one: 1 chapitre',
+    '    other: "%{count} chapitres"',
+    '',
+  ].join('\n')
+
+  it('keeps unknown keys, folding and plural categories, appends new keys', () => {
+    const { entries } = parseYaml(own, { locale: 'fr' })
+    const edited = entries
+      .filter((e) => e.key !== 'nav.home')
+      .map((e) => (e.key === 'count' ? { ...e, value: '{count, plural, one {1 page} other {# pages}}' } : e))
+    edited.push({ key: 'b.c', value: 'Neuf', isPlural: false })
+    const out = serializeYaml(edited, { locale: 'fr', template: own, keepUnknown: true })
+    expect(out).toBe(
+      own.replace('1 chapitre', '1 page').replace('%{count} chapitres', '%{count} pages') +
+        '  b:\n    c: Neuf\n',
+    )
+  })
+})
