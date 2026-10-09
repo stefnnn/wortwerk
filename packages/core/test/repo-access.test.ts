@@ -106,7 +106,7 @@ describe('repo access', () => {
   })
 
   it('fills in a missing account type from GitHub', async () => {
-    const { ctx, project, memory } = await setup()
+    const { ctx, memory } = await setup()
     const connection = await saveConnection(ctx, {
       provider: 'github',
       externalId: '777',
