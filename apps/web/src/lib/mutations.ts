@@ -20,6 +20,12 @@ export function useAction<TArgs, TResult>(
       if (options.success) toast.success(options.success)
       options.onSuccess?.(result, args)
     },
-    onError: (error) => toast.error(error.message || m.error_generic()),
+    onError: async (error) => {
+      // a failed action can still have changed state, e.g. a sync that found the repository gone
+      await Promise.all(
+        (options.invalidate ?? []).map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+      )
+      toast.error(error.message || m.error_generic())
+    },
   })
 }

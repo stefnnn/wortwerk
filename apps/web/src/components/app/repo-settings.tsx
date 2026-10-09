@@ -226,15 +226,15 @@ export function RepoAccessAlert({
     <Alert variant="destructive">
       <CircleAlert />
       <AlertTitle>{m.repo_access_title({ repo: repo.repo })}</AlertTitle>
-      <AlertDescription className="grid gap-3">
+      <AlertDescription className="grid gap-1.5">
         <p>{m.repo_access_body({ since: formatDateTime(repo.accessLostAt ?? '') })}</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pb-1">
           {repo.accessFixUrl && (
             <a
               href={repo.accessFixUrl}
               target="_blank"
               rel="noreferrer"
-              className={buttonVariants({ size: 'sm' })}
+              className={buttonVariants({ size: 'sm', className: 'no-underline' })}
             >
               {m.repo_access_fix()} <ExternalLink />
             </a>

@@ -170,6 +170,30 @@ export function repoAccessFixUrl(connection: {
   return 'https://github.com/settings/installations'
 }
 
+function noAccessError(provider: ProviderKind, repo: string) {
+  return new DomainError(
+    'forbidden',
+    provider === 'github'
+      ? `wortwerk cannot access ${repo} through this GitHub connection. Add the repository to the GitHub App's access and try again.`
+      : `wortwerk cannot access ${repo} with this Bitbucket connection. Connect Bitbucket with an account that can see it.`,
+  )
+}
+
+/** Connections saved before the account type was stored get it from GitHub, so the fix link can point at the right page. */
+export async function backfillAccountType(
+  ctx: Ctx,
+  providers: GitProviders,
+  connection: { id: string; provider: ProviderKind; externalId: string; accountType: string | null },
+) {
+  if (connection.provider !== 'github' || connection.accountType || !providers.github) return
+  const installation = await providers.github.getInstallation(connection.externalId)
+  if (!installation.accountType) return
+  await ctx.db
+    .update(gitConnection)
+    .set({ accountType: installation.accountType })
+    .where(and(eq(gitConnection.tenantId, ctx.tenantId), eq(gitConnection.id, connection.id)))
+}
+
 export async function assertRepoAccess(
   ctx: Ctx,
   providers: GitProviders,
@@ -178,13 +202,12 @@ export async function assertRepoAccess(
 ) {
   const connection = await getConnection(ctx, connectionId)
   const client = await gitClientFor(ctx, providers, connectionId)
-  if (await client.hasRepoAccess(repo)) return
-  throw new DomainError(
-    'forbidden',
-    connection.provider === 'github'
-      ? `wortwerk cannot access ${repo} through this GitHub connection. Add the repository to the GitHub App's access and try again.`
-      : `wortwerk cannot access ${repo} with this Bitbucket connection. Connect Bitbucket with an account that can see it.`,
-  )
+  if (!(await client.hasRepoAccess(repo))) throw noAccessError(connection.provider, repo)
+}
+
+/** Fails a sync or export up front when the connection lost the repository, instead of a misleading branch error. */
+export async function assertLinkAccess(ctx: Ctx, providers: GitProviders, link: RepoLink) {
+  if (!(await checkRepoAccess(ctx, providers, link))) throw noAccessError(link.connection.provider, link.repo)
 }
 
 /** Records whether the connection can still read the linked repository. A lost access keeps its first timestamp until it is restored. */

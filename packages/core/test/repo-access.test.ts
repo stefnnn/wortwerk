@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { createMemoryRepo } from '@wortwerk/git'
 import {
+  assertLinkAccess,
+  backfillAccountType,
   assertRepoAccess,
   checkRepoAccess,
   claimRepoAccessAlert,
@@ -93,6 +95,37 @@ describe('repo access', () => {
     )
     memory.setAccess(true)
     await expect(assertRepoAccess(ctx, providers, link.connectionId, 'acme/app')).resolves.toBeUndefined()
+  })
+
+  it('fails a sync up front with the access message when the repository is gone', async () => {
+    const { ctx, providers, memory, link } = await setup()
+    memory.setAccess(false)
+    await expect(assertLinkAccess(ctx, providers, link)).rejects.toThrow('cannot access acme/app')
+    memory.setAccess(true)
+    await expect(assertLinkAccess(ctx, providers, link)).resolves.toBeUndefined()
+  })
+
+  it('fills in a missing account type from GitHub', async () => {
+    const { ctx, project, memory } = await setup()
+    const connection = await saveConnection(ctx, {
+      provider: 'github',
+      externalId: '777',
+      accountName: 'getrestful',
+    })
+    const providers = {
+      github: {
+        client: () => memory.client,
+        getInstallation: async () => ({ id: '777', account: 'getrestful', accountType: 'Organization' }),
+      },
+    } as unknown as GitProviders
+    await backfillAccountType(ctx, providers, {
+      ...connection,
+      provider: 'github',
+      externalId: '777',
+      accountType: null,
+    })
+    const row = await ctx.db.query.gitConnection.findFirst({ where: (c, { eq }) => eq(c.id, connection.id) })
+    expect(row?.accountType).toBe('Organization')
   })
 
   it('lists linked repositories with their fix link', async () => {

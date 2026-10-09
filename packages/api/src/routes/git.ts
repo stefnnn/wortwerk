@@ -6,6 +6,8 @@ import {
   splitSelection,
   DomainError,
   assertMachineTranslation,
+  assertLinkAccess,
+  backfillAccountType,
   assertRepoAccess,
   checkRepoAccess,
   repoAccessFixUrl,
@@ -128,7 +130,11 @@ export const tenantGit = new Hono<Env>()
 export const projectGit = new Hono<Env>()
   .get('/repo', async (c) => {
     const ctx = c.get('ctx')
-    const link = await getRepoLink(ctx, c.get('project').id)
+    let link = await getRepoLink(ctx, c.get('project').id)
+    if (link && !link.connection.accountType) {
+      await backfillAccountType(ctx, providers, link.connection).catch(() => {})
+      link = await getRepoLink(ctx, c.get('project').id)
+    }
     const exportState = link?.lastPulledAt ? await getExportState(ctx, link) : null
     return c.json(link && { ...publicLink(link)!, exportState })
   })
@@ -168,16 +174,18 @@ export const projectGit = new Hono<Env>()
   })
   .post('/repo/sync', async (c) => {
     const ctx = c.get('ctx')
-    if (!(await getRepoLink(ctx, c.get('project').id)))
-      throw new DomainError('invalid', 'Connect a repository first')
+    const link = await getRepoLink(ctx, c.get('project').id)
+    if (!link) throw new DomainError('invalid', 'Connect a repository first')
+    await assertLinkAccess(ctx, providers, link)
     assertFilePatterns(c.get('project'))
     const params = { force: true, trigger: 'manual' as const }
     return c.json(await queueRun(ctx, c.get('project').id, { kind: 'pull', params }), 202)
   })
   .post('/repo/export', async (c) => {
     const ctx = c.get('ctx')
-    if (!(await getRepoLink(ctx, c.get('project').id)))
-      throw new DomainError('invalid', 'Connect a repository first')
+    const link = await getRepoLink(ctx, c.get('project').id)
+    if (!link) throw new DomainError('invalid', 'Connect a repository first')
+    await assertLinkAccess(ctx, providers, link)
     return c.json(
       await queueRun(ctx, c.get('project').id, { kind: 'push', params: { trigger: 'manual' } }),
       202,
