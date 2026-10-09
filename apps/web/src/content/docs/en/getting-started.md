@@ -3,6 +3,14 @@ title: Getting started
 description: From a new account to the first translated pull request in about ten minutes.
 ---
 
+> **Have a repository with translation files already?** Steps 1 to 3 take one command. Run this at the root of your repository:
+>
+> ```sh
+> npx wortwerk init
+> ```
+>
+> The CLI finds your translation files and languages, detects the GitHub or Bitbucket remote and opens the browser, where you sign up, confirm the project and authorize the repository. The first sync starts right away, so you can continue with [step 4](#4-invite-your-team). Details in [Quick setup with init](/docs/cli#quick-setup-with-init).
+
 ## 1. Create your account and workspace
 
 [Create an account](/sign-up) with your email address. Afterwards you sign in with a magic link or your password.

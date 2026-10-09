@@ -3,6 +3,8 @@ title: Einführung
 description: wortwerk hält die Übersetzungen deiner App neben deinem Code. Entwickler arbeiten weiter in git, Übersetzerinnen in einem fokussierten Editor, und Änderungen reisen als Pull Requests zwischen beiden.
 ---
 
+> **Einrichten mit einem Befehl.** Führe `npx wortwerk init` im Wurzelverzeichnis deines Repositorys aus. Der Befehl erkennt dein GitHub- oder Bitbucket-Remote und deine Übersetzungsdateien, lässt dich im Browser registrieren und startet die erste Synchronisation. Siehe [Schnellstart mit init](/docs/cli#schnellstart-mit-init).
+
 ## Wie wortwerk in deinen Ablauf passt
 
 Die meisten Übersetzungstools wollen die einzige Quelle der Wahrheit sein. wortwerk teilt die Verantwortung entlang der Linien, die es in einem Softwareteam ohnehin gibt:
@@ -23,6 +25,6 @@ Entwickler fügen Keys im Code hinzu, den sie sowieso gerade schreiben. Sobald s
 
 ## Wie weiter
 
-- [Erste Schritte](/docs/getting-started): Workspace und erstes Projekt anlegen.
+- [Erste Schritte](/docs/getting-started): Workspace und erstes Projekt anlegen, im Terminal oder im Browser.
 - [So funktioniert die Synchronisation](/docs/sync): Was bei jedem Pull und Export genau passiert.
 - [CLI](/docs/cli) und [API](/docs/api): Syncs automatisieren, Releases bei fehlenden Übersetzungen stoppen oder eigene Integrationen bauen.

@@ -15,6 +15,7 @@ import { GeometricBackground } from '#/components/marketing/background.tsx'
 import { Faq, faqJsonLd } from '#/components/marketing/faq.tsx'
 import { BitbucketLogo, GitHubLogo, StackChip, formats, frameworks } from '#/components/marketing/logos.tsx'
 import { ProcessSteps } from '#/components/marketing/process.tsx'
+import { InitCommand, Quickstart } from '#/components/marketing/quickstart.tsx'
 import { MarketingLayout } from '#/components/marketing/site.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
 import { authClient } from '#/lib/auth-client.ts'
@@ -74,6 +75,10 @@ function Landing() {
               {m.cta_how_it_works()}
             </a>
           </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <span className="text-muted-foreground text-sm">{m.quickstart_hint()}</span>
+            <InitCommand />
+          </div>
           <CodePreview />
         </div>
       </section>
@@ -99,6 +104,10 @@ function Landing() {
             <ProcessSteps />
           </div>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pt-24">
+        <Quickstart />
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-24">

@@ -25,17 +25,29 @@ npx wortwerk logout      # widerruft das Token und vergisst es
 
 CLI-Sitzungen siehst und widerrufst du in der App unter **Konto & API**. Sie heissen nach deinem Computer.
 
-## Einen Ordner mit einem Projekt verknüpfen
+## Schnellstart mit init
 
-Führe `init` im Wurzelverzeichnis deines Repositorys aus:
+`init` bringt dich in rund einer Minute von einem Repository mit Übersetzungsdateien zu einem synchronisierten wortwerk-Projekt. Du brauchst vorher weder Konto noch Projekt.
 
-```sh
-npx wortwerk init
-```
+1. **Im Wurzelverzeichnis deines Repositorys ausführen.**
 
-Die CLI fragt nach Workspace und Projekt (oder legt ein neues an). Hat das Projekt noch keine Dateimuster, durchsucht sie den Ordner nach Übersetzungsdateien wie `locales/en.json`, `en/messages.yml` oder `messages.en.po` und schlägt passende `%locale%`-Muster vor.
+   ```sh
+   npx wortwerk init
+   ```
 
-Das Ergebnis ist eine `wortwerk.json`, die du committest:
+   Die CLI untersucht den git-Checkout, erkennt ein GitHub- oder Bitbucket-Remote und den verfolgten Branch und findet Übersetzungsdateien wie `locales/en.json`, `en/messages.yml` oder `messages.en.po`. Daraus schlägt sie `%locale%`-Muster, Quellsprache und Zielsprachen vor.
+
+2. **Im Browser abschliessen.** Ein Browserfenster öffnet sich mit einem Code wie `BCDF-GHJK`. Registriere dich oder melde dich an, prüfe, ob der Code übereinstimmt, wähle einen Workspace und kontrolliere das Projekt: Name, Sprachen und Dateimuster sind schon ausgefüllt.
+
+3. **Repository freigeben.** Installiere bei Aufforderung die GitHub App oder verbinde Bitbucket und schliesse die Einrichtung ab.
+
+4. **Zurück im Terminal** wartet die CLI auf den ersten Pull aus dem Repository, meldet dich an und schreibt eine `wortwerk.json`. Committe sie.
+
+Das wars: Jeder Push auf den verfolgten Branch aktualisiert nun wortwerk, und Übersetzungen kommen als Pull Request zurück.
+
+Mit `--source-locale`, `--locales`, `--file`, `--repo` oder `--branch` übersteuerst du einen Vorschlag. `--no-open` zeigt die Setup-URL nur an, ohne einen Browser zu öffnen, und `--no-repo` legt ein Projekt ohne Repository an. Um direkt mit einem bestehenden Projekt zu verknüpfen, melde dich zuerst an und nutze `npx wortwerk init --project <projekt-id>`.
+
+Die `wortwerk.json` sieht so aus:
 
 ```json
 {

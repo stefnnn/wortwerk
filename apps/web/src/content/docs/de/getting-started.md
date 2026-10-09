@@ -3,6 +3,14 @@ title: Erste Schritte
 description: Vom neuen Konto zum ersten übersetzten Pull Request in rund zehn Minuten.
 ---
 
+> **Du hast schon ein Repository mit Übersetzungsdateien?** Schritte 1 bis 3 erledigt ein einziger Befehl. Führe ihn im Wurzelverzeichnis deines Repositorys aus:
+>
+> ```sh
+> npx wortwerk init
+> ```
+>
+> Die CLI findet deine Übersetzungsdateien und Sprachen, erkennt das GitHub- oder Bitbucket-Remote und öffnet den Browser, wo du dich registrierst, das Projekt bestätigst und das Repository freigibst. Die erste Synchronisation startet sofort, du kannst also mit [Schritt 4](#4-team-einladen) weitermachen. Details unter [Schnellstart mit init](/docs/cli#schnellstart-mit-init).
+
 ## 1. Konto und Workspace anlegen
 
 [Erstelle ein Konto](/sign-up) mit deiner E-Mail-Adresse. Danach meldest du dich mit einem Magic Link oder deinem Passwort an.

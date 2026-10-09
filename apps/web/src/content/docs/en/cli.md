@@ -25,19 +25,29 @@ npx wortwerk logout      # revokes the token and forgets it
 
 You can see and revoke CLI sessions under **Account & API** in the app. They are named after your computer.
 
-## Set up a project from a folder
+## Quick setup with init
 
-Run `init` at the root of your repository:
+`init` takes you from a repository with translation files to a synced wortwerk project in about a minute. You don't need an account or a project beforehand.
 
-```sh
-npx wortwerk init
-```
+1. **Run it at the root of your repository.**
 
-`init` inspects the git checkout, detects a GitHub or Bitbucket remote, finds translation files such as `locales/en.json`, `en/messages.yml` or `messages.en.po`, and suggests matching `%locale%` patterns and locales. It then opens a browser where you can sign up or sign in, confirm the project, choose a workspace and authorize the repository. The first repository pull starts as soon as setup is complete.
+   ```sh
+   npx wortwerk init
+   ```
+
+   The CLI inspects the git checkout, detects a GitHub or Bitbucket remote and the tracked branch, and finds translation files such as `locales/en.json`, `en/messages.yml` or `messages.en.po`. From those it suggests `%locale%` patterns, the source language and the target languages.
+
+2. **Finish in the browser.** A browser window opens with a code like `BCDF-GHJK`. Sign up or sign in, check that the code matches, choose a workspace and review the project: name, languages and file patterns are filled in already.
+
+3. **Authorize the repository.** Install the GitHub App or connect Bitbucket when asked, then click **Create and synchronize project**.
+
+4. **Back in the terminal**, the CLI waits for the first repository pull, signs you in and writes a `wortwerk.json`. Commit it.
+
+That's it: every push to the tracked branch now updates wortwerk, and translations come back as a pull request.
 
 Use `--source-locale`, `--locales`, `--file`, `--repo`, or `--branch` to override a suggestion. `--no-open` prints the setup URL without launching a browser, and `--no-repo` creates a standalone project. To link directly to an existing project, sign in first and use `npx wortwerk init --project <project-id>`.
 
-The result is a `wortwerk.json`, which you commit:
+The `wortwerk.json` looks like this:
 
 ```json
 {

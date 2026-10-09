@@ -3,6 +3,8 @@ title: Introduction
 description: wortwerk keeps your app's translations next to your code. Developers keep working in git, translators work in a focused editor, and changes travel between the two as pull requests.
 ---
 
+> **Set up in one command.** Run `npx wortwerk init` at the root of your repository. It detects your GitHub or Bitbucket remote and translation files, lets you sign up in the browser and runs the first sync. See [Quick setup with init](/docs/cli#quick-setup-with-init).
+
 ## How wortwerk fits into your workflow
 
 Most translation tools want to be the source of truth. wortwerk splits ownership along the lines that already exist in a software team:
@@ -23,6 +25,6 @@ Developers add keys in the code they are writing anyway. When they push, wortwer
 
 ## Where to go next
 
-- [Getting started](/docs/getting-started): create a workspace and your first project.
+- [Getting started](/docs/getting-started): create a workspace and your first project, from the terminal or in the browser.
 - [How sync works](/docs/sync): what happens on every pull and export, in detail.
 - [CLI](/docs/cli) and [API](/docs/api): automate syncs, gate releases on missing translations, or build your own integration.
