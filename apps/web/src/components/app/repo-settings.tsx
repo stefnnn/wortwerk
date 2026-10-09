@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   CircleAlert,
   CircleCheck,
@@ -13,62 +13,88 @@ import {
   RefreshCw,
   Trash2,
   Upload,
-} from 'lucide-react'
-import { useState, type FormEvent } from 'react'
-import { toast } from 'sonner'
-import { FilePatternForm } from '#/components/app/file-patterns.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert.tsx'
-import { Badge } from '#/components/ui/badge.tsx'
-import { Button, buttonVariants } from '#/components/ui/button.tsx'
-import { Checkbox } from '#/components/ui/checkbox.tsx'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/components/ui/field.tsx'
-import { Input } from '#/components/ui/input.tsx'
-import { NativeSelect } from '#/components/ui/native-select.tsx'
-import { t, unwrap } from '#/lib/api.ts'
-import { formatDateTime } from '#/lib/format.ts'
-import { useAction } from '#/lib/mutations.ts'
-import { queries } from '#/lib/queries.ts'
-import { m } from '#/paraglide/messages.js'
+} from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { FilePatternForm } from "#/components/app/file-patterns.tsx";
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert.tsx";
+import { Badge } from "#/components/ui/badge.tsx";
+import { Button, buttonVariants } from "#/components/ui/button.tsx";
+import { Checkbox } from "#/components/ui/checkbox.tsx";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "#/components/ui/card.tsx";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "#/components/ui/field.tsx";
+import { Input } from "#/components/ui/input.tsx";
+import { NativeSelect } from "#/components/ui/native-select.tsx";
+import { t, unwrap } from "#/lib/api.ts";
+import { formatDateTime } from "#/lib/format.ts";
+import { useAction } from "#/lib/mutations.ts";
+import { queries } from "#/lib/queries.ts";
+import { m } from "#/paraglide/messages.js";
 
-type Props = { tenant: string; project: string }
+type Props = { tenant: string; project: string };
 
-const providerName = { github: 'GitHub', bitbucket: 'Bitbucket' } as const
+const providerName = { github: "GitHub", bitbucket: "Bitbucket" } as const;
 
 function parseAliases(value: string) {
   return Object.fromEntries(
     value
       .split(/[,\n]/)
-      .map((pair) => pair.split('=').map((s) => s.trim()))
-      .filter((pair): pair is [string, string] => pair.length === 2 && Boolean(pair[0]) && Boolean(pair[1])),
-  )
+      .map((pair) => pair.split("=").map((s) => s.trim()))
+      .filter(
+        (pair): pair is [string, string] =>
+          pair.length === 2 && Boolean(pair[0]) && Boolean(pair[1]),
+      ),
+  );
 }
 
 const formatAliases = (aliases: Record<string, string>) =>
   Object.entries(aliases)
     .map(([k, v]) => `${k}=${v}`)
-    .join(', ')
+    .join(", ");
 
 export function RepoCard({ tenant, project }: Props) {
-  const connections = useQuery(queries.gitConnections(tenant))
-  const link = useQuery(queries.repo(tenant, project))
-  const details = useQuery(queries.project(tenant, project))
-  const runs = useQuery(queries.runs(tenant, project))
-  const [editing, setEditing] = useState(false)
-  const param = { tenant, project }
-  const invalidate = [queries.repo(tenant, project).queryKey, queries.runs(tenant, project).queryKey]
+  const connections = useQuery(queries.gitConnections(tenant));
+  const link = useQuery(queries.repo(tenant, project));
+  const details = useQuery(queries.project(tenant, project));
+  const runs = useQuery(queries.runs(tenant, project));
+  const [editing, setEditing] = useState(false);
+  const param = { tenant, project };
+  const invalidate = [
+    queries.repo(tenant, project).queryKey,
+    queries.runs(tenant, project).queryKey,
+  ];
 
-  const sync = useAction(() => unwrap(t.projects[':project'].repo.sync.$post({ param })), {
-    invalidate,
-    success: m.repo_sync_queued(),
-  })
-  const exportNow = useAction(() => unwrap(t.projects[':project'].repo.export.$post({ param })), {
-    invalidate,
-    success: m.repo_export_queued(),
-  })
-  const disconnect = useAction(() => unwrap(t.projects[':project'].repo.$delete({ param })), { invalidate })
+  const sync = useAction(
+    () => unwrap(t.projects[":project"].repo.sync.$post({ param })),
+    {
+      invalidate,
+      success: m.repo_sync_queued(),
+    },
+  );
+  const exportNow = useAction(
+    () => unwrap(t.projects[":project"].repo.export.$post({ param })),
+    {
+      invalidate,
+      success: m.repo_export_queued(),
+    },
+  );
+  const disconnect = useAction(
+    () => unwrap(t.projects[":project"].repo.$delete({ param })),
+    { invalidate },
+  );
 
-  if (!connections.data || link.data === undefined) return null
+  if (!connections.data || link.data === undefined) return null;
 
   if (!connections.data.connections.length) {
     return (
@@ -79,19 +105,25 @@ export function RepoCard({ tenant, project }: Props) {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            {m.repo_no_connections()}{' '}
-            <Link to="/t/$tenant/settings" params={{ tenant }} className="text-primary hover:underline">
+            {m.repo_no_connections()}{" "}
+            <Link
+              to="/t/$tenant/settings"
+              params={{ tenant }}
+              className="text-primary hover:underline"
+            >
               {m.repo_open_settings()}
             </Link>
           </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  const repo = link.data
-  const noFiles = details.data?.files.length === 0
-  const lastRun = runs.data?.find((r) => r.kind === 'pull' || r.kind === 'push')
+  const repo = link.data;
+  const noFiles = details.data?.files.length === 0;
+  const lastRun = runs.data?.find(
+    (r) => r.kind === "pull" || r.kind === "push",
+  );
   if (!repo || editing) {
     return (
       <RepoForm
@@ -102,7 +134,7 @@ export function RepoCard({ tenant, project }: Props) {
         onDone={() => setEditing(false)}
         onCancel={repo ? () => setEditing(false) : undefined}
       />
-    )
+    );
   }
 
   return (
@@ -112,11 +144,15 @@ export function RepoCard({ tenant, project }: Props) {
         <CardDescription>{m.repo_linked_body()}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        {repo.accessLostAt && <RepoAccessAlert tenant={tenant} project={project} repo={repo} />}
+        {repo.accessLostAt && (
+          <RepoAccessAlert tenant={tenant} project={project} repo={repo} />
+        )}
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[auto_1fr]">
           <dt className="text-muted-foreground">{m.repo_repository()}</dt>
           <dd className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{providerName[repo.connection.provider]}</Badge>
+            <Badge variant="outline">
+              {providerName[repo.connection.provider]}
+            </Badge>
             <code>{repo.repo}</code>
             <span className="text-muted-foreground inline-flex items-center gap-1">
               <GitBranch className="size-3.5" /> <code>{repo.branch}</code>
@@ -124,31 +160,38 @@ export function RepoCard({ tenant, project }: Props) {
           </dd>
           <dt className="text-muted-foreground">{m.repo_export_branch()}</dt>
           <dd>
-            <code>{repo.exportBranch}</code>{' '}
+            <code>{repo.exportBranch}</code>{" "}
             <span className="text-muted-foreground">
-              · {repo.autoExport ? m.repo_auto_export_on() : m.repo_auto_export_off()}
+              ·{" "}
+              {repo.autoExport
+                ? m.repo_auto_export_on()
+                : m.repo_auto_export_off()}
             </span>
           </dd>
           {Object.keys(repo.localeAliases).length > 0 && (
             <>
               <dt className="text-muted-foreground">{m.repo_aliases()}</dt>
-              <dd className="font-mono text-xs">{formatAliases(repo.localeAliases)}</dd>
+              <dd className="font-mono text-xs">
+                {formatAliases(repo.localeAliases)}
+              </dd>
             </>
           )}
           <dt className="text-muted-foreground">{m.repo_last_pull()}</dt>
           <dd>
             {repo.lastPulledAt ? (
               <>
-                {repo.lastPulledSha && <code>{repo.lastPulledSha.slice(0, 7)} · </code>}
+                {repo.lastPulledSha && (
+                  <code>{repo.lastPulledSha.slice(0, 7)} · </code>
+                )}
                 {formatDateTime(repo.lastPulledAt)}
               </>
             ) : (
-              '—'
+              "—"
             )}
           </dd>
           <dt className="text-muted-foreground">{m.repo_last_push()}</dt>
           <dd className="flex flex-wrap items-center gap-2">
-            {repo.lastPushedAt ? formatDateTime(repo.lastPushedAt) : '—'}
+            {repo.lastPushedAt ? formatDateTime(repo.lastPushedAt) : "—"}
             {repo.pullRequestUrl && (
               <a
                 href={repo.pullRequestUrl}
@@ -156,7 +199,7 @@ export function RepoCard({ tenant, project }: Props) {
                 rel="noreferrer"
                 className="text-primary inline-flex items-center gap-1 hover:underline"
               >
-                <GitPullRequest className="size-3.5" /> {m.repo_pull_request()}{' '}
+                <GitPullRequest className="size-3.5" /> {m.repo_pull_request()}{" "}
                 <ExternalLink className="size-3" />
               </a>
             )}
@@ -177,7 +220,10 @@ export function RepoCard({ tenant, project }: Props) {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => sync.mutate(undefined)} disabled={sync.isPending || noFiles}>
+          <Button
+            onClick={() => sync.mutate(undefined)}
+            disabled={sync.isPending || noFiles}
+          >
             <RefreshCw /> {m.repo_sync_now()}
           </Button>
           <Button
@@ -200,7 +246,7 @@ export function RepoCard({ tenant, project }: Props) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export function RepoAccessAlert({
@@ -208,33 +254,47 @@ export function RepoAccessAlert({
   project,
   repo,
 }: {
-  tenant: string
-  project: string
-  repo: { repo: string; accessLostAt: string | null; accessFixUrl: string | null }
+  tenant: string;
+  project: string;
+  repo: {
+    repo: string;
+    accessLostAt: string | null;
+    accessFixUrl: string | null;
+  };
 }) {
   const check = useAction(
-    () => unwrap(t.projects[':project'].repo.check.$post({ param: { tenant, project } })),
+    () =>
+      unwrap(
+        t.projects[":project"].repo.check.$post({ param: { tenant, project } }),
+      ),
     {
       invalidate: [queries.repo(tenant, project).queryKey],
       onSuccess: (link) => {
-        if (link?.accessLostAt) toast.error(m.repo_access_still_lost())
-        else toast.success(m.repo_access_restored())
+        if (link?.accessLostAt) toast.error(m.repo_access_still_lost());
+        else toast.success(m.repo_access_restored());
       },
     },
-  )
+  );
   return (
     <Alert variant="destructive">
       <CircleAlert />
       <AlertTitle>{m.repo_access_title({ repo: repo.repo })}</AlertTitle>
       <AlertDescription className="grid gap-1.5">
-        <p>{m.repo_access_body({ since: formatDateTime(repo.accessLostAt ?? '') })}</p>
+        <p>
+          {m.repo_access_body({
+            since: formatDateTime(repo.accessLostAt ?? ""),
+          })}
+        </p>
         <div className="flex flex-wrap gap-2 pb-1">
           {repo.accessFixUrl && (
             <a
               href={repo.accessFixUrl}
               target="_blank"
               rel="noreferrer"
-              className={buttonVariants({ size: 'sm', className: 'no-underline' })}
+              className={buttonVariants({
+                size: "sm",
+                className: "no-underline! hover:text-white!",
+              })}
             >
               {m.repo_access_fix()} <ExternalLink />
             </a>
@@ -245,54 +305,72 @@ export function RepoAccessAlert({
             onClick={() => check.mutate(undefined)}
             disabled={check.isPending}
           >
-            {check.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />} {m.repo_access_check()}
+            {check.isPending ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <RefreshCw />
+            )}{" "}
+            {m.repo_access_check()}
           </Button>
         </div>
       </AlertDescription>
     </Alert>
-  )
+  );
 }
 
 type Run = {
-  kind: string
-  status: string
-  error: string | null
-  createdAt: string | Date
-  finishedAt?: string | Date | null
-}
+  kind: string;
+  status: string;
+  error: string | null;
+  createdAt: string | Date;
+  finishedAt?: string | Date | null;
+};
 
 function LastRun({ run }: { run: Run }) {
-  const label = run.kind === 'push' ? m.repo_last_push() : m.repo_last_pull()
-  if (run.status === 'failed') {
+  const label = run.kind === "push" ? m.repo_last_push() : m.repo_last_pull();
+  if (run.status === "failed") {
     return (
       <Alert variant="destructive">
         <CircleAlert />
-        <AlertTitle>{run.kind === 'push' ? m.repo_export_failed() : m.repo_sync_failed()}</AlertTitle>
+        <AlertTitle>
+          {run.kind === "push" ? m.repo_export_failed() : m.repo_sync_failed()}
+        </AlertTitle>
         <AlertDescription>
           <p>{run.error}</p>
-          <p className="text-muted-foreground mt-1 text-xs">{formatDateTime(run.createdAt)}</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            {formatDateTime(run.createdAt)}
+          </p>
         </AlertDescription>
       </Alert>
-    )
+    );
   }
-  const active = run.status === 'queued' || run.status === 'running'
+  const active = run.status === "queued" || run.status === "running";
   return (
     <p className="text-muted-foreground flex items-center gap-2 text-sm">
-      {active ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="text-success size-4" />}
-      {label}: {active ? m.run_running() : m.run_succeeded()} · {formatDateTime(run.createdAt)}
+      {active ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <CircleCheck className="text-success size-4" />
+      )}
+      {label}: {active ? m.run_running() : m.run_succeeded()} ·{" "}
+      {formatDateTime(run.createdAt)}
     </p>
-  )
+  );
 }
 
-type Connection = { id: string; provider: 'github' | 'bitbucket'; accountName: string }
+type Connection = {
+  id: string;
+  provider: "github" | "bitbucket";
+  accountName: string;
+};
 type Initial = {
-  connectionId: string
-  repo: string
-  branch: string
-  exportBranch: string
-  localeAliases: Record<string, string>
-  autoExport: boolean
-} | null
+  connectionId: string;
+  repo: string;
+  branch: string;
+  exportBranch: string;
+  localeAliases: Record<string, string>;
+  autoExport: boolean;
+} | null;
 
 function RepoForm({
   tenant,
@@ -301,24 +379,38 @@ function RepoForm({
   initial,
   onDone,
   onCancel,
-}: Props & { connections: Connection[]; initial: Initial; onDone: () => void; onCancel?: () => void }) {
-  const [connectionId, setConnectionId] = useState(initial?.connectionId ?? connections[0]!.id)
-  const [repo, setRepo] = useState(initial?.repo ?? '')
-  const [branch, setBranch] = useState(initial?.branch ?? '')
-  const [exportBranch, setExportBranch] = useState(initial?.exportBranch ?? 'wortwerk/translations')
-  const [aliases, setAliases] = useState(formatAliases(initial?.localeAliases ?? {}))
-  const [autoExport, setAutoExport] = useState(initial?.autoExport ?? true)
-  const repos = useQuery(queries.gitRepos(tenant, connectionId))
+}: Props & {
+  connections: Connection[];
+  initial: Initial;
+  onDone: () => void;
+  onCancel?: () => void;
+}) {
+  const [connectionId, setConnectionId] = useState(
+    initial?.connectionId ?? connections[0]!.id,
+  );
+  const [repo, setRepo] = useState(initial?.repo ?? "");
+  const [branch, setBranch] = useState(initial?.branch ?? "");
+  const [exportBranch, setExportBranch] = useState(
+    initial?.exportBranch ?? "wortwerk/translations",
+  );
+  const [aliases, setAliases] = useState(
+    formatAliases(initial?.localeAliases ?? {}),
+  );
+  const [autoExport, setAutoExport] = useState(initial?.autoExport ?? true);
+  const repos = useQuery(queries.gitRepos(tenant, connectionId));
 
   const save = useAction(
     () =>
       unwrap(
-        t.projects[':project'].repo.$put({
+        t.projects[":project"].repo.$put({
           param: { tenant, project },
           json: {
             connectionId,
             repo,
-            branch: branch || repos.data?.find((r) => r.fullName === repo)?.defaultBranch || 'main',
+            branch:
+              branch ||
+              repos.data?.find((r) => r.fullName === repo)?.defaultBranch ||
+              "main",
             exportBranch,
             localeAliases: parseAliases(aliases),
             autoExport,
@@ -326,19 +418,25 @@ function RepoForm({
         }),
       ),
     {
-      invalidate: [queries.repo(tenant, project).queryKey, queries.runs(tenant, project).queryKey],
+      invalidate: [
+        queries.repo(tenant, project).queryKey,
+        queries.runs(tenant, project).queryKey,
+      ],
       success: m.repo_saved(),
       onSuccess: (result) => {
-        if (result.webhookError) toast.warning(m.repo_webhook_failed({ message: result.webhookError }))
-        onDone()
+        if (result.webhookError)
+          toast.warning(
+            m.repo_webhook_failed({ message: result.webhookError }),
+          );
+        onDone();
       },
     },
-  )
+  );
 
   const submit = (event: FormEvent) => {
-    event.preventDefault()
-    save.mutate(undefined)
-  }
+    event.preventDefault();
+    save.mutate(undefined);
+  };
 
   return (
     <Card>
@@ -351,13 +449,15 @@ function RepoForm({
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="repo-connection">{m.repo_connection()}</FieldLabel>
+                <FieldLabel htmlFor="repo-connection">
+                  {m.repo_connection()}
+                </FieldLabel>
                 <NativeSelect
                   id="repo-connection"
                   value={connectionId}
                   onChange={(e) => {
-                    setConnectionId(e.target.value)
-                    setRepo('')
+                    setConnectionId(e.target.value);
+                    setRepo("");
                   }}
                 >
                   {connections.map((c) => (
@@ -368,18 +468,25 @@ function RepoForm({
                 </NativeSelect>
               </Field>
               <Field>
-                <FieldLabel htmlFor="repo-name">{m.repo_repository()}</FieldLabel>
+                <FieldLabel htmlFor="repo-name">
+                  {m.repo_repository()}
+                </FieldLabel>
                 <NativeSelect
                   id="repo-name"
                   value={repo}
                   required
                   disabled={repos.isLoading}
                   onChange={(e) => {
-                    setRepo(e.target.value)
-                    setBranch(repos.data?.find((r) => r.fullName === e.target.value)?.defaultBranch ?? '')
+                    setRepo(e.target.value);
+                    setBranch(
+                      repos.data?.find((r) => r.fullName === e.target.value)
+                        ?.defaultBranch ?? "",
+                    );
                   }}
                 >
-                  <option value="">{repos.isLoading ? m.loading() : m.repo_choose()}</option>
+                  <option value="">
+                    {repos.isLoading ? m.loading() : m.repo_choose()}
+                  </option>
                   {repos.data?.map((r) => (
                     <option key={r.fullName} value={r.fullName}>
                       {r.fullName}
@@ -387,7 +494,9 @@ function RepoForm({
                   ))}
                 </NativeSelect>
                 {repos.isError && (
-                  <FieldDescription className="text-destructive">{repos.error.message}</FieldDescription>
+                  <FieldDescription className="text-destructive">
+                    {repos.error.message}
+                  </FieldDescription>
                 )}
               </Field>
               <Field>
@@ -402,7 +511,9 @@ function RepoForm({
                 <FieldDescription>{m.repo_branch_hint()}</FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="repo-export-branch">{m.repo_export_branch()}</FieldLabel>
+                <FieldLabel htmlFor="repo-export-branch">
+                  {m.repo_export_branch()}
+                </FieldLabel>
                 <Input
                   id="repo-export-branch"
                   value={exportBranch}
@@ -410,7 +521,9 @@ function RepoForm({
                   required
                   className="font-mono"
                 />
-                <FieldDescription>{m.repo_export_branch_hint()}</FieldDescription>
+                <FieldDescription>
+                  {m.repo_export_branch_hint()}
+                </FieldDescription>
               </Field>
             </div>
             <Field>
@@ -448,37 +561,49 @@ function RepoForm({
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }
 
-export function TokensCard({ tenant, project, projectId }: Props & { projectId: string }) {
-  const tokens = useQuery(queries.tokens(tenant, project))
-  const [name, setName] = useState('')
-  const [created, setCreated] = useState<string | null>(null)
-  const param = { tenant, project }
-  const invalidate = [queries.tokens(tenant, project).queryKey]
+export function TokensCard({
+  tenant,
+  project,
+  projectId,
+}: Props & { projectId: string }) {
+  const tokens = useQuery(queries.tokens(tenant, project));
+  const [name, setName] = useState("");
+  const [created, setCreated] = useState<string | null>(null);
+  const param = { tenant, project };
+  const invalidate = [queries.tokens(tenant, project).queryKey];
 
-  const create = useAction(() => unwrap(t.projects[':project'].tokens.$post({ param, json: { name } })), {
-    invalidate,
-    onSuccess: (result) => {
-      setCreated(result.token)
-      setName('')
+  const create = useAction(
+    () =>
+      unwrap(t.projects[":project"].tokens.$post({ param, json: { name } })),
+    {
+      invalidate,
+      onSuccess: (result) => {
+        setCreated(result.token);
+        setName("");
+      },
     },
-  })
+  );
   const revoke = useAction(
     (tokenId: string) =>
-      unwrap(t.projects[':project'].tokens[':tokenId'].$delete({ param: { ...param, tokenId } })),
+      unwrap(
+        t.projects[":project"].tokens[":tokenId"].$delete({
+          param: { ...param, tokenId },
+        }),
+      ),
     { invalidate },
-  )
+  );
 
   const submit = (event: FormEvent) => {
-    event.preventDefault()
-    create.mutate(undefined)
-  }
-  const origin = typeof window === 'undefined' ? '' : window.location.origin
+    event.preventDefault();
+    create.mutate(undefined);
+  };
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
   const example = `curl -X POST ${origin}/api/v1/projects/${projectId}/sync \\
   -H "Authorization: Bearer $WORTWERK_TOKEN" \\
-  -H "Content-Type: application/json" -d '{"export": true}'`
+  -H "Content-Type: application/json" -d '{"export": true}'`;
 
   return (
     <Card>
@@ -493,12 +618,18 @@ export function TokensCard({ tenant, project, projectId }: Props & { projectId: 
             <AlertTitle>{m.tokens_created()}</AlertTitle>
             <AlertDescription className="grid gap-2">
               <div className="flex items-center gap-2">
-                <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1">{created}</code>
+                <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1">
+                  {created}
+                </code>
                 <Button
                   variant="outline"
                   size="icon-sm"
                   aria-label={m.action_copy()}
-                  onClick={() => navigator.clipboard.writeText(created).then(() => toast.success(m.copied()))}
+                  onClick={() =>
+                    navigator.clipboard
+                      .writeText(created)
+                      .then(() => toast.success(m.copied()))
+                  }
                 >
                   <Copy />
                 </Button>
@@ -520,13 +651,18 @@ export function TokensCard({ tenant, project, projectId }: Props & { projectId: 
         {tokens.data && tokens.data.length > 0 && (
           <ul className="divide-y rounded-lg border">
             {tokens.data.map((token) => (
-              <li key={token.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+              <li
+                key={token.id}
+                className="flex items-center gap-3 px-4 py-3 text-sm"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{token.name}</p>
                   <p className="text-muted-foreground font-mono text-xs">
-                    {token.tokenPrefix}… ·{' '}
+                    {token.tokenPrefix}… ·{" "}
                     {token.lastUsedAt
-                      ? m.tokens_used({ date: formatDateTime(token.lastUsedAt) })
+                      ? m.tokens_used({
+                          date: formatDateTime(token.lastUsedAt),
+                        })
                       : m.tokens_unused()}
                   </p>
                 </div>
@@ -542,8 +678,10 @@ export function TokensCard({ tenant, project, projectId }: Props & { projectId: 
             ))}
           </ul>
         )}
-        <pre className="bg-muted overflow-x-auto rounded-lg p-3 text-xs">{example}</pre>
+        <pre className="bg-muted overflow-x-auto rounded-lg p-3 text-xs">
+          {example}
+        </pre>
       </CardContent>
     </Card>
-  )
+  );
 }
