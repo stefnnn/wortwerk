@@ -112,6 +112,10 @@ export function createBitbucketClient(getToken: () => Promise<string>): GitClien
     },
 
     getBranchHead,
+    async hasRepoAccess(repo) {
+      const res = await request(`${api}/repositories/${repo}`, { headers: await auth(), allow404: true })
+      return res !== null
+    },
     readFile,
 
     // The src endpoint cannot force-push, so an existing export branch gets a new commit on top

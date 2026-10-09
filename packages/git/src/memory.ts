@@ -17,9 +17,11 @@ export function createMemoryRepo(files: Record<string, string>, branch = 'main')
   }
   branches.set(branch, commit(null, files))
 
+  let accessible = true
   const client: GitClient = {
     listRepos: async () => [{ fullName: 'acme/app', defaultBranch: branch, private: true }],
     getBranchHead: async (_repo, name) => branches.get(name) ?? null,
+    hasRepoAccess: async () => accessible,
     readFile: async (_repo, ref, path) => commits.get(branches.get(ref) ?? ref)?.files.get(path) ?? null,
     async writeBranch(_repo, input) {
       const baseFiles = commits.get(input.base)!.files
@@ -55,6 +57,9 @@ export function createMemoryRepo(files: Record<string, string>, branch = 'main')
   return {
     client,
     pulls,
+    setAccess: (value: boolean) => {
+      accessible = value
+    },
     push: (changes: Record<string, string>, name = branch) => {
       const sha = commit(branches.get(name) ?? null, changes)
       branches.set(name, sha)

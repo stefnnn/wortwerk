@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, FileUp, GitMerge, GitPullRequestArrow, Upload, WandSparkles } from 'lucide-react'
 import { useEffect } from 'react'
 import { EmptyState, PageBody } from '#/components/app/page.tsx'
+import { RepoAccessAlert } from '#/components/app/repo-settings.tsx'
 import { ProgressBar } from '#/components/app/status.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button, buttonVariants } from '#/components/ui/button.tsx'
@@ -136,6 +137,7 @@ function ProjectOverview() {
           </Link>
         )}
       </div>
+      {repo.data?.accessLostAt && <RepoAccessAlert tenant={tenant} project={project} repo={repo.data} />}
       {repo.data?.exportState && <ExportStatus repo={repo.data} state={repo.data.exportState} />}
       <div className="grid gap-3">
         {locales.map((s) => {

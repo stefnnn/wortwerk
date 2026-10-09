@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { FilePatternForm } from '#/components/app/file-patterns.tsx'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
-import { Button } from '#/components/ui/button.tsx'
+import { Button, buttonVariants } from '#/components/ui/button.tsx'
 import { Checkbox } from '#/components/ui/checkbox.tsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/components/ui/field.tsx'
@@ -112,6 +112,7 @@ export function RepoCard({ tenant, project }: Props) {
         <CardDescription>{m.repo_linked_body()}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
+        {repo.accessLostAt && <RepoAccessAlert tenant={tenant} project={project} repo={repo} />}
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[auto_1fr]">
           <dt className="text-muted-foreground">{m.repo_repository()}</dt>
           <dd className="flex flex-wrap items-center gap-2">
@@ -199,6 +200,56 @@ export function RepoCard({ tenant, project }: Props) {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+export function RepoAccessAlert({
+  tenant,
+  project,
+  repo,
+}: {
+  tenant: string
+  project: string
+  repo: { repo: string; accessLostAt: string | null; accessFixUrl: string | null }
+}) {
+  const check = useAction(
+    () => unwrap(t.projects[':project'].repo.check.$post({ param: { tenant, project } })),
+    {
+      invalidate: [queries.repo(tenant, project).queryKey],
+      onSuccess: (link) => {
+        if (link?.accessLostAt) toast.error(m.repo_access_still_lost())
+        else toast.success(m.repo_access_restored())
+      },
+    },
+  )
+  return (
+    <Alert variant="destructive">
+      <CircleAlert />
+      <AlertTitle>{m.repo_access_title({ repo: repo.repo })}</AlertTitle>
+      <AlertDescription className="grid gap-3">
+        <p>{m.repo_access_body({ since: formatDateTime(repo.accessLostAt ?? '') })}</p>
+        <div className="flex flex-wrap gap-2">
+          {repo.accessFixUrl && (
+            <a
+              href={repo.accessFixUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ size: 'sm' })}
+            >
+              {m.repo_access_fix()} <ExternalLink />
+            </a>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => check.mutate(undefined)}
+            disabled={check.isPending}
+          >
+            {check.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />} {m.repo_access_check()}
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
   )
 }
 

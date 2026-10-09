@@ -6,6 +6,9 @@ import {
   splitSelection,
   DomainError,
   assertMachineTranslation,
+  assertRepoAccess,
+  checkRepoAccess,
+  repoAccessFixUrl,
   createProjectToken,
   createSyncRun,
   deleteConnection,
@@ -67,7 +70,7 @@ export function assertFilePatterns(project: { files: unknown[] }) {
 const publicLink = (link: RepoLink | null) => {
   if (!link) return null
   const { webhookSecret: _secret, ...rest } = link
-  return rest
+  return { ...rest, accessFixUrl: repoAccessFixUrl(link.connection) }
 }
 
 async function removeBitbucketWebhook(ctx: Ctx, link: RepoLink | null) {
@@ -132,7 +135,9 @@ export const projectGit = new Hono<Env>()
   .put('/repo', validate('json', repoLinkInput), async (c) => {
     const ctx = c.get('ctx')
     const project = c.get('project')
-    const { link, previous } = await saveRepoLink(ctx, project.id, c.req.valid('json'))
+    const input = c.req.valid('json')
+    await assertRepoAccess(ctx, providers, input.connectionId, input.repo)
+    const { link, previous } = await saveRepoLink(ctx, project.id, input)
     const moved = !previous || previous.repo !== link.repo || previous.connectionId !== link.connectionId
     let webhookError: string | null = null
     if (moved || (link.connection.provider === 'bitbucket' && !link.webhookId)) {
@@ -153,6 +158,13 @@ export const projectGit = new Hono<Env>()
     await removeBitbucketWebhook(ctx, await getRepoLink(ctx, c.get('project').id)).catch(() => {})
     await deleteRepoLink(ctx, c.get('project').id)
     return c.body(null, 204)
+  })
+  .post('/repo/check', async (c) => {
+    const ctx = c.get('ctx')
+    const link = await getRepoLink(ctx, c.get('project').id)
+    if (!link) throw new DomainError('invalid', 'Connect a repository first')
+    await checkRepoAccess(ctx, providers, link)
+    return c.json(publicLink(await getRepoLink(ctx, c.get('project').id)))
   })
   .post('/repo/sync', async (c) => {
     const ctx = c.get('ctx')
@@ -262,6 +274,7 @@ export const integrations = new Hono()
       provider: 'github',
       externalId: installation.id,
       accountName: installation.account,
+      accountType: installation.accountType ?? undefined,
     })
     if (setup) await setCliSetupConnection(db, userId, setup, connection.id, tenantId)
     return c.redirect(connectionReturn(slug, project, setup, 'github'))

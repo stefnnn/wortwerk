@@ -46,7 +46,11 @@ export class GitHubApp {
       headers: headers(this.appJwt()),
     })
     const body = (await res.json()) as Json
-    return { id: String(body.id), account: String(body.account?.login ?? installationId) }
+    return {
+      id: String(body.id),
+      account: String(body.account?.login ?? installationId),
+      accountType: body.account?.type ? String(body.account.type) : null,
+    }
   }
 
   /** Confirms via the user's OAuth code that they can access the installation they were redirected with. */
@@ -149,6 +153,14 @@ export function createGitHubClient(
     },
 
     getBranchHead,
+
+    async hasRepoAccess(repo) {
+      const res = await request(`${api}/repos/${repo}`, {
+        headers: headers(await getToken()),
+        allow404: true,
+      })
+      return res !== null
+    },
 
     async readFile(repo, ref, path) {
       const res = await request(

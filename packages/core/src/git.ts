@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { schema, type Db } from '@wortwerk/db'
 import {
   createBitbucketClient,
@@ -42,7 +42,13 @@ export async function listConnections(ctx: Ctx) {
 
 export async function saveConnection(
   ctx: Ctx,
-  input: { provider: ProviderKind; externalId: string; accountName: string; credentials?: unknown },
+  input: {
+    provider: ProviderKind
+    externalId: string
+    accountName: string
+    accountType?: string
+    credentials?: unknown
+  },
 ) {
   const credentials = input.credentials === undefined ? null : sealSecret(input.credentials)
   const [row] = await ctx.db
@@ -52,12 +58,18 @@ export async function saveConnection(
       provider: input.provider,
       externalId: input.externalId,
       accountName: input.accountName,
+      accountType: input.accountType ?? null,
       credentials,
       createdById: ctx.userId,
     })
     .onConflictDoUpdate({
       target: [gitConnection.tenantId, gitConnection.provider, gitConnection.externalId],
-      set: { accountName: input.accountName, credentials, updatedAt: new Date() },
+      set: {
+        accountName: input.accountName,
+        accountType: input.accountType ?? null,
+        credentials,
+        updatedAt: new Date(),
+      },
     })
     .returning({ id: gitConnection.id })
   return row!
@@ -124,7 +136,11 @@ export const repoLinkInput = z.object({
 export async function getRepoLink(ctx: Ctx, projectId: string) {
   const row = await ctx.db.query.projectRepo.findFirst({
     where: and(eq(projectRepo.tenantId, ctx.tenantId), eq(projectRepo.projectId, projectId)),
-    with: { connection: { columns: { id: true, provider: true, accountName: true } } },
+    with: {
+      connection: {
+        columns: { id: true, provider: true, externalId: true, accountName: true, accountType: true },
+      },
+    },
   })
   return row ?? null
 }
@@ -139,6 +155,62 @@ export type ExportState = 'synced' | 'pending' | 'pr'
  * differing values were edited after the last export, `pr` = everything that differs was exported and
  * waits for the pull request to be merged.
  */
+export function repoAccessFixUrl(connection: {
+  provider: ProviderKind
+  externalId: string
+  accountName: string
+  accountType: string | null
+}) {
+  if (connection.provider !== 'github') return null
+  if (connection.accountType === 'Organization') {
+    return `https://github.com/organizations/${connection.accountName}/settings/installations/${connection.externalId}`
+  }
+  if (connection.accountType === 'User')
+    return `https://github.com/settings/installations/${connection.externalId}`
+  return 'https://github.com/settings/installations'
+}
+
+export async function assertRepoAccess(
+  ctx: Ctx,
+  providers: GitProviders,
+  connectionId: string,
+  repo: string,
+) {
+  const connection = await getConnection(ctx, connectionId)
+  const client = await gitClientFor(ctx, providers, connectionId)
+  if (await client.hasRepoAccess(repo)) return
+  throw new DomainError(
+    'forbidden',
+    connection.provider === 'github'
+      ? `wortwerk cannot access ${repo} through this GitHub connection. Add the repository to the GitHub App's access and try again.`
+      : `wortwerk cannot access ${repo} with this Bitbucket connection. Connect Bitbucket with an account that can see it.`,
+  )
+}
+
+/** Records whether the connection can still read the linked repository. A lost access keeps its first timestamp until it is restored. */
+export async function checkRepoAccess(
+  ctx: Ctx,
+  providers: GitProviders,
+  link: { projectId: string; connectionId: string; repo: string },
+) {
+  const client = await gitClientFor(ctx, providers, link.connectionId)
+  const accessible = await client.hasRepoAccess(link.repo)
+  const now = new Date()
+  await ctx.db
+    .update(projectRepo)
+    .set(
+      accessible
+        ? { accessCheckedAt: now, accessLostAt: null, accessError: null, accessAlertSentAt: null }
+        : {
+            accessCheckedAt: now,
+            accessLostAt: sql`coalesce(${projectRepo.accessLostAt}, now())`,
+            accessError: `The connection can no longer access ${link.repo}`,
+          },
+    )
+    .where(and(eq(projectRepo.tenantId, ctx.tenantId), eq(projectRepo.projectId, link.projectId)))
+  return accessible
+}
+
 export async function getExportState(ctx: Ctx, link: RepoLink): Promise<ExportState> {
   const since = link.lastPushedAt ?? link.createdAt
   const { rows } = await ctx.db.execute<{ differs: boolean; unexported: boolean }>(sql`
@@ -453,6 +525,59 @@ export async function deleteConnectionsByExternalId(db: Db, provider: ProviderKi
   await db
     .delete(gitConnection)
     .where(and(eq(gitConnection.provider, provider), eq(gitConnection.externalId, externalId)))
+}
+
+export async function listRepoLinksForAccessCheck(db: Db) {
+  return db
+    .select({
+      tenantId: projectRepo.tenantId,
+      tenantSlug: schema.tenant.slug,
+      projectId: projectRepo.projectId,
+      projectSlug: schema.project.slug,
+      projectName: schema.project.name,
+      connectionId: projectRepo.connectionId,
+      repo: projectRepo.repo,
+      provider: gitConnection.provider,
+      externalId: gitConnection.externalId,
+      accountName: gitConnection.accountName,
+      accountType: gitConnection.accountType,
+    })
+    .from(projectRepo)
+    .innerJoin(gitConnection, eq(gitConnection.id, projectRepo.connectionId))
+    .innerJoin(schema.project, eq(schema.project.id, projectRepo.projectId))
+    .innerJoin(schema.tenant, eq(schema.tenant.id, projectRepo.tenantId))
+}
+
+/** True once per lost-access event: the first caller after the loss gets the alert, later ones do not. */
+export async function claimRepoAccessAlert(db: Db, tenantId: string, projectId: string) {
+  const rows = await db
+    .update(projectRepo)
+    .set({ accessAlertSentAt: new Date() })
+    .where(
+      and(
+        eq(projectRepo.tenantId, tenantId),
+        eq(projectRepo.projectId, projectId),
+        isNotNull(projectRepo.accessLostAt),
+        isNull(projectRepo.accessAlertSentAt),
+      ),
+    )
+    .returning({ id: projectRepo.id })
+  return rows.length > 0
+}
+
+export async function releaseRepoAccessAlert(db: Db, tenantId: string, projectId: string) {
+  await db
+    .update(projectRepo)
+    .set({ accessAlertSentAt: null })
+    .where(and(eq(projectRepo.tenantId, tenantId), eq(projectRepo.projectId, projectId)))
+}
+
+export async function listWorkspaceOwners(db: Db, tenantId: string) {
+  return db
+    .select({ email: schema.user.email, name: schema.user.name })
+    .from(schema.member)
+    .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
+    .where(and(eq(schema.member.organizationId, tenantId), eq(schema.member.role, 'owner')))
 }
 
 export async function findDueExports(db: Db, quietSeconds = 60) {

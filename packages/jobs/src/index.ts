@@ -14,6 +14,7 @@ export type ProjectJob = z.infer<typeof projectJob>
 export const queues = {
   project: 'project',
   exportSweep: 'export-sweep',
+  accessSweep: 'access-sweep',
 } as const
 
 export const importParams = z.object({

@@ -86,6 +86,22 @@ const copy = {
       action: 'Einladung annehmen',
     },
   },
+  repoAccess: {
+    en: {
+      subject: (repo: string) => `wortwerk lost access to ${repo}`,
+      heading: (repo: string) => `wortwerk cannot access ${repo}`,
+      body: (project: string, repo: string) =>
+        `The project ${project} is connected to ${repo}, but the connection can no longer read that repository. Pushes do not reach wortwerk and syncs fail until access is restored.`,
+      action: 'Restore access',
+    },
+    de: {
+      subject: (repo: string) => `wortwerk hat den Zugriff auf ${repo} verloren`,
+      heading: (repo: string) => `wortwerk kann ${repo} nicht lesen`,
+      body: (project: string, repo: string) =>
+        `Das Projekt ${project} ist mit ${repo} verbunden, die Verbindung kann dieses Repository aber nicht mehr lesen. Pushes erreichen wortwerk nicht, und Syncs schlagen fehl, bis der Zugriff wiederhergestellt ist.`,
+      action: 'Zugriff wiederherstellen',
+    },
+  },
 }
 
 type Content = { heading: string; body: string; action: string; url: string; locale: MailLocale }
@@ -175,4 +191,17 @@ export function mailLocale(headers: Headers | undefined): MailLocale {
   const cookie = headers?.get('cookie')?.match(/(?:^|;\s*)PARAGLIDE_LOCALE=(\w+)/)?.[1]
   if (cookie === 'de' || cookie === 'en') return cookie
   return headers?.get('accept-language')?.toLowerCase().startsWith('de') ? 'de' : 'en'
+}
+
+export function repoAccessLostMail(
+  to: string,
+  { project, repo, url }: { project: string; repo: string; url: string },
+  locale: MailLocale = 'en',
+): Mail {
+  const c = copy.repoAccess[locale]
+  return {
+    to,
+    subject: c.subject(repo),
+    ...renderMail({ heading: c.heading(repo), body: c.body(project, repo), action: c.action, url, locale }),
+  }
 }

@@ -1,5 +1,6 @@
 import {
   DomainError,
+  checkRepoAccess,
   createSyncRun,
   failStaleRuns,
   findDueExports,
@@ -18,6 +19,7 @@ import {
 } from '@wortwerk/core'
 import { getDb } from '@wortwerk/db'
 import { GitProviderError, providersFromEnv } from '@wortwerk/git'
+import { createMailer } from '@wortwerk/mail'
 import {
   createBoss,
   enqueueProjectJob,
@@ -32,11 +34,13 @@ import {
   type ProjectJob,
 } from '@wortwerk/jobs'
 import { createStorage } from '@wortwerk/storage'
+import { sweepRepoAccess } from './repo-access.ts'
 
 const db = getDb()
 const storage = createStorage()
 const boss = createBoss()
 const providers = providersFromEnv()
+const mailer = createMailer()
 
 boss.on('error', (error) => console.error('[pg-boss]', error))
 
@@ -64,6 +68,11 @@ async function withRun<T extends Record<string, unknown>>(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await finishSyncRun(ctx, run.id, { error: message })
+    if (job.type === 'pull' || job.type === 'push') {
+      await getRepoLink(ctx, job.projectId)
+        .then((link) => link && checkRepoAccess(ctx, providers, link))
+        .catch(() => {})
+    }
     console.warn(
       `[worker] ${job.type} project=${job.projectId} failed${isPermanent(error) ? '' : ' (will retry)'}: ${message}`,
     )
@@ -176,6 +185,12 @@ await boss.work(queues.exportSweep, async () => {
     )
     if (id) console.info(`[worker] scheduled export project=${due.projectId}`)
   }
+})
+
+await boss.schedule(queues.accessSweep, '0 * * * *')
+await boss.work(queues.accessSweep, async () => {
+  if (!process.env.APP_URL) throw new Error('APP_URL is not set')
+  await sweepRepoAccess({ db, storage, providers, mailer, appUrl: process.env.APP_URL })
 })
 
 console.info(

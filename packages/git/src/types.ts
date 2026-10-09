@@ -15,6 +15,8 @@ export type WriteBranchResult = {
 export interface GitClient {
   listRepos(): Promise<RepoInfo[]>
   getBranchHead(repo: string, branch: string): Promise<string | null>
+  /** false when the connection cannot see the repository (GitHub: not in the installation's repository selection) */
+  hasRepoAccess(repo: string): Promise<boolean>
   readFile(repo: string, ref: string, path: string): Promise<string | null>
   writeBranch(
     repo: string,
