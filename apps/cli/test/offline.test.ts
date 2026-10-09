@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { lintProject } from '../src/commands/lint.ts'
-import { detectPatterns } from '../src/project.ts'
+import { detectPatterns, parseRemoteUrl } from '../src/project.ts'
 
 let root: string
 
@@ -31,13 +31,26 @@ describe('detectPatterns', () => {
     const found = await detectPatterns(root, 'en')
     expect(found).toEqual(
       expect.arrayContaining([
-        { path: 'src/locales/%locale%.json', format: 'json', locales: ['de', 'en'] },
-        { path: 'config/locales/%locale%/app.yml', format: 'yaml', locales: ['en', 'fr'] },
-        { path: 'po/messages.%locale%.po', format: 'po', locales: ['en'] },
+        expect.objectContaining({ path: 'src/locales/%locale%.json', format: 'json', locales: ['de', 'en'] }),
+        expect.objectContaining({
+          path: 'config/locales/%locale%/app.yml',
+          format: 'yaml',
+          locales: ['en', 'fr'],
+        }),
+        expect.objectContaining({ path: 'po/messages.%locale%.po', format: 'po', locales: ['en'] }),
       ]),
     )
     expect(found.some((f) => f.path.startsWith('node_modules'))).toBe(false)
     expect(found[0]!.locales.length).toBe(2)
+  })
+
+  it('normalizes GitHub and Bitbucket remote URLs without retaining credentials', () => {
+    expect(parseRemoteUrl('git@github.com:acme/shop.git')).toEqual({ provider: 'github', repo: 'acme/shop' })
+    expect(parseRemoteUrl('https://token@bitbucket.org/acme/shop.git')).toEqual({
+      provider: 'bitbucket',
+      repo: 'acme/shop',
+    })
+    expect(parseRemoteUrl('ssh://git@git.example.com/acme/shop.git')).toBeNull()
   })
 })
 

@@ -13,6 +13,15 @@ import {
   revokeApiToken,
   startDeviceAuth,
 } from '../src/api-tokens.ts'
+import {
+  claimCliSetup,
+  completeCliSetup,
+  denyCliSetup,
+  getCliSetup,
+  pollCliSetup,
+  startCliSetup,
+} from '../src/cli-setup.ts'
+import { createProject } from '../src/projects.ts'
 
 afterAll(() => db.pool.end())
 
@@ -109,5 +118,60 @@ describe('device login', () => {
     expect(normalizeUserCode('bcdf-ghjk')).toBe('BCDF-GHJK')
     expect(normalizeUserCode(' BCDF GHJK ')).toBe('BCDF-GHJK')
     expect(normalizeUserCode('BCD')).toBeNull()
+  })
+})
+
+describe('CLI project setup', () => {
+  const proposal = {
+    name: 'Shop',
+    git: { provider: 'github' as const, repo: 'acme/shop', remote: 'origin', branch: 'main' },
+    patterns: [
+      {
+        path: 'locales/%locale%.json',
+        format: 'json' as const,
+        locales: ['en', 'de'],
+        confidence: 1,
+      },
+    ],
+    sourceLocale: 'en',
+    locales: ['en', 'de'],
+    localeAliases: {},
+  }
+
+  it('binds the browser account and hands out the completed project exactly once', async () => {
+    const owner = await member()
+    const other = await member()
+    const existingToken = (await createApiToken(db, owner.userId, { name: 'existing' })).token
+    const started = await startCliSetup(db, { clientName: 'wortwerk CLI on test', proposal }, existingToken)
+    expect(await pollCliSetup(db, started.deviceCode)).toEqual({ status: 'authorization_pending' })
+    await expect(claimCliSetup(db, other.userId, started.userCode)).rejects.toMatchObject({
+      code: 'forbidden',
+    })
+    const claimed = await claimCliSetup(db, owner.userId, started.userCode)
+    expect(claimed).toMatchObject({ status: 'claimed', proposal: { name: 'Shop' } })
+    const project = await createProject(
+      { db, tenantId: owner.tenantId, userId: owner.userId },
+      { name: 'Shop', slug: 'shop', sourceLocale: 'en', locales: ['de'] },
+    )
+    await completeCliSetup(db, owner.userId, started.userCode, {
+      tenantId: owner.tenantId,
+      projectId: project.id,
+    })
+    expect(await getCliSetup(db, owner.userId, started.userCode)).toMatchObject({ status: 'completed' })
+    const result = await pollCliSetup(db, started.deviceCode)
+    expect(result).toMatchObject({
+      status: 'completed',
+      userId: owner.userId,
+      tenantId: owner.tenantId,
+      projectId: project.id,
+    })
+    expect(await pollCliSetup(db, started.deviceCode)).toEqual({ status: 'expired_token' })
+  })
+
+  it('reports a denied setup to the CLI', async () => {
+    const owner = await member()
+    const started = await startCliSetup(db, { clientName: 'cli', proposal })
+    await denyCliSetup(db, owner.userId, started.userCode)
+    expect(await pollCliSetup(db, started.deviceCode)).toEqual({ status: 'access_denied' })
   })
 })

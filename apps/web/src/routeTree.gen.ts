@@ -17,6 +17,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as CliSetupRouteImport } from './routes/cli.setup'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as DocsIndexRouteImport } from './routes/docs.index'
@@ -72,6 +73,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CliSetupRoute = CliSetupRouteImport.update({
+  id: '/cli/setup',
+  path: '/cli/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/cli/setup': typeof CliSetupRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$slug': typeof DocsSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/cli/setup': typeof CliSetupRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$slug': typeof DocsSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/cli/setup': typeof CliSetupRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$slug': typeof DocsSlugRoute
   '/invitations/$id': typeof InvitationsIdRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/sign-in'
     | '/sign-up'
+    | '/cli/setup'
     | '/compare/$slug'
     | '/docs/$slug'
     | '/invitations/$id'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/sign-in'
     | '/sign-up'
+    | '/cli/setup'
     | '/compare/$slug'
     | '/docs/$slug'
     | '/invitations/$id'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/sign-in'
     | '/sign-up'
+    | '/cli/setup'
     | '/compare/$slug'
     | '/docs/$slug'
     | '/invitations/$id'
@@ -320,6 +332,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  CliSetupRoute: typeof CliSetupRoute
   CompareSlugRoute: typeof CompareSlugRoute
   DocsSlugRoute: typeof DocsSlugRoute
   InvitationsIdRoute: typeof InvitationsIdRoute
@@ -385,6 +398,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cli/setup': {
+      id: '/cli/setup'
+      path: '/cli/setup'
+      fullPath: '/cli/setup'
+      preLoaderRoute: typeof CliSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/compare/': {
@@ -548,6 +568,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  CliSetupRoute: CliSetupRoute,
   CompareSlugRoute: CompareSlugRoute,
   DocsSlugRoute: DocsSlugRoute,
   InvitationsIdRoute: InvitationsIdRoute,

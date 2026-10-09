@@ -56,6 +56,20 @@ const copy = {
       action: 'Konto erstellen',
     },
   },
+  verification: {
+    en: {
+      subject: 'Confirm your wortwerk account',
+      heading: 'Confirm your email address',
+      body: 'Confirm this email address to finish creating your wortwerk account.',
+      action: 'Confirm email',
+    },
+    de: {
+      subject: 'Bestätige dein wortwerk-Konto',
+      heading: 'Bestätige deine E-Mail-Adresse',
+      body: 'Bestätige diese E-Mail-Adresse, um dein wortwerk-Konto fertig einzurichten.',
+      action: 'E-Mail bestätigen',
+    },
+  },
   invitation: {
     en: {
       subject: (team: string) => `You're invited to ${team} on wortwerk`,
@@ -131,6 +145,11 @@ export function magicLinkMail(to: string, url: string, locale: MailLocale = 'en'
 export function noAccountMail(to: string, signUpUrl: string, locale: MailLocale = 'en'): Mail {
   const c = copy.noAccount[locale]
   return { to, subject: c.subject, ...renderMail({ ...c, url: signUpUrl, locale }) }
+}
+
+export function verificationMail(to: string, url: string, locale: MailLocale = 'en'): Mail {
+  const c = copy.verification[locale]
+  return { to, subject: c.subject, ...renderMail({ ...c, url, locale }) }
 }
 
 export function invitationMail(

@@ -1,6 +1,7 @@
-import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
+import { MailCheck } from 'lucide-react'
 import { AuthLayout } from '#/components/auth-layout.tsx'
 import { Button } from '#/components/ui/button.tsx'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '#/components/ui/field.tsx'
@@ -21,22 +22,28 @@ export const Route = createFileRoute('/sign-up')({
 
 function SignUp() {
   const { redirect: redirectTo } = Route.useSearch()
-  const navigate = useNavigate()
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm({ ...form, [key]: e.target.value })
 
   const signUp = useMutation({
     mutationFn: async () => {
-      const { error } = await authClient.signUp.email(form)
+      const { error } = await authClient.signUp.email({ ...form, callbackURL: redirectTo ?? '/onboarding' })
       if (error) throw new Error(error.message ?? m.error_generic())
     },
-    onSuccess: () => navigate({ href: redirectTo ?? '/onboarding' }),
   })
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     signUp.mutate()
+  }
+
+  if (signUp.isSuccess) {
+    return (
+      <AuthLayout title={m.sign_up_verify_title()} description={m.sign_up_verify_body({ email: form.email })}>
+        <MailCheck className="text-primary size-10" />
+      </AuthLayout>
+    )
   }
 
   return (

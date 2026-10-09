@@ -9,6 +9,7 @@ import {
   createKeyInput,
   createProject,
   createProjectInput,
+  cliSetupProposal,
   deviceAuthInput,
   exportFileContent,
   fileInput,
@@ -26,11 +27,13 @@ import {
   localeCode,
   localeStats,
   pollDeviceAuth,
+  pollCliSetup,
   removeLocale,
   revokeApiToken,
   setTranslation,
   setTranslationInput,
   startDeviceAuth,
+  startCliSetup,
   translationStatuses,
   upsertFile,
   type ProjectDetails,
@@ -145,6 +148,70 @@ const device = new Hono<V1Env>()
         columns: { id: true, name: true, email: true },
       })
       return c.json({ token: result.token, user: user! }, 200)
+    },
+  )
+
+const setup = new Hono<V1Env>()
+  .post(
+    '/',
+    doc(
+      'Setup',
+      'Start browser-assisted project setup',
+      { 200: { description: 'Codes for the CLI', schema: s.setupStart } },
+      {
+        auth: false,
+        description:
+          'Uploads sanitized local discovery results, opens the setup URL, and polls `POST /setup/token` until the browser flow is complete. An optional personal bearer token binds the browser flow to that user.',
+      },
+    ),
+    input('json', z.object({ clientName: z.string().trim().min(1).max(80), proposal: cliSetupProposal })),
+    async (c) => {
+      const header = c.req.header('authorization') ?? ''
+      const bearer = header.startsWith('Bearer ') ? header.slice(7).trim() : undefined
+      const started = await startCliSetup(db, c.req.valid('json'), bearer)
+      const verificationUri = `${env.APP_URL}/cli/setup`
+      return c.json({
+        ...started,
+        verificationUri,
+        verificationUriComplete: `${verificationUri}?code=${started.userCode}`,
+      })
+    },
+  )
+  .post(
+    '/token',
+    doc(
+      'Setup',
+      'Poll browser-assisted project setup',
+      { 200: { description: 'CLI credentials and completed project', schema: s.setupToken } },
+      { auth: false },
+    ),
+    input('json', z.object({ deviceCode: z.string().min(1) })),
+    async (c) => {
+      const result = await pollCliSetup(db, c.req.valid('json').deviceCode)
+      if (result.status !== 'completed')
+        return c.json({ error: result.status, message: 'The setup is not complete (yet)' }, 400)
+      const [user, tenant, project] = await Promise.all([
+        db.query.user.findFirst({
+          where: eq(schema.user.id, result.userId),
+          columns: { id: true, name: true, email: true },
+        }),
+        db.query.tenant.findFirst({
+          where: eq(schema.tenant.id, result.tenantId),
+          columns: { id: true, slug: true },
+        }),
+        db.query.project.findFirst({
+          where: eq(schema.project.id, result.projectId),
+          columns: { id: true, slug: true },
+        }),
+      ])
+      return c.json({
+        token: result.token,
+        user: user!,
+        workspace: tenant!,
+        project: project!,
+        run: result.runId ? { id: result.runId } : null,
+        warning: result.warning,
+      })
     },
   )
 
@@ -524,7 +591,7 @@ const authed = new Hono<V1Env>()
   .route('/workspaces', workspaces)
   .route('/projects/:projectId', project)
 
-const routes = new Hono<V1Env>().route('/auth', device).route('/', authed)
+const routes = new Hono<V1Env>().route('/auth', device).route('/setup', setup).route('/', authed)
 
 const specOptions = {
   documentation: {

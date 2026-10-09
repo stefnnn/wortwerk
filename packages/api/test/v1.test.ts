@@ -260,11 +260,32 @@ describe('v1 device login and docs', () => {
     expect(await poll.json()).toMatchObject({ error: 'authorization_pending' })
   })
 
+  it('starts browser-assisted project setup with sanitized discovery data', async () => {
+    const start = await call(null, 'POST', '/setup', {
+      clientName: 'wortwerk CLI on test',
+      proposal: {
+        name: 'Shop',
+        git: { provider: 'github', repo: 'acme/shop', remote: 'origin', branch: 'main' },
+        patterns: [{ path: 'locales/%locale%.json', format: 'json', locales: ['en', 'de'], confidence: 1 }],
+        sourceLocale: 'en',
+        locales: ['en', 'de'],
+        localeAliases: {},
+      },
+    })
+    expect(start.status).toBe(200)
+    const body = await start.json()
+    expect(body.verificationUriComplete).toBe(`http://wortwerk.test/cli/setup?code=${body.userCode}`)
+    const poll = await call(null, 'POST', '/setup/token', { deviceCode: body.deviceCode })
+    expect(poll.status).toBe(400)
+    expect(await poll.json()).toMatchObject({ error: 'authorization_pending' })
+  })
+
   it('serves the OpenAPI document without a token', async () => {
     const res = await call(null, 'GET', '/openapi.json')
     expect(res.status).toBe(200)
     const spec = await res.json()
     expect(spec.paths).toHaveProperty('/projects/{projectId}/keys')
     expect(spec.paths['/auth/device'].post.security).toEqual([])
+    expect(spec.paths['/setup'].post.security).toEqual([])
   })
 })

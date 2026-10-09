@@ -9,13 +9,15 @@ import { authClient } from '#/lib/auth-client.ts'
 import { slugify } from '#/lib/format.ts'
 import { getViewer } from '#/lib/viewer.ts'
 import { m } from '#/paraglide/messages.js'
+import { redirectSearch } from '#/lib/redirect.ts'
 
 export const Route = createFileRoute('/onboarding')({
-  beforeLoad: async ({ location }) => {
+  validateSearch: redirectSearch,
+  beforeLoad: async ({ location, search }) => {
     const viewer = await getViewer()
     if (!viewer) throw redirect({ to: '/sign-in', search: { redirect: location.href } })
     const owned = viewer.tenants.find((t) => t.role === 'owner')
-    if (owned) throw redirect({ to: '/t/$tenant', params: { tenant: owned.slug } })
+    if (owned) throw redirect({ href: search.redirect ?? `/t/${owned.slug}` })
     return { viewer }
   },
   head: () => ({ meta: [{ title: `${m.onboarding_title()} · wortwerk` }] }),
@@ -24,6 +26,7 @@ export const Route = createFileRoute('/onboarding')({
 
 function Onboarding() {
   const navigate = useNavigate()
+  const { redirect: redirectTo } = Route.useSearch()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
@@ -34,7 +37,7 @@ function Onboarding() {
       const { error } = await authClient.organization.create({ name, slug: effectiveSlug })
       if (error) throw new Error(error.message ?? m.error_generic())
     },
-    onSuccess: () => navigate({ to: '/t/$tenant', params: { tenant: effectiveSlug } }),
+    onSuccess: () => navigate({ href: redirectTo ?? `/t/${effectiveSlug}` }),
   })
 
   const submit = (event: FormEvent) => {

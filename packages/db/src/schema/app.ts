@@ -343,6 +343,13 @@ export const apiToken = pgTable(
 )
 
 export const deviceAuthStatus = pgEnum('device_auth_status', ['pending', 'approved', 'denied', 'consumed'])
+export const cliSetupStatus = pgEnum('cli_setup_status', [
+  'pending',
+  'claimed',
+  'completed',
+  'denied',
+  'consumed',
+])
 
 // OAuth device flow (RFC 8628) for `wortwerk login`: the CLI polls with the device code until the user
 // approves the user code in the browser, then receives a personal token
@@ -353,6 +360,27 @@ export const deviceAuth = pgTable('device_auth', {
   clientName: text().notNull(),
   status: deviceAuthStatus().default('pending').notNull(),
   userId: text().references(() => user.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  lastPolledAt: timestamp({ withTimezone: true }),
+  createdAt: createdAt(),
+})
+
+// Browser-assisted `wortwerk init`. The CLI only sends sanitized repository coordinates and file
+// patterns; the browser proves account and provider access before the result can be claimed once.
+export const cliSetup = pgTable('cli_setup', {
+  id: id(),
+  deviceCodeHash: text().notNull().unique(),
+  userCode: text().notNull().unique(),
+  clientName: text().notNull(),
+  status: cliSetupStatus().default('pending').notNull(),
+  proposal: jsonb().$type<Record<string, unknown>>().notNull(),
+  expectedUserId: text().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text().references(() => user.id, { onDelete: 'cascade' }),
+  tenantId: text().references(() => tenant.id, { onDelete: 'cascade' }),
+  projectId: text().references(() => project.id, { onDelete: 'cascade' }),
+  connectionId: text().references(() => gitConnection.id, { onDelete: 'set null' }),
+  runId: text().references(() => syncRun.id, { onDelete: 'set null' }),
+  warning: text(),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   lastPolledAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),

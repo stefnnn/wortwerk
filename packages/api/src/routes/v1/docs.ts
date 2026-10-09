@@ -179,3 +179,12 @@ export const deviceToken = z.object({
   token: z.string(),
   user: z.object({ id: z.string(), name: z.string(), email: z.string() }),
 })
+
+export const setupStart = deviceStart
+
+export const setupToken = deviceToken.extend({
+  workspace: z.object({ id: z.string(), slug: z.string() }),
+  project: z.object({ id: z.string(), slug: z.string() }),
+  run: z.object({ id: z.string() }).nullable(),
+  warning: z.string().nullable(),
+})

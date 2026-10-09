@@ -7,7 +7,14 @@ import { getPlan, guestRole, parseGrants, removeGrants, replaceGrants, validateG
 import { getDb, schema } from '@wortwerk/db'
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import { and, count, eq } from 'drizzle-orm'
-import { createMailer, invitationMail, magicLinkMail, mailLocale, noAccountMail } from '@wortwerk/mail'
+import {
+  createMailer,
+  invitationMail,
+  magicLinkMail,
+  mailLocale,
+  noAccountMail,
+  verificationMail,
+} from '@wortwerk/mail'
 import { env } from './env.ts'
 import { ac, roles } from './roles.ts'
 
@@ -27,7 +34,15 @@ export const auth = betterAuth({
   baseURL: env.APP_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(getDb(), { provider: 'pg', schema }),
-  emailAndPassword: { enabled: true },
+  emailAndPassword: { enabled: true, requireEmailVerification: true },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }, request) => {
+      await mailer.send(verificationMail(user.email, url, mailLocale(request?.headers)))
+    },
+  },
   socialProviders:
     env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
       ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
