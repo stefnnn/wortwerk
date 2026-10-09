@@ -1,6 +1,16 @@
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronsUpDown, FolderKanban, KeyRound, LogOut, Menu, Plus, Settings, Shield } from 'lucide-react'
+import {
+  ArrowUpRight,
+  ChevronsUpDown,
+  FolderKanban,
+  KeyRound,
+  LogOut,
+  Menu,
+  Plus,
+  Settings,
+  Shield,
+} from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Logo } from '#/components/brand.tsx'
 import { LocaleSwitch, ThemeToggle } from '#/components/preferences.tsx'
@@ -118,13 +128,26 @@ function Sidebar({
           ))}
         </div>
       </div>
-      <a
-        href="https://github.com/stefnnn/wortwerk"
-        className="text-muted-foreground hover:text-foreground px-2.5 text-xs"
-        onClick={onNavigate}
-      >
-        {m.footer_source()}
-      </a>
+      <div className="text-muted-foreground flex flex-col gap-1 px-2.5 text-xs">
+        <a
+          href="/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-foreground inline-flex items-center gap-1"
+          onClick={onNavigate}
+        >
+          {m.nav_docs()} <ArrowUpRight className="size-3" />
+        </a>
+        <a
+          href="/docs/cli"
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-foreground inline-flex items-center gap-1"
+          onClick={onNavigate}
+        >
+          {m.nav_docs_cli()} <ArrowUpRight className="size-3" />
+        </a>
+      </div>
       <UserMenu viewer={viewer} tenant={tenant} />
     </div>
   )
