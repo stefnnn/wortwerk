@@ -376,7 +376,7 @@
   "repo_export_branch": "Export branch",
   "repo_export_branch_hint": "Regenerated on every export, do not commit to it.",
   "repo_export_failed": "Last export failed",
-  "repo_export_now": "Export now",
+  "repo_export_now": "Push translations",
   "repo_export_queued": "Export started",
   "repo_last_pull": "Last sync",
   "repo_last_push": "Last export",
