@@ -147,12 +147,11 @@ export const autoTranslateKeyLimit = 500
 
 export type AutoTranslation =
   | { keys: number; locales: string[] }
-  | { keys: number; skipped: 'plan' }
   | { keys: number; skipped: 'too_many_keys'; limit: number }
 
 /**
  * Which target locales to machine-translate after a sync or import added `keyIds`, for projects with
- * auto-translate on. Only keys still lacking a translation count (the repo may have brought some).
+ * auto-translate on (the default, so plans without machine translation skip silently). Only keys still lacking a translation count (the repo may have brought some).
  * Bigger batches than `autoTranslateKeyLimit` (a new file pattern, a mass rename) are left to an
  * explicit pre-translation, like the backlog of the first pull, which never counts as new.
  */
@@ -163,7 +162,7 @@ export async function planAutoTranslation(
 ): Promise<AutoTranslation | null> {
   if (!keyIds.length) return null
   const project = await getProject(ctx, { id: projectId })
-  if (!project.autoTranslate) return null
+  if (!project.autoTranslate || !(await getTenantPlan(ctx)).machineTranslation) return null
   const { rows } = await ctx.db.execute<{ locale: string; key_id: string }>(sql`
     select l.code as locale, k.id as key_id
     from ${schema.projectLocale} l
@@ -180,7 +179,6 @@ export async function planAutoTranslation(
   `)
   const keys = new Set(rows.map((r) => r.key_id)).size
   if (!keys) return null
-  if (!(await getTenantPlan(ctx)).machineTranslation) return { keys, skipped: 'plan' }
   if (keys > autoTranslateKeyLimit) return { keys, skipped: 'too_many_keys', limit: autoTranslateKeyLimit }
   return { keys, locales: [...new Set(rows.map((r) => r.locale))].sort() }
 }

@@ -102,7 +102,8 @@ describe('planAutoTranslation', () => {
       sourceLocale: 'en',
       locales: ['de', 'fr'],
     })
-    if (autoTranslate) await updateProject(ctx, project.id, { autoTranslate })
+    expect(project.autoTranslate).toBe(true)
+    if (!autoTranslate) await updateProject(ctx, project.id, { autoTranslate })
     const file = await upsertFile(ctx, project.id, { path: '%locale%.json', format: 'json' })
     await importFileContent(ctx, {
       projectId: project.id,
@@ -131,7 +132,7 @@ describe('planAutoTranslation', () => {
     expect(await planAutoTranslation(ctx, project.id, [])).toBeNull()
   })
 
-  it('does nothing when switched off and reports plans without machine translation', async () => {
+  it('does nothing when switched off or the plan has no machine translation', async () => {
     const off = await setup('agency', false)
     expect(await planAutoTranslation(off.ctx, off.project.id, await off.add('{ "a": "A" }'))).toBeNull()
 
@@ -141,10 +142,7 @@ describe('planAutoTranslation', () => {
       .update(schema.tenant)
       .set({ plan: 'free' })
       .where(eq(schema.tenant.id, project.ctx.tenantId))
-    expect(await planAutoTranslation(project.ctx, project.project.id, fresh)).toEqual({
-      keys: 1,
-      skipped: 'plan',
-    })
+    expect(await planAutoTranslation(project.ctx, project.project.id, fresh)).toBeNull()
     await expect(updateProject(project.ctx, project.project.id, { autoTranslate: true })).rejects.toThrow(
       /not available/,
     )

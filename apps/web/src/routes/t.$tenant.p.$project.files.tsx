@@ -220,7 +220,7 @@ function RunSummary({ kind, result }: { kind: string; result: Record<string, unk
 type AutoTranslation = {
   keys: number
   locales?: string[]
-  skipped?: 'plan' | 'too_many_keys'
+  skipped?: 'too_many_keys'
   limit?: number
 }
 
@@ -230,9 +230,7 @@ function AutoTranslationNote({ result }: { result?: AutoTranslation }) {
   return (
     <span className="text-warning">
       {' · '}
-      {result.skipped === 'plan'
-        ? m.run_auto_translate_plan({ keys: result.keys })
-        : m.run_auto_translate_too_many({ keys: result.keys, limit: result.limit ?? 0 })}
+      {m.run_auto_translate_too_many({ keys: result.keys, limit: result.limit ?? 0 })}
     </span>
   )
 }

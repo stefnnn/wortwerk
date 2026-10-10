@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, X } from 'lucide-react'
+import { Info, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { LocaleInput } from '#/components/app/locale-input.tsx'
 import { PageBody } from '#/components/app/page.tsx'
@@ -21,6 +21,7 @@ import { Field, FieldContent, FieldDescription, FieldLabel } from '#/components/
 import { Input } from '#/components/ui/input.tsx'
 import { Textarea } from '#/components/ui/textarea.tsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs.tsx'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip.tsx'
 import { t, unwrap } from '#/lib/api.ts'
 import { localeName } from '#/lib/format.ts'
 import { useAction } from '#/lib/mutations.ts'
@@ -157,15 +158,29 @@ function ProjectSettings() {
           <Field orientation="horizontal">
             <Checkbox
               id="auto-translate"
-              checked={details.data.autoTranslate}
-              disabled={(!canMachine && !details.data.autoTranslate) || autoTranslate.isPending}
+              checked={canMachine && details.data.autoTranslate}
+              disabled={!canMachine || autoTranslate.isPending}
               onCheckedChange={(value) => autoTranslate.mutate(value === true)}
             />
             <FieldContent>
-              <FieldLabel htmlFor="auto-translate">{m.settings_auto_translate()}</FieldLabel>
-              <FieldDescription>
-                {canMachine ? m.settings_auto_translate_body() : m.settings_auto_translate_upgrade()}
-              </FieldDescription>
+              <div className="flex items-center gap-1.5">
+                <FieldLabel htmlFor="auto-translate">{m.settings_auto_translate()}</FieldLabel>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={m.settings_auto_translate()}
+                      />
+                    }
+                  >
+                    <Info className="size-3.5" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">{m.settings_auto_translate_body()}</TooltipContent>
+                </Tooltip>
+              </div>
+              {!canMachine && <FieldDescription>{m.settings_auto_translate_upgrade()}</FieldDescription>}
             </FieldContent>
           </Field>
           <div className="grid gap-2">

@@ -88,7 +88,7 @@ function describeResult(result: unknown) {
   if (auto)
     parts.push(
       auto.skipped
-        ? `${auto.keys} new keys not machine-translated (${auto.skipped === 'plan' ? 'not on your plan' : 'too many at once'})`
+        ? `${auto.keys} new keys not machine-translated (too many at once)`
         : `${auto.keys} new keys sent to machine translation`,
     )
   if (typeof r.pullRequestUrl === 'string') parts.push(r.pullRequestUrl)

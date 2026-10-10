@@ -39,7 +39,7 @@ export const project = pgTable(
     slug: text().notNull(),
     sourceLocale: text().notNull(),
     instructions: text().default('').notNull(),
-    autoTranslate: boolean().default(false).notNull(),
+    autoTranslate: boolean().default(true).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
