@@ -85,6 +85,7 @@ function Editor() {
     sync: params.sync,
     search: params.q,
     offset: page * pageSize,
+    includeSource: all,
   }
   const repo = useQuery({ ...queries.repo(tenant, project), enabled: !guest })
   const connected = !!repo.data

@@ -7,6 +7,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  ne,
   notInArray,
   or,
   sql,
@@ -36,6 +37,8 @@ export const ALL_LOCALES = 'all'
 export const listKeysInput = z.object({
   // a locale code, or ALL_LOCALES for one row per key and target locale
   locale: z.string(),
+  // The editor can opt in to showing the source alongside target rows.
+  includeSource: z.coerce.boolean().default(false),
   status: z.enum(translationStatuses).optional(),
   // source sync state: wording not in the repo yet, or an open conflict with the repo
   sync: z.enum(['pending', 'conflict']).optional(),
@@ -91,10 +94,14 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
   const project = await getProject(ctx, { id: projectId })
   const { src, tgt, where } = keyFilter(ctx, project, q)
 
-  // one row per key and listed locale: the requested one, or every project locale
+  // one row per key and listed locale: the requested one, or every target locale (optionally including source)
   const localeRows = and(
     eq(projectLocale.projectId, translationKey.projectId),
-    q.locale === ALL_LOCALES ? undefined : eq(projectLocale.code, q.locale),
+    q.locale === ALL_LOCALES
+      ? q.includeSource
+        ? undefined
+        : ne(projectLocale.code, project.sourceLocale)
+      : eq(projectLocale.code, q.locale),
   )
   const [items, [total]] = await Promise.all([
     ctx.db

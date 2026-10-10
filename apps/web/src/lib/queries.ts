@@ -8,6 +8,7 @@ export type KeyFilters = {
   search?: string
   fileId?: string
   obsolete?: boolean
+  includeSource?: boolean
   offset?: number
 }
 
@@ -78,6 +79,7 @@ export const queries = {
               search: filters.search || undefined,
               fileId: filters.fileId,
               obsolete: filters.obsolete ? 'true' : undefined,
+              includeSource: filters.includeSource ? 'true' : undefined,
               offset: String(filters.offset ?? 0),
               limit: '50',
             },

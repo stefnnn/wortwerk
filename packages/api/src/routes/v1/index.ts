@@ -88,11 +88,13 @@ const decodeCursor = (cursor: string | undefined) => {
   return offset
 }
 
-const keysQuery = listKeysInput.omit({ offset: true, obsolete: true, sync: true }).extend({
-  locale: z.string().meta({ description: 'Locale code, or "all" for one row per key and target locale' }),
-  limit: z.coerce.number().int().min(1).max(200).default(100),
-  cursor: z.string().optional(),
-})
+const keysQuery = listKeysInput
+  .omit({ offset: true, obsolete: true, sync: true, includeSource: true })
+  .extend({
+    locale: z.string().meta({ description: 'Locale code, or "all" for one row per key and target locale' }),
+    limit: z.coerce.number().int().min(1).max(200).default(100),
+    cursor: z.string().optional(),
+  })
 
 const fileQuery = z.object({ locale: localeCode })
 const importQuery = fileQuery.extend({
