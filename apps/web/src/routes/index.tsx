@@ -11,7 +11,7 @@ import {
   Terminal,
 } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
-import { GeometricBackground } from '#/components/marketing/background.tsx'
+import { HeroBackground } from '#/components/marketing/background.tsx'
 import { Faq, faqJsonLd } from '#/components/marketing/faq.tsx'
 import { BitbucketLogo, GitHubLogo, StackChip, formats, frameworks } from '#/components/marketing/logos.tsx'
 import { ProcessSteps } from '#/components/marketing/process.tsx'
@@ -55,7 +55,7 @@ function Landing() {
   return (
     <MarketingLayout>
       <section className="relative isolate">
-        <GeometricBackground />
+        <HeroBackground />
         <div className="mx-auto max-w-6xl px-6 pt-16 pb-20 md:pt-28">
           <p className="bg-accent text-accent-foreground mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
             <GitPullRequest className="size-3.5" /> {m.landing_kicker()}
