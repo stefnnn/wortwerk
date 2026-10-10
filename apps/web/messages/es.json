@@ -523,5 +523,20 @@
   "cli_setup_select_repo": "Seleccionar un repositorio",
   "cli_setup_create": "Crear y sincronizar el proyecto",
   "cli_setup_done_title": "Configuración del proyecto completada",
-  "cli_setup_done_body": "Ya puedes volver a la terminal. La CLI terminará la sincronización inicial."
+  "cli_setup_done_body": "Ya puedes volver a la terminal. La CLI terminará la sincronización inicial.",
+  "run_auto_translate_queued": "{keys} claves nuevas enviadas a traducción automática",
+  "run_auto_translate_too_many": "{keys} claves nuevas no traducidas automáticamente: más de {limit} a la vez, tradúcelas previamente en el editor",
+  "settings_auto_translate": "Traducir automáticamente las claves nuevas",
+  "settings_auto_translate_body": "Las claves añadidas mediante una sincronización o importación se traducen automáticamente a todos los idiomas y se marcan como pendientes de revisión. Las claves de la primera sincronización y las traducciones que ya faltaban no se modifican; tradúcelas previamente en el editor. Hasta 500 claves nuevas a la vez.",
+  "settings_auto_translate_upgrade": "Traduce automáticamente las claves añadidas mediante una sincronización o importación. Disponible en los planes Project y Agency.",
+  "auto_translate_kicker": "Traduce automáticamente las claves nuevas",
+  "auto_translate_title": "Las claves nuevas vuelven traducidas",
+  "auto_translate_body": "Cuando un desarrollador añade una clave, wortwerk la traduce automáticamente a todos los idiomas justo después de la sincronización. Las traducciones se incluyen en la siguiente solicitud de incorporación de cambios, marcadas como pendientes de revisión, para que tus traductores las perfeccionen en lugar de empezar desde cero.",
+  "auto_translate_point_new": "Se ejecuta en cada sincronización, sin tener que pulsar ningún botón",
+  "auto_translate_point_checks": "Se comprueban los marcadores de posición, las formas plurales y el marcado en cada resultado",
+  "auto_translate_point_context": "Las descripciones de las claves, el contexto del proyecto y las instrucciones para cada idioma se incluyen en la solicitud",
+  "auto_translate_point_included": "La traducción automática está incluida en tu plan, sin tarifas por palabra",
+  "auto_translate_fair_use": "Se aplica una política de uso razonable.",
+  "auto_translate_docs": "Cómo funciona la traducción automática",
+  "powered_by_claude": "Con tecnología de Anthropic Claude"
 }

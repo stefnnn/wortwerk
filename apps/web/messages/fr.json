@@ -523,5 +523,20 @@
   "cli_setup_select_repo": "Sélectionner un dépôt",
   "cli_setup_create": "Créer et synchroniser le projet",
   "cli_setup_done_title": "Configuration du projet terminée",
-  "cli_setup_done_body": "Vous pouvez retourner dans votre terminal. La CLI terminera la synchronisation initiale."
+  "cli_setup_done_body": "Vous pouvez retourner dans votre terminal. La CLI terminera la synchronisation initiale.",
+  "run_auto_translate_queued": "{keys} nouvelles clés envoyées à la traduction automatique",
+  "run_auto_translate_too_many": "{keys} nouvelles clés non traduites automatiquement : plus de {limit} à la fois, prétraduisez-les dans l'éditeur",
+  "settings_auto_translate": "Traduire automatiquement les nouvelles clés",
+  "settings_auto_translate_body": "Les clés ajoutées par une synchronisation ou un import sont traduites automatiquement dans toutes les langues et marquées comme à relire. Les clés de la première synchronisation et les traductions déjà manquantes ne sont pas modifiées : prétraduisez-les dans l'éditeur. Jusqu'à 500 nouvelles clés à la fois.",
+  "settings_auto_translate_upgrade": "Traduit automatiquement les clés ajoutées par une synchronisation ou un import. Disponible dans les offres Project et Agency.",
+  "auto_translate_kicker": "Traduction automatique des nouvelles clés",
+  "auto_translate_title": "Les nouvelles clés reviennent traduites",
+  "auto_translate_body": "Lorsqu’un développeur ajoute une clé, wortwerk la traduit automatiquement dans toutes les langues juste après la synchronisation. Les traductions sont incluses dans la prochaine pull request et marquées comme étant à réviser, afin que vos traducteurs puissent les peaufiner au lieu de partir de zéro.",
+  "auto_translate_point_new": "S’exécute à chaque synchronisation, sans aucune action de votre part",
+  "auto_translate_point_checks": "Les espaces réservés, les formes plurielles et le balisage sont vérifiés pour chaque résultat",
+  "auto_translate_point_context": "Les descriptions des clés, le contexte du projet et les consignes propres à chaque langue sont intégrés à la requête",
+  "auto_translate_point_included": "La traduction automatique est incluse dans votre forfait, sans frais par mot",
+  "auto_translate_fair_use": "Une utilisation raisonnable s’applique.",
+  "auto_translate_docs": "Fonctionnement de la traduction automatique",
+  "powered_by_claude": "Propulsé par Anthropic Claude"
 }

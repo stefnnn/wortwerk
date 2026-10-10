@@ -523,5 +523,20 @@
   "cli_setup_select_repo": "选择仓库",
   "cli_setup_create": "创建并同步项目",
   "cli_setup_done_title": "项目设置完成",
-  "cli_setup_done_body": "你可以返回终端。CLI 将完成首次同步。"
+  "cli_setup_done_body": "你可以返回终端。CLI 将完成首次同步。",
+  "run_auto_translate_queued": "已将 {keys} 个新键发送至机器翻译",
+  "run_auto_translate_too_many": "{keys} 个新键未进行机器翻译：一次最多 {limit} 个，请在编辑器中预先翻译",
+  "settings_auto_translate": "自动翻译新键",
+  "settings_auto_translate_body": "通过同步或导入添加的键将被机器翻译为所有语言，并标记为需要审核。首次同步的键以及已缺失的译文保持不变，请在编辑器中预先翻译这些内容。一次最多处理 500 个新键。",
+  "settings_auto_translate_upgrade": "对通过同步或导入添加的键进行机器翻译。适用于项目版和代理机构版套餐。",
+  "auto_translate_kicker": "自动翻译新键",
+  "auto_translate_title": "新键添加后即可获得翻译",
+  "auto_translate_body": "开发者添加键后，wortwerk 会在同步完成后立即使用机器翻译将其翻译成所有语言。翻译会随下一个拉取请求一并提交，并标记为“需要审核”，这样翻译人员就能专注于润色，而不必从头开始。",
+  "auto_translate_point_new": "每次同步时自动运行，无需点击按钮",
+  "auto_translate_point_checks": "每条翻译结果都会检查占位符、复数形式和标记",
+  "auto_translate_point_context": "提示内容会参考键的描述、项目背景和各语言的专属说明",
+  "auto_translate_point_included": "机器翻译已包含在你的套餐中，不收取按词计费的费用",
+  "auto_translate_fair_use": "适用公平使用政策。",
+  "auto_translate_docs": "了解自动翻译的工作原理",
+  "powered_by_claude": "由 Anthropic Claude 提供支持"
 }

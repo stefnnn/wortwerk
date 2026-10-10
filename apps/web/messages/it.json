@@ -523,5 +523,20 @@
   "cli_setup_select_repo": "Seleziona un repository",
   "cli_setup_create": "Crea e sincronizza il progetto",
   "cli_setup_done_title": "Configurazione del progetto completata",
-  "cli_setup_done_body": "Puoi tornare al terminale. La CLI completerà la sincronizzazione iniziale."
+  "cli_setup_done_body": "Puoi tornare al terminale. La CLI completerà la sincronizzazione iniziale.",
+  "run_auto_translate_queued": "{keys} nuove chiavi inviate alla traduzione automatica",
+  "run_auto_translate_too_many": "{keys} nuove chiavi non tradotte automaticamente: più di {limit} alla volta, pre-traducile nell'editor",
+  "settings_auto_translate": "Traduci automaticamente le nuove chiavi",
+  "settings_auto_translate_body": "Le chiavi aggiunte da una sincronizzazione o da un'importazione vengono tradotte automaticamente in tutte le lingue e contrassegnate come da revisionare. Le chiavi della prima sincronizzazione e le traduzioni già mancanti restano invariate: pre-traducile nell'editor. Fino a 500 nuove chiavi alla volta.",
+  "settings_auto_translate_upgrade": "Traduce automaticamente le chiavi aggiunte da una sincronizzazione o da un'importazione. Disponibile nei piani Project e Agency.",
+  "auto_translate_kicker": "Traduci automaticamente le nuove chiavi",
+  "auto_translate_title": "Le nuove chiavi tornano tradotte",
+  "auto_translate_body": "Quando uno sviluppatore aggiunge una chiave, wortwerk la traduce automaticamente in tutte le lingue subito dopo la sincronizzazione. Le traduzioni vengono incluse nella pull request successiva, contrassegnate come da revisionare, così chi traduce può perfezionarle invece di partire da zero.",
+  "auto_translate_point_new": "Si avvia a ogni sincronizzazione, senza premere alcun pulsante",
+  "auto_translate_point_checks": "Segnaposto, forme plurali e markup vengono verificati per ogni risultato",
+  "auto_translate_point_context": "Le descrizioni delle chiavi, il contesto del progetto e le istruzioni per ogni lingua vengono inclusi nel prompt",
+  "auto_translate_point_included": "La traduzione automatica è inclusa nel tuo piano, senza costi per parola",
+  "auto_translate_fair_use": "Si applica una politica di utilizzo corretto.",
+  "auto_translate_docs": "Come funziona la traduzione automatica",
+  "powered_by_claude": "Basato su Anthropic Claude"
 }
