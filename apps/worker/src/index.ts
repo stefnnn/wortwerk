@@ -10,8 +10,11 @@ import {
   gitClientFor,
   importFileContent,
   machineTranslateProject,
+  type AutoTranslation,
   type KeySelection,
   openRouterTranslator,
+  planAutoTranslation,
+  projectKeyIds,
   pullFromRepo,
   pushToRepo,
   startSyncRun,
@@ -81,11 +84,38 @@ async function withRun<T extends Record<string, unknown>>(
   }
 }
 
+/** Queues machine translation of the keys a sync or import added, when the project has auto-translate on. */
+async function autoTranslate(ctx: Ctx, projectId: string, keyIds: string[]) {
+  if (!process.env.OPENROUTER_API_KEY) return null
+  // never fails the sync: a retried pull would find nothing new and the keys would stay untranslated anyway
+  try {
+    const plan = await planAutoTranslation(ctx, projectId, keyIds)
+    if (!plan || !('locales' in plan)) return plan
+    for (const locale of plan.locales) {
+      const run = await createSyncRun(ctx, projectId, 'machine', { locale, keyIds, trigger: 'auto' })
+      await enqueueProjectJob(boss, {
+        type: 'machine',
+        tenantId: ctx.tenantId,
+        projectId,
+        syncRunId: run.id,
+        locale,
+      })
+    }
+    return plan
+  } catch (error) {
+    console.warn(`[worker] auto-translate project=${projectId} failed: ${(error as Error).message}`)
+    return null
+  }
+}
+
+const queued = (plan: AutoTranslation | null) => Boolean(plan && 'locales' in plan)
+
 async function runImport(job: Job<'import'>) {
   await withRun(job, job.syncRunId, async (ctx, raw) => {
     const params = importParams.parse(raw)
     const bytes = await storage.get(params.storageKey)
     if (!bytes) throw new DomainError('not_found', 'Uploaded file is no longer available')
+    const known = await projectKeyIds(ctx, job.projectId)
     const result = await importFileContent(ctx, {
       projectId: job.projectId,
       fileId: params.fileId,
@@ -94,7 +124,12 @@ async function runImport(job: Job<'import'>) {
       overwrite: params.overwrite,
     })
     await storage.delete(params.storageKey)
-    return result
+    // the first import is the project's backlog, not new keys
+    const fresh = known.size
+      ? [...(await projectKeyIds(ctx, job.projectId))].filter((id) => !known.has(id))
+      : []
+    const autoTranslation = await autoTranslate(ctx, job.projectId, fresh)
+    return { ...result, ...(autoTranslation && { autoTranslation }) }
   })
 }
 
@@ -109,9 +144,11 @@ async function runPull(job: Job<'pull'>) {
   await withRun(job, job.syncRunId, async (ctx, raw) => {
     const params = pullParams.parse(raw)
     const { link, client } = await clientFor(ctx, job.projectId)
-    const result = await pullFromRepo(ctx, client, { projectId: job.projectId, ...params })
-    schedulePush = link.autoExport && (result.changed || !link.lastPushedAt)
-    return result
+    const { newKeyIds, ...result } = await pullFromRepo(ctx, client, { projectId: job.projectId, ...params })
+    const autoTranslation = await autoTranslate(ctx, job.projectId, newKeyIds)
+    // with machine translations underway the export sweep exports once they settled: one PR update, not two
+    schedulePush = link.autoExport && (result.changed || !link.lastPushedAt) && !queued(autoTranslation)
+    return { ...result, ...(autoTranslation && { autoTranslation }) }
   })
   if (schedulePush) await enqueuePush(boss, job.tenantId, job.projectId, 'pull')
 }
@@ -123,7 +160,10 @@ async function runPush(job: Job<'push'>) {
   await withRun(job, syncRunId, async (ctx, raw) => {
     pushParams.parse(raw)
     const { client } = await clientFor(ctx, job.projectId)
-    return pushToRepo(ctx, client, { projectId: job.projectId })
+    // keys added by the pull an export runs first (the branch moved) are new keys like any other
+    const { newKeyIds, ...result } = await pushToRepo(ctx, client, { projectId: job.projectId })
+    const autoTranslation = await autoTranslate(ctx, job.projectId, newKeyIds)
+    return { ...result, ...(autoTranslation && { autoTranslation }) }
   })
 }
 
@@ -140,7 +180,8 @@ async function runMachine(job: Job<'machine'>) {
     console.info(`[worker] machine project=${job.projectId} locale=${params.locale} translating`)
     const result = await machineTranslateProject(ctx, translator, {
       projectId: job.projectId,
-      ...params,
+      locale: params.locale,
+      keyIds: params.keyIds,
       selection: params.selection as KeySelection | undefined,
     })
     console.info(

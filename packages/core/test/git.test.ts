@@ -1,4 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest'
+import { and, eq } from 'drizzle-orm'
+import { schema } from '@wortwerk/db'
 import { createMemoryRepo } from '@wortwerk/git'
 import {
   findDueExports,
@@ -71,6 +73,25 @@ describe('git sync', () => {
     const unchanged = await pullFromRepo(ctx, repo.client, { projectId: project.id })
     expect(unchanged.files.map((f) => f.locale)).toEqual(['en', 'de-CH'])
     expect(unchanged.files[1]).toMatchObject({ translationsChanged: 0 })
+  })
+
+  it('reports the keys a pull added, but not those of the first pull or restored ones', async () => {
+    const { ctx, project } = await setup()
+    const repo = createMemoryRepo({ 'locales/en.json': '{\n  "hello": "Hello"\n}\n' })
+    expect(await pullFromRepo(ctx, repo.client, { projectId: project.id })).toMatchObject({ newKeyIds: [] })
+
+    const idOf = async (name: string) =>
+      (await ctx.db.query.translationKey.findFirst({
+        where: and(eq(schema.translationKey.projectId, project.id), eq(schema.translationKey.name, name)),
+      }))!.id
+
+    repo.push({ 'locales/en.json': '{\n  "save": "Save"\n}\n' })
+    const added = await pullFromRepo(ctx, repo.client, { projectId: project.id })
+    expect(added.newKeyIds).toEqual([await idOf('save')])
+
+    repo.push({ 'locales/en.json': '{\n  "hello": "Hello",\n  "save": "Save",\n  "bye": "Bye"\n}\n' })
+    const pushed = await pushToRepo(ctx, repo.client, { projectId: project.id })
+    expect(pushed.newKeyIds).toEqual([await idOf('bye')])
   })
 
   it('pulls source keys, pushes translations to a PR branch and tracks obsolete keys', async () => {

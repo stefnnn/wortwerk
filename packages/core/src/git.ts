@@ -19,6 +19,7 @@ import {
   pendingSourceChanges,
   type ImportResult,
 } from './files.ts'
+import { projectKeyIds } from './keys.ts'
 import { filePathFor, getProject, localeCode } from './projects.ts'
 import { openSecret, sealSecret } from './secrets.ts'
 
@@ -295,16 +296,6 @@ export async function deleteRepoLink(ctx: Ctx, projectId: string) {
   return row ?? null
 }
 
-async function projectKeyIds(ctx: Ctx, projectId: string) {
-  const rows = await ctx.db
-    .select({ id: schema.translationKey.id })
-    .from(schema.translationKey)
-    .where(
-      and(eq(schema.translationKey.tenantId, ctx.tenantId), eq(schema.translationKey.projectId, projectId)),
-    )
-  return new Set(rows.map((r) => r.id))
-}
-
 const repoLocale = (link: { localeAliases: Record<string, string> }, locale: string) =>
   link.localeAliases[locale] ?? locale
 
@@ -326,7 +317,7 @@ export async function pullFromRepo(
   const sha = input.sha ?? (await client.getBranchHead(link.repo, link.branch))
   if (!sha) throw new DomainError('not_found', `Branch ${link.branch} not found in ${link.repo}`)
   if (sha === link.lastPulledSha && !input.importTranslations && !input.force) {
-    return { sha, skipped: true, changed: false, files: [] as PullFileResult[] }
+    return { sha, skipped: true, changed: false, files: [] as PullFileResult[], newKeyIds: [] as string[] }
   }
   if (!project.files.length) {
     throw new DomainError('invalid', 'Add a file pattern such as locales/%locale%.json before syncing')
@@ -334,7 +325,7 @@ export async function pullFromRepo(
 
   const firstPull = !link.lastPulledSha
   const allTargets = firstPull || input.importTranslations
-  const knownKeys = allTargets ? null : await projectKeyIds(ctx, project.id)
+  const knownKeys = firstPull ? null : await projectKeyIds(ctx, project.id)
   const files: PullFileResult[] = []
   const pull = async (
     file: (typeof project.files)[number],
@@ -363,11 +354,11 @@ export async function pullFromRepo(
 
   // Repo values only fill gaps: on the first pull (or an explicit import) for every key, later only
   // for keys that appeared in this pull. Translations wortwerk already has are never touched.
-  let keyIds: ReadonlySet<string> | undefined
-  if (knownKeys) {
-    const fresh = [...(await projectKeyIds(ctx, project.id))].filter((id) => !knownKeys.has(id))
-    keyIds = new Set(fresh)
-  }
+  // keys of the first pull are not "new": they are the project's whole existing backlog
+  const newKeyIds = knownKeys
+    ? [...(await projectKeyIds(ctx, project.id))].filter((id) => !knownKeys.has(id))
+    : []
+  const keyIds = allTargets ? undefined : new Set(newKeyIds)
   // target files are always read: values are only filled for `keyIds`, but the repo's values are tracked
   const targets = project.locales.map((l) => l.code).filter((l) => l !== project.sourceLocale)
   for (const file of project.files) {
@@ -385,7 +376,7 @@ export async function pullFromRepo(
     .set({ lastPulledSha: sha, lastPulledAt: new Date() })
     .where(eq(projectRepo.id, link.id))
   const changed = files.some((f) => f.keysAdded || f.keysRestored || f.keysObsoleted || f.translationsChanged)
-  return { sha, skipped: false, changed, files }
+  return { sha, skipped: false, changed, files, newKeyIds }
 }
 
 export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId: string }) {
@@ -397,8 +388,9 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
   // Source text is patched into the repo's file at `base`, so wortwerk must know that commit first:
   // otherwise the base of the three-way merge is stale and the PR could undo developer changes.
   let pulled: string | null = null
+  let newKeyIds: string[] = []
   if (base !== link.lastPulledSha) {
-    await pullFromRepo(ctx, client, { projectId: project.id, sha: base })
+    ;({ newKeyIds } = await pullFromRepo(ctx, client, { projectId: project.id, sha: base }))
     link = (await getRepoLink(ctx, project.id))!
     pulled = base
   }
@@ -468,6 +460,7 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
     sourceChanges: pending.length,
     ...outcome,
     pullRequestUrl,
+    newKeyIds,
   }
 }
 

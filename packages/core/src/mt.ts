@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
 import { describeStructureIssue, localePluralCategories, structureIssue } from '@wortwerk/formats'
 import { DomainError, assertLocaleEditable, chunks, type Ctx } from './context.ts'
-import { assertMachineTranslation } from './limits.ts'
+import { assertMachineTranslation, getTenantPlan } from './limits.ts'
 import { resolveKeySelection, type KeySelection } from './keys.ts'
 import { getProject } from './projects.ts'
 import { getKeyInTenant, setTranslation } from './translations.ts'
@@ -141,6 +141,48 @@ export async function suggestMachineTranslation(
   const value = accepted.get('1')
   if (!value) throw new DomainError('invalid', `Machine translation was rejected: ${failures.get('1')}`)
   return { value }
+}
+
+export const autoTranslateKeyLimit = 500
+
+export type AutoTranslation =
+  | { keys: number; locales: string[] }
+  | { keys: number; skipped: 'plan' }
+  | { keys: number; skipped: 'too_many_keys'; limit: number }
+
+/**
+ * Which target locales to machine-translate after a sync or import added `keyIds`, for projects with
+ * auto-translate on. Only keys still lacking a translation count (the repo may have brought some).
+ * Bigger batches than `autoTranslateKeyLimit` (a new file pattern, a mass rename) are left to an
+ * explicit pre-translation, like the backlog of the first pull, which never counts as new.
+ */
+export async function planAutoTranslation(
+  ctx: Ctx,
+  projectId: string,
+  keyIds: string[],
+): Promise<AutoTranslation | null> {
+  if (!keyIds.length) return null
+  const project = await getProject(ctx, { id: projectId })
+  if (!project.autoTranslate) return null
+  const { rows } = await ctx.db.execute<{ locale: string; key_id: string }>(sql`
+    select l.code as locale, k.id as key_id
+    from ${schema.projectLocale} l
+    join ${translationKey} k on k.project_id = l.project_id
+    join ${translation} src on src.key_id = k.id and src.locale = ${project.sourceLocale}
+    left join ${translation} tgt on tgt.key_id = k.id and tgt.locale = l.code
+    where l.tenant_id = ${ctx.tenantId}
+      and l.project_id = ${project.id}
+      and l.code <> ${project.sourceLocale}
+      and k.id = any(${sql.param(keyIds)}::text[])
+      and k.obsolete_at is null
+      and src.value <> ''
+      and (tgt.id is null or tgt.status = 'untranslated' or tgt.value = '')
+  `)
+  const keys = new Set(rows.map((r) => r.key_id)).size
+  if (!keys) return null
+  if (!(await getTenantPlan(ctx)).machineTranslation) return { keys, skipped: 'plan' }
+  if (keys > autoTranslateKeyLimit) return { keys, skipped: 'too_many_keys', limit: autoTranslateKeyLimit }
+  return { keys, locales: [...new Set(rows.map((r) => r.locale))].sort() }
 }
 
 export async function machineTranslateProject(

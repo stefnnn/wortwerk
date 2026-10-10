@@ -48,6 +48,12 @@ Danach werden die **Dateien der Zielsprachen** gelesen. Übersetzungen aus dem R
 
 Importierte Übersetzungen sind als _Zu prüfen_ markiert.
 
+### Neue Keys automatisch übersetzen
+
+Ist **Neue Keys automatisch übersetzen** in den Projekteinstellungen aktiv (Pläne Project und Agency), übersetzt wortwerk die Keys, die ein Pull neu angelegt hat, maschinell in jede Sprache, in der noch eine Übersetzung fehlt, markiert als _Zu prüfen_. Mit **automatisch exportieren** landet das Ergebnis eine Minute später im Pull Request. Ein Feature-Branch, der in den verfolgten Branch gemergt wird, kommt so mit seinen Übersetzungen zurück, ohne dass jemand wortwerk öffnen muss.
+
+Es zählen nur Keys, die in einem Pull neu sind. Die Keys des ersten Pulls und Übersetzungen, die schon vorher fehlten, sind dein Rückstand: Übersetze sie im Editor vor. Ein Pull, der mehr als 500 Keys auf einmal bringt (ein neues Dateimuster, viele umbenannte Keys), wird ebenfalls übersprungen und im Sync-Verlauf vermerkt. Datei-Importe funktionieren gleich.
+
 ## Quelltexte zusammenführen
 
 Entwickler ändern Formulierungen im Code Review, Texterinnen korrigieren Texte in wortwerk, manchmal denselben Text zur selben Zeit. wortwerk führt jeden Key **dreiseitig** zusammen und nimmt dabei den Wert, den es zuletzt im Repository gesehen hat, als gemeinsame Basis:

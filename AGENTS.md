@@ -51,6 +51,7 @@ wortwerk is a translation management system with git flow.
 - review statuses: untranslated / translated / needs review / approved
 - translation memory (tenant-wide), comments + screenshots per key
 - machine translation via OpenRouter, model configurable (default `openai/gpt-6-luna`), paid plans only (project, agency), no quota for now. ICU placeholders protected in prompts and validated on output
+- auto-translate (project flag): keys new in a pull, export-time pull or import are machine-translated (needs review) by the worker; never the first pull/import (the backlog stays an explicit pre-translation), batches over 500 keys are skipped and noted on the run. Feature branches are not tracked: their keys get translated once merged into the tracked branch
 
 ### Public API and CLI
 

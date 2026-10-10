@@ -180,6 +180,7 @@ function RunLabel({ kind, params }: { kind: string; params: Record<string, unkno
       <span className="text-muted-foreground font-mono">
         {kind === 'import' && `${String(params.filename ?? '')} → ${String(params.locale ?? '')}`}
         {kind === 'machine' && String(params.locale ?? '')}
+        {kind === 'machine' && trigger === 'auto' && ` · ${runTrigger(trigger)}`}
         {(kind === 'pull' || kind === 'push') && trigger && runTrigger(trigger)}
         {kind === 'pull' && params.importTranslations === true && ` · ${m.run_with_translations()}`}
       </span>
@@ -208,6 +209,35 @@ type FileResult = {
 }
 
 function RunSummary({ kind, result }: { kind: string; result: Record<string, unknown> }) {
+  return (
+    <>
+      <RunResult kind={kind} result={result} />
+      <AutoTranslationNote result={result.autoTranslation as AutoTranslation | undefined} />
+    </>
+  )
+}
+
+type AutoTranslation = {
+  keys: number
+  locales?: string[]
+  skipped?: 'plan' | 'too_many_keys'
+  limit?: number
+}
+
+function AutoTranslationNote({ result }: { result?: AutoTranslation }) {
+  if (!result) return null
+  if (!result.skipped) return <> · {m.run_auto_translate_queued({ keys: result.keys })}</>
+  return (
+    <span className="text-warning">
+      {' · '}
+      {result.skipped === 'plan'
+        ? m.run_auto_translate_plan({ keys: result.keys })
+        : m.run_auto_translate_too_many({ keys: result.keys, limit: result.limit ?? 0 })}
+    </span>
+  )
+}
+
+function RunResult({ kind, result }: { kind: string; result: Record<string, unknown> }) {
   if (kind === 'pull') {
     if (result.skipped) return <>{m.run_up_to_date()}</>
     const files = (result.files ?? []) as FileResult[]

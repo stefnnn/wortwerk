@@ -44,6 +44,7 @@ export const machineParams = z.object({
   keyIds: z.array(z.string()).optional(),
   // validated by core (keySelection) when the job runs
   selection: z.record(z.string(), z.unknown()).optional(),
+  trigger: z.enum(['manual', 'auto']).default('manual'),
 })
 export type MachineParams = z.input<typeof machineParams>
 

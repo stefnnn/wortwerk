@@ -48,6 +48,12 @@ Then the **target language files** are read. Translations in the repository only
 
 Imported translations are marked _needs review_.
 
+### Auto-translate new keys
+
+With **Auto-translate new keys** on in the project settings (Project and Agency plans), wortwerk machine-translates the keys a pull added into every language that still lacks a translation, marked _needs review_. With **Export automatically** on, the result goes out in the pull request a minute later, so a feature branch merged into the tracked branch comes back with its translations without anyone opening wortwerk.
+
+Only keys that are new in a pull count. The keys of the first pull, and translations that were already missing before, are your backlog: pre-translate those in the editor. A pull that adds more than 500 keys at once (a new file pattern, a mass rename) is skipped as well and noted in the sync history. File imports work the same way.
+
 ## Merging source text
 
 Developers change wording in code reviews, and copywriters fix texts in wortwerk, sometimes the same text at the same time. wortwerk merges every key **three-way**, using the last value it saw in the repository as the common base:

@@ -84,6 +84,13 @@ function describeResult(result: unknown) {
   add(count('translated'), 'translated')
   add(Array.isArray(r.failed) ? r.failed.length : 0, 'failed')
   if (r.skipped === true) parts.push('already up to date')
+  const auto = r.autoTranslation as { keys: number; skipped?: string } | undefined
+  if (auto)
+    parts.push(
+      auto.skipped
+        ? `${auto.keys} new keys not machine-translated (${auto.skipped === 'plan' ? 'not on your plan' : 'too many at once'})`
+        : `${auto.keys} new keys sent to machine translation`,
+    )
   if (typeof r.pullRequestUrl === 'string') parts.push(r.pullRequestUrl)
   return parts.join(', ')
 }

@@ -3,7 +3,7 @@ import { schema } from '@wortwerk/db'
 import { formatFromPath } from '@wortwerk/formats'
 import { z } from 'zod'
 import { DomainError, canAccessProject, editableLocales, notFound, type Ctx } from './context.ts'
-import { assertProjectCapacity } from './limits.ts'
+import { assertMachineTranslation, assertProjectCapacity } from './limits.ts'
 
 const { project, projectLocale, projectFile } = schema
 
@@ -24,6 +24,7 @@ export const updateProjectInput = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   sourceLocale: localeCode.optional(),
   instructions: z.string().trim().max(5000).optional(),
+  autoTranslate: z.boolean().optional(),
 })
 
 // guests see the source locale (as reference) plus the locales they were granted
@@ -88,6 +89,7 @@ export async function createProject(ctx: Ctx, input: z.input<typeof createProjec
 
 export async function updateProject(ctx: Ctx, projectId: string, input: z.input<typeof updateProjectInput>) {
   const data = updateProjectInput.parse(input)
+  if (data.autoTranslate) await assertMachineTranslation(ctx)
   if (data.sourceLocale) await addLocale(ctx, projectId, data.sourceLocale)
   const [row] = await ctx.db
     .update(project)

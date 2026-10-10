@@ -248,6 +248,15 @@ export async function updateKey(ctx: Ctx, keyId: string, input: z.input<typeof u
   return row ?? notFound('Key')
 }
 
+/** All key ids of a project, obsolete ones included: diffing two snapshots yields the keys a sync or import added. */
+export async function projectKeyIds(ctx: Ctx, projectId: string) {
+  const rows = await ctx.db
+    .select({ id: translationKey.id })
+    .from(translationKey)
+    .where(and(eq(translationKey.tenantId, ctx.tenantId), eq(translationKey.projectId, projectId)))
+  return new Set(rows.map((r) => r.id))
+}
+
 export async function setKeysObsolete(ctx: Ctx, keyIds: string[], obsolete: boolean) {
   if (!keyIds.length) return
   if (!obsolete) await assertKeyCapacity(ctx, keyIds.length)

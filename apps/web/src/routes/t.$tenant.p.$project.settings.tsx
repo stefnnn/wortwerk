@@ -16,7 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog.tsx'
-import { Field, FieldLabel } from '#/components/ui/field.tsx'
+import { Checkbox } from '#/components/ui/checkbox.tsx'
+import { Field, FieldContent, FieldDescription, FieldLabel } from '#/components/ui/field.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { Textarea } from '#/components/ui/textarea.tsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs.tsx'
@@ -38,6 +39,8 @@ function ProjectSettings() {
   const { tenant, project } = Route.useParams()
   const navigate = useNavigate()
   const details = useQuery(queries.project(tenant, project))
+  const tenantInfo = useQuery(queries.tenant(tenant))
+  const canMachine = tenantInfo.data?.features.machineTranslation ?? false
   const obsolete = useQuery(
     queries.keys(tenant, project, { locale: details.data?.sourceLocale ?? 'en', obsolete: true }),
   )
@@ -55,6 +58,10 @@ function ProjectSettings() {
     success: m.saved(),
     onSuccess: () => setName(null),
   })
+  const autoTranslate = useAction(
+    (value: boolean) => unwrap(t.projects[':project'].$patch({ param, json: { autoTranslate: value } })),
+    { invalidate: [projectKey], success: m.saved() },
+  )
   const addLocale = useAction(
     () => unwrap(t.projects[':project'].locales.$post({ param, json: { code: locale.trim() } })),
     {
@@ -147,6 +154,20 @@ function ProjectSettings() {
             </div>
             <p className="text-muted-foreground text-xs">{m.settings_locales_body()}</p>
           </div>
+          <Field orientation="horizontal">
+            <Checkbox
+              id="auto-translate"
+              checked={details.data.autoTranslate}
+              disabled={(!canMachine && !details.data.autoTranslate) || autoTranslate.isPending}
+              onCheckedChange={(value) => autoTranslate.mutate(value === true)}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor="auto-translate">{m.settings_auto_translate()}</FieldLabel>
+              <FieldDescription>
+                {canMachine ? m.settings_auto_translate_body() : m.settings_auto_translate_upgrade()}
+              </FieldDescription>
+            </FieldContent>
+          </Field>
           <div className="grid gap-2">
             <h3 className="text-sm font-medium">{m.settings_mt_instructions()}</h3>
             <Tabs
@@ -295,9 +316,8 @@ function LocaleInstructions({
       />
       {value.trim() !== initial && (
         <Button
-          variant="outline"
           size="sm"
-          className="justify-self-end md:absolute md:right-1.5 md:bottom-1.5"
+          className="w-auto! self-end md:absolute md:right-1.5 md:bottom-1.5"
           disabled={save.isPending}
           onClick={() => save.mutate(undefined)}
         >
@@ -336,9 +356,8 @@ function ProjectContextInstructions({
       />
       {value.trim() !== initial && (
         <Button
-          variant="outline"
           size="sm"
-          className="justify-self-end md:absolute md:right-1.5 md:bottom-1.5"
+          className="w-auto! self-end md:absolute md:right-1.5 md:bottom-1.5"
           disabled={save.isPending}
           onClick={() => save.mutate(undefined)}
         >
