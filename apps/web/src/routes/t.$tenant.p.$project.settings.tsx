@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { LocaleInput } from '#/components/app/locale-input.tsx'
 import { PageBody } from '#/components/app/page.tsx'
@@ -44,7 +44,6 @@ function ProjectSettings() {
   const [nameDraft, setName] = useState<string | null>(null)
   const [locale, setLocale] = useState('')
   const [addOpen, setAddOpen] = useState(false)
-  const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [instructionTab, setInstructionTab] = useState('project-context')
   const [confirm, setConfirm] = useState('')
   const projectKey = queries.project(tenant, project).queryKey
@@ -148,57 +147,45 @@ function ProjectSettings() {
             </div>
             <p className="text-muted-foreground text-xs">{m.settings_locales_body()}</p>
           </div>
-          <div>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm"
-              aria-expanded={instructionsOpen}
-              onClick={() => setInstructionsOpen((open) => !open)}
+          <div className="grid gap-2">
+            <h3 className="text-sm font-medium">{m.settings_mt_instructions()}</h3>
+            <Tabs
+              value={instructionTab}
+              onValueChange={(value) => value && setInstructionTab(value)}
+              className="gap-2"
             >
-              <ChevronRight
-                className={`size-3.5 transition-transform ${instructionsOpen ? 'rotate-90' : ''}`}
-              />
-              {m.settings_mt_instructions()}
-            </button>
-            {instructionsOpen && (
-              <Tabs
-                value={instructionTab}
-                onValueChange={(value) => value && setInstructionTab(value)}
-                className="mt-4"
-              >
-                <TabsList className="max-w-full flex-wrap justify-start">
-                  <TabsTrigger value="project-context">{m.settings_project_context()}</TabsTrigger>
-                  {details.data.locales
-                    .filter(({ code }) => code !== details.data.sourceLocale)
-                    .map(({ code }) => (
-                      <TabsTrigger key={code} value={code}>
-                        {code}
-                      </TabsTrigger>
-                    ))}
-                </TabsList>
-                <TabsContent value="project-context" className="pt-4">
-                  <ProjectContextInstructions
-                    key={details.data.instructions}
-                    tenant={tenant}
-                    project={project}
-                    initial={details.data.instructions}
-                  />
-                </TabsContent>
+              <TabsList className="max-w-full flex-wrap justify-start">
+                <TabsTrigger value="project-context">{m.settings_project_context()}</TabsTrigger>
                 {details.data.locales
                   .filter(({ code }) => code !== details.data.sourceLocale)
-                  .map(({ code, instructions }) => (
-                    <TabsContent key={code} value={code} className="pt-4">
-                      <LocaleInstructions
-                        key={`${code}:${instructions}`}
-                        tenant={tenant}
-                        project={project}
-                        code={code}
-                        initial={instructions}
-                      />
-                    </TabsContent>
+                  .map(({ code }) => (
+                    <TabsTrigger key={code} value={code}>
+                      {code}
+                    </TabsTrigger>
                   ))}
-              </Tabs>
-            )}
+              </TabsList>
+              <TabsContent value="project-context">
+                <ProjectContextInstructions
+                  key={details.data.instructions}
+                  tenant={tenant}
+                  project={project}
+                  initial={details.data.instructions}
+                />
+              </TabsContent>
+              {details.data.locales
+                .filter(({ code }) => code !== details.data.sourceLocale)
+                .map(({ code, instructions }) => (
+                  <TabsContent key={code} value={code}>
+                    <LocaleInstructions
+                      key={`${code}:${instructions}`}
+                      tenant={tenant}
+                      project={project}
+                      code={code}
+                      initial={instructions}
+                    />
+                  </TabsContent>
+                ))}
+            </Tabs>
           </div>
         </CardContent>
       </Card>
@@ -296,28 +283,27 @@ function LocaleInstructions({
     { invalidate: [queries.project(tenant, project).queryKey], success: m.saved() },
   )
   return (
-    <Field>
-      <FieldLabel htmlFor={`instructions-${code}`}>
-        {m.settings_locale_instructions({ locale: localeName(code) })}
-      </FieldLabel>
+    <Field className="relative">
       <Textarea
         id={`instructions-${code}`}
-        rows={3}
+        rows={1}
         maxLength={2000}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={m.settings_locale_instructions_placeholder()}
+        className="max-h-[8.625rem] min-h-0 overflow-y-auto pb-2 leading-6 md:max-h-[10.125rem] md:pb-8"
       />
-      <div>
+      {value.trim() !== initial && (
         <Button
           variant="outline"
           size="sm"
-          disabled={save.isPending || value.trim() === initial}
+          className="justify-self-end md:absolute md:right-1.5 md:bottom-1.5"
+          disabled={save.isPending}
           onClick={() => save.mutate(undefined)}
         >
           {m.action_save()}
         </Button>
-      </div>
+      )}
     </Field>
   )
 }
@@ -338,26 +324,27 @@ function ProjectContextInstructions({
     { invalidate: [queries.project(tenant, project).queryKey], success: m.saved() },
   )
   return (
-    <Field>
-      <FieldLabel htmlFor="project-context">{m.settings_project_context()}</FieldLabel>
+    <Field className="relative">
       <Textarea
         id="project-context"
-        rows={5}
+        rows={1}
         maxLength={5000}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={m.settings_project_context_placeholder()}
+        className="max-h-[8.625rem] min-h-0 overflow-y-auto pb-2 leading-6 md:max-h-[10.125rem] md:pb-8"
       />
-      <div>
+      {value.trim() !== initial && (
         <Button
           variant="outline"
           size="sm"
-          disabled={save.isPending || value.trim() === initial}
+          className="justify-self-end md:absolute md:right-1.5 md:bottom-1.5"
+          disabled={save.isPending}
           onClick={() => save.mutate(undefined)}
         >
           {m.action_save()}
         </Button>
-      </div>
+      )}
     </Field>
   )
 }
