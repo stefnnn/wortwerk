@@ -134,7 +134,9 @@ export async function suggestMachineTranslation(
     project.sourceLocale,
     locale,
     [{ id: '1', text: source.value, key: key.name, description: key.description }],
-    project.locales.find((l) => l.code === locale)?.instructions,
+    [project.instructions, project.locales.find((l) => l.code === locale)?.instructions]
+      .filter((value) => value?.trim())
+      .join('\n\n'),
   )
   const value = accepted.get('1')
   if (!value) throw new DomainError('invalid', `Machine translation was rejected: ${failures.get('1')}`)
@@ -159,7 +161,12 @@ export async function machineTranslateProject(
     throw new DomainError('invalid', `Locale ${input.locale} is not part of this project`)
   }
 
-  const instructions = project.locales.find((l) => l.code === input.locale)?.instructions
+  const instructions = [
+    project.instructions,
+    project.locales.find((l) => l.code === input.locale)?.instructions,
+  ]
+    .filter((value) => value?.trim())
+    .join('\n\n')
   const keyIds = input.selection
     ? await resolveKeySelection(ctx, project.id, input.selection)
     : input.keyIds?.length

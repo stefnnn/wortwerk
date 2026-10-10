@@ -38,6 +38,7 @@ export const project = pgTable(
     name: text().notNull(),
     slug: text().notNull(),
     sourceLocale: text().notNull(),
+    instructions: text().default('').notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

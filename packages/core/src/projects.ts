@@ -23,6 +23,7 @@ export const createProjectInput = z.object({
 export const updateProjectInput = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   sourceLocale: localeCode.optional(),
+  instructions: z.string().trim().max(5000).optional(),
 })
 
 // guests see the source locale (as reference) plus the locales they were granted
