@@ -523,5 +523,20 @@
   "cli_setup_select_repo": "リポジトリを選択",
   "cli_setup_create": "プロジェクトを作成して同期",
   "cli_setup_done_title": "プロジェクトのセットアップが完了しました",
-  "cli_setup_done_body": "ターミナルに戻ってください。CLI が初回同期を完了します。"
+  "cli_setup_done_body": "ターミナルに戻ってください。CLI が初回同期を完了します。",
+  "run_auto_translate_queued": "{keys} 件の新しいキーを機械翻訳に送信しました",
+  "run_auto_translate_too_many": "{keys} 件の新しいキーは機械翻訳されませんでした: 一度に {limit} 件を超えています。エディターで事前に翻訳してください",
+  "settings_auto_translate": "新しいキーを自動翻訳",
+  "settings_auto_translate_body": "同期またはインポートで追加されたキーは、すべての言語に機械翻訳され、「要確認」とマークされます。最初の同期で追加されたキーと、翻訳が不足している項目は変更されないため、それらはエディターで事前に翻訳してください。一度に最大 500 件の新しいキーを処理します。",
+  "settings_auto_translate_upgrade": "同期またはインポートで追加されたキーを機械翻訳します。Project および Agency プランで利用できます。",
+  "auto_translate_kicker": "新しいキーを自動翻訳",
+  "auto_translate_title": "新しいキーは翻訳されて戻ってきます",
+  "auto_translate_body": "開発者がキーを追加すると、wortwerkが同期の直後にすべての言語へ機械翻訳します。翻訳は「要レビュー」の状態で次のプルリクエストに含まれるため、翻訳者はゼロから始めるのではなく、仕上げに集中できます。",
+  "auto_translate_point_new": "同期のたびに実行。ボタンを押す必要はありません",
+  "auto_translate_point_checks": "プレースホルダー、複数形、マークアップを翻訳結果ごとにチェック",
+  "auto_translate_point_context": "キーの説明、プロジェクトのコンテキスト、言語ごとの指示をプロンプトに反映",
+  "auto_translate_point_included": "機械翻訳はプランに含まれており、単語ごとの追加料金はありません",
+  "auto_translate_fair_use": "公正利用ポリシーが適用されます。",
+  "auto_translate_docs": "自動翻訳の仕組み",
+  "powered_by_claude": "Anthropic Claudeを使用"
 }

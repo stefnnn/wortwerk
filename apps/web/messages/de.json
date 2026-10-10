@@ -523,5 +523,20 @@
   "cli_setup_select_repo": "Repository auswählen",
   "cli_setup_create": "Projekt erstellen und synchronisieren",
   "cli_setup_done_title": "Projekteinrichtung abgeschlossen",
-  "cli_setup_done_body": "Du kannst zum Terminal zurückkehren. Die CLI schließt die erste Synchronisierung ab."
+  "cli_setup_done_body": "Du kannst zum Terminal zurückkehren. Die CLI schließt die erste Synchronisierung ab.",
+  "run_auto_translate_queued": "{keys} neue Schlüssel an die maschinelle Übersetzung gesendet",
+  "run_auto_translate_too_many": "{keys} neue Schlüssel nicht maschinell übersetzt: mehr als {limit} auf einmal, übersetze sie im Editor vorab",
+  "settings_auto_translate": "Neue Schlüssel automatisch übersetzen",
+  "settings_auto_translate_body": "Schlüssel, die durch einen Sync oder Import hinzugefügt werden, werden maschinell in alle Sprachen übersetzt und als „Überprüfung nötig“ markiert. Schlüssel aus dem ersten Sync und bereits fehlende Übersetzungen bleiben unberührt, übersetze diese im Editor vorab. Bis zu 500 neue Schlüssel auf einmal.",
+  "settings_auto_translate_upgrade": "Übersetzt Schlüssel maschinell, die durch einen Sync oder Import hinzugefügt werden. Verfügbar in den Tarifen Project und Agency.",
+  "auto_translate_kicker": "Neue Schlüssel automatisch übersetzen",
+  "auto_translate_title": "Neue Schlüssel kommen übersetzt zurück",
+  "auto_translate_body": "Wenn ein Entwickler einen Schlüssel hinzufügt, übersetzt wortwerk ihn direkt nach der Synchronisierung maschinell in alle Sprachen. Die Übersetzungen kommen mit dem nächsten Pull Request und sind zur Prüfung markiert. So können deine Übersetzer sie verfeinern, statt von vorn anzufangen.",
+  "auto_translate_point_new": "Läuft bei jeder Synchronisierung – ganz ohne Knopfdruck",
+  "auto_translate_point_checks": "Platzhalter, Pluralformen und Markup werden bei jedem Ergebnis überprüft",
+  "auto_translate_point_context": "Schlüsselbeschreibungen, Projektkontext und Anweisungen für die jeweilige Sprache fließen in den Prompt ein",
+  "auto_translate_point_included": "Maschinelle Übersetzung ist in deinem Tarif enthalten – ohne Gebühren pro Wort",
+  "auto_translate_fair_use": "Es gilt eine faire Nutzung.",
+  "auto_translate_docs": "So funktioniert die automatische Übersetzung",
+  "powered_by_claude": "Unterstützt von Anthropic Claude"
 }
