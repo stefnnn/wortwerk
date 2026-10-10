@@ -94,9 +94,7 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
   // one row per key and listed locale: the requested one, or every project locale
   const localeRows = and(
     eq(projectLocale.projectId, translationKey.projectId),
-    q.locale === ALL_LOCALES
-      ? undefined
-      : eq(projectLocale.code, q.locale),
+    q.locale === ALL_LOCALES ? undefined : eq(projectLocale.code, q.locale),
   )
   const [items, [total]] = await Promise.all([
     ctx.db
