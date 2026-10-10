@@ -1,5 +1,8 @@
-import { Check, FileJson, GitMerge, GitPullRequest } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight, Check, FileJson, GitMerge, GitPullRequest, Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { StatusBadge } from '#/components/app/status.tsx'
+import { PoweredByClaude } from '#/components/powered-by.tsx'
 import { m } from '#/paraglide/messages.js'
 import { BitbucketLogo, GitHubLogo } from './logos.tsx'
 
@@ -134,6 +137,79 @@ function MergeVisual() {
       <span className="bg-primary text-primary-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium">
         <GitMerge className="size-3" /> {m.step_merge_merged()}
       </span>
+    </div>
+  )
+}
+
+export function AutoTranslate() {
+  const points = [
+    m.auto_translate_point_new(),
+    m.auto_translate_point_checks(),
+    m.auto_translate_point_context(),
+  ]
+  return (
+    <div className="bg-background mt-16 grid gap-10 rounded-xl border p-8 lg:grid-cols-2 lg:items-center">
+      <div>
+        <p className="text-primary inline-flex items-center gap-2 text-sm font-medium">
+          <Sparkles className="size-4" /> {m.auto_translate_kicker()}
+        </p>
+        <h3 className="mt-3 text-2xl font-semibold tracking-tight text-balance">
+          {m.auto_translate_title()}
+        </h3>
+        <p className="text-muted-foreground mt-3 text-pretty">{m.auto_translate_body()}</p>
+        <ul className="mt-6 space-y-3 text-sm">
+          {points.map((point) => (
+            <li key={point} className="flex gap-2">
+              <Check className="text-primary size-4 shrink-0" /> {point}
+            </li>
+          ))}
+          <li className="flex gap-2">
+            <Check className="text-primary size-4 shrink-0" /> {m.auto_translate_point_included()}*
+          </li>
+        </ul>
+        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Link
+            to="/docs/$slug"
+            params={{ slug: 'machine-translation' }}
+            className="text-primary inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+          >
+            {m.auto_translate_docs()} <ArrowRight className="size-4" />
+          </Link>
+          <PoweredByClaude />
+        </div>
+        <p className="text-muted-foreground mt-4 text-xs">* {m.auto_translate_fair_use()}</p>
+      </div>
+      <AutoTranslateVisual />
+    </div>
+  )
+}
+
+function AutoTranslateVisual() {
+  const rows = [
+    ['de', 'Zur Kasse'],
+    ['fr', 'Passer à la caisse'],
+    ['it', 'Vai alla cassa'],
+    ['ja', 'レジに進む'],
+  ] as const
+  return (
+    <div className="bg-card overflow-hidden rounded-xl border text-sm shadow-xs">
+      <div className="flex items-center gap-2 border-b px-4 py-2.5 font-mono text-xs">
+        <span>checkout.title</span>
+        <span className="bg-primary text-primary-foreground rounded px-1.5 font-sans text-[10px]">
+          {m.step_sync_new()}
+        </span>
+        <span className="text-muted-foreground ml-auto truncate">Proceed to checkout</span>
+      </div>
+      <ul className="divide-y">
+        {rows.map(([locale, text]) => (
+          <li key={locale} className="flex items-center gap-3 px-4 py-2.5">
+            <span className="text-muted-foreground w-5 font-mono text-xs">{locale}</span>
+            <span className="min-w-0 flex-1 truncate">{text}</span>
+            <Sparkles className="text-muted-foreground size-3.5 shrink-0" />
+            <StatusBadge status="needs_review" />
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

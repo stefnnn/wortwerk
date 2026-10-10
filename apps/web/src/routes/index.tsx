@@ -14,7 +14,7 @@ import { useEffect, type ReactNode } from 'react'
 import { HeroBackground } from '#/components/marketing/background.tsx'
 import { Faq, faqJsonLd } from '#/components/marketing/faq.tsx'
 import { BitbucketLogo, GitHubLogo, StackChip, formats, frameworks } from '#/components/marketing/logos.tsx'
-import { ProcessSteps } from '#/components/marketing/process.tsx'
+import { AutoTranslate, ProcessSteps } from '#/components/marketing/process.tsx'
 import { InitCommand, Quickstart } from '#/components/marketing/quickstart.tsx'
 import { MarketingLayout } from '#/components/marketing/site.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
@@ -103,6 +103,7 @@ function Landing() {
           <div className="mt-12">
             <ProcessSteps />
           </div>
+          <AutoTranslate />
         </div>
       </section>
 

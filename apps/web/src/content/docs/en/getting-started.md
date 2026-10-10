@@ -67,7 +67,7 @@ The editor shows one row per key and language with its source text. Every transl
 | Needs review | The source text changed, or the value came from an import or machine translation |
 | Approved     | Reviewed and final                                                               |
 
-While translating you get suggestions from your **translation memory** (similar texts in all your projects), can ask for a **machine translation** of a single key (paid plans), leave **comments** and attach **screenshots** for context. Every change is kept in the history of the translation.
+While translating you get suggestions from your **translation memory** (similar texts in all your projects), can ask for a **machine translation** of a single key (paid plans), leave **comments** and attach **screenshots** for context. Every change is kept in the history of the translation. wortwerk can also translate new keys automatically, see [Machine translation](/docs/machine-translation).
 
 Placeholders like `{name}`, plural forms and markup are part of the message structure. wortwerk stores all messages as ICU MessageFormat internally and converts to and from your file format, so translators see the same notation in every project.
 

@@ -65,7 +65,7 @@ if ! ssh -i "$KEY" "wortwerk@$HOST" 'test -f ~/app/.env'; then
     echo "SMTP_PASSWORD=$(local_env SMTP_PASSWORD)"
     echo "MAIL_FROM=$(local_env MAIL_FROM)"
     echo "OPENROUTER_API_KEY=$(local_env OPENROUTER_API_KEY)"
-    echo "MT_MODEL=openai/gpt-6-luna"
+    echo "MT_MODEL=anthropic/claude-haiku-5.5"
     echo "BACKUP_DIR=/home/wortwerk/backups"
     echo "# GITHUB_APP_ID= GITHUB_APP_SLUG= GITHUB_APP_PRIVATE_KEY= GITHUB_WEBHOOK_SECRET="
     echo "# GITHUB_APP_CLIENT_ID= GITHUB_APP_CLIENT_SECRET= BITBUCKET_CLIENT_ID= BITBUCKET_CLIENT_SECRET="

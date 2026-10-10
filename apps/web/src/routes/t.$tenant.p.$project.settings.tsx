@@ -4,6 +4,7 @@ import { Info, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { LocaleInput } from '#/components/app/locale-input.tsx'
 import { PageBody } from '#/components/app/page.tsx'
+import { PoweredByClaude } from '#/components/powered-by.tsx'
 import { RepoCard, TokensCard } from '#/components/app/repo-settings.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button } from '#/components/ui/button.tsx'
@@ -222,6 +223,7 @@ function ProjectSettings() {
                   </TabsContent>
                 ))}
             </Tabs>
+            <PoweredByClaude />
           </div>
         </CardContent>
       </Card>

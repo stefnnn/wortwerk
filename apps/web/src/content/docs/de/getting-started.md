@@ -67,7 +67,7 @@ Der Editor zeigt pro Key und Sprache eine Zeile mit dem Quelltext. Jede Überset
 | Zu prüfen   | der Quelltext hat sich geändert, oder der Wert stammt aus einem Import oder einer maschinellen Übersetzung |
 | Freigegeben | geprüft und final                                                                                          |
 
-Beim Übersetzen bekommst du Vorschläge aus dem **Translation Memory** (ähnliche Texte aus all deinen Projekten), kannst einzelne Keys **maschinell übersetzen** lassen (bezahlte Abos), **Kommentare** schreiben und **Screenshots** als Kontext anhängen. Jede Änderung bleibt im Verlauf der Übersetzung erhalten.
+Beim Übersetzen bekommst du Vorschläge aus dem **Translation Memory** (ähnliche Texte aus all deinen Projekten), kannst einzelne Keys **maschinell übersetzen** lassen (bezahlte Abos), **Kommentare** schreiben und **Screenshots** als Kontext anhängen. Jede Änderung bleibt im Verlauf der Übersetzung erhalten. Neue Keys kann wortwerk auch automatisch übersetzen, siehe [Maschinelle Übersetzung](/docs/machine-translation).
 
 Platzhalter wie `{name}`, Pluralformen und Markup gehören zur Struktur eines Textes. wortwerk speichert alle Texte intern als ICU MessageFormat und konvertiert von und zu deinem Dateiformat, damit Übersetzer in jedem Projekt dieselbe Schreibweise sehen.
 

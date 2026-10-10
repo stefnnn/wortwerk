@@ -174,7 +174,7 @@ async function runMachine(job: Job<'machine'>) {
       throw new DomainError('invalid', 'Machine translation is not configured')
     const translator = openRouterTranslator({
       apiKey: process.env.OPENROUTER_API_KEY,
-      model: process.env.MT_MODEL || 'openai/gpt-6-luna',
+      model: process.env.MT_MODEL || 'anthropic/claude-haiku-5.5',
       appUrl: process.env.APP_URL,
     })
     console.info(`[worker] machine project=${job.projectId} locale=${params.locale} translating`)
