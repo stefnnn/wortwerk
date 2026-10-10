@@ -7,7 +7,6 @@ import {
   inArray,
   isNotNull,
   isNull,
-  ne,
   notInArray,
   or,
   sql,
@@ -92,11 +91,11 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
   const project = await getProject(ctx, { id: projectId })
   const { src, tgt, where } = keyFilter(ctx, project, q)
 
-  // one row per key and listed locale: the requested one, or every target locale
+  // one row per key and listed locale: the requested one, or every project locale
   const localeRows = and(
     eq(projectLocale.projectId, translationKey.projectId),
     q.locale === ALL_LOCALES
-      ? ne(projectLocale.code, project.sourceLocale)
+      ? undefined
       : eq(projectLocale.code, q.locale),
   )
   const [items, [total]] = await Promise.all([
@@ -294,12 +293,15 @@ export async function splitSelection(
 ): Promise<Array<{ locale: string; selection: KeySelection }>> {
   if (locale !== ALL_LOCALES) return [{ locale, selection: keySelection.parse(input) }]
   const selection = allSelection.parse(input)
+  const project = await getProject(ctx, { id: projectId })
   if ('rows' in selection) {
     const byLocale = new Map<string, string[]>()
-    for (const r of selection.rows) byLocale.set(r.locale, [...(byLocale.get(r.locale) ?? []), r.keyId])
+    for (const r of selection.rows) {
+      if (r.locale === project.sourceLocale) continue
+      byLocale.set(r.locale, [...(byLocale.get(r.locale) ?? []), r.keyId])
+    }
     return [...byLocale].map(([code, keyIds]) => ({ locale: code, selection: { keyIds } }))
   }
-  const project = await getProject(ctx, { id: projectId })
   return project.locales
     .filter((l) => l.code !== project.sourceLocale)
     .map(({ code }) => ({

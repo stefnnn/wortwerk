@@ -191,7 +191,7 @@ function Editor() {
           aria-label={m.editor_locale()}
           onChange={(e) => navigate({ search: (s) => ({ ...s, locale: e.target.value, page: undefined }) })}
         >
-          {targets.length > 1 && <option value={ALL_LOCALES}>{m.editor_all_languages()}</option>}
+          {targets.length > 0 && <option value={ALL_LOCALES}>{m.editor_all_languages()}</option>}
           {[...targets, details.data.sourceLocale].map((code) => (
             <option key={code} value={code}>
               {code} · {localeName(code)}
