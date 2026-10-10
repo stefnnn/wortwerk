@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, X } from 'lucide-react'
+import { ChevronRight, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { LocaleInput } from '#/components/app/locale-input.tsx'
 import { PageBody } from '#/components/app/page.tsx'
@@ -8,9 +8,18 @@ import { RepoCard, TokensCard } from '#/components/app/repo-settings.tsx'
 import { Badge } from '#/components/ui/badge.tsx'
 import { Button } from '#/components/ui/button.tsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog.tsx'
 import { Field, FieldLabel } from '#/components/ui/field.tsx'
 import { Input } from '#/components/ui/input.tsx'
 import { Textarea } from '#/components/ui/textarea.tsx'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs.tsx'
 import { t, unwrap } from '#/lib/api.ts'
 import { localeName } from '#/lib/format.ts'
 import { useAction } from '#/lib/mutations.ts'
@@ -34,6 +43,9 @@ function ProjectSettings() {
   )
   const [nameDraft, setName] = useState<string | null>(null)
   const [locale, setLocale] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+  const [instructionsOpen, setInstructionsOpen] = useState(false)
+  const [instructionTab, setInstructionTab] = useState('project-context')
   const [confirm, setConfirm] = useState('')
   const projectKey = queries.project(tenant, project).queryKey
   const name = nameDraft ?? details.data?.name ?? ''
@@ -48,7 +60,10 @@ function ProjectSettings() {
     () => unwrap(t.projects[':project'].locales.$post({ param, json: { code: locale.trim() } })),
     {
       invalidate: [projectKey, queries.stats(tenant, project).queryKey, queries.projects(tenant).queryKey],
-      onSuccess: () => setLocale(''),
+      onSuccess: () => {
+        setLocale('')
+        setAddOpen(false)
+      },
     },
   )
   const removeLocale = useAction(
@@ -82,7 +97,7 @@ function ProjectSettings() {
         <CardHeader>
           <CardTitle>{m.settings_general()}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid gap-5">
           <form onSubmit={onRename} className="flex items-end gap-2">
             <Field className="flex-1">
               <FieldLabel htmlFor="name">{m.field_name()}</FieldLabel>
@@ -92,58 +107,130 @@ function ProjectSettings() {
               {m.action_save()}
             </Button>
           </form>
+          <div className="grid gap-3">
+            <div className="text-sm font-medium">{m.settings_locales()}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[...details.data.locales]
+                .sort(
+                  (a, b) =>
+                    Number(b.code === details.data.sourceLocale) -
+                    Number(a.code === details.data.sourceLocale),
+                )
+                .map(({ code }) => (
+                  <Badge
+                    key={code}
+                    variant={code === details.data.sourceLocale ? 'default' : 'outline'}
+                    className="h-7 gap-1 pr-1 pl-2.5"
+                  >
+                    <span className="font-mono">{code}</span>
+                    <span className="text-xs opacity-70">{localeName(code)}</span>
+                    {code !== details.data.sourceLocale && (
+                      <button
+                        type="button"
+                        className="hover:bg-muted ml-1 rounded p-0.5"
+                        aria-label={m.action_remove()}
+                        onClick={() => removeLocale.mutate(code)}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-full px-2.5"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus /> {m.action_add()}
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">{m.settings_locales_body()}</p>
+          </div>
+          <div>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm"
+              aria-expanded={instructionsOpen}
+              onClick={() => setInstructionsOpen((open) => !open)}
+            >
+              <ChevronRight
+                className={`size-3.5 transition-transform ${instructionsOpen ? 'rotate-90' : ''}`}
+              />
+              {m.settings_mt_instructions()}
+            </button>
+            {instructionsOpen && (
+              <Tabs
+                value={instructionTab}
+                onValueChange={(value) => value && setInstructionTab(value)}
+                className="mt-4"
+              >
+                <TabsList className="max-w-full flex-wrap justify-start">
+                  <TabsTrigger value="project-context">{m.settings_project_context()}</TabsTrigger>
+                  {details.data.locales
+                    .filter(({ code }) => code !== details.data.sourceLocale)
+                    .map(({ code }) => (
+                      <TabsTrigger key={code} value={code}>
+                        {code}
+                      </TabsTrigger>
+                    ))}
+                </TabsList>
+                <TabsContent value="project-context" className="pt-4">
+                  <ProjectContextInstructions
+                    key={details.data.instructions}
+                    tenant={tenant}
+                    project={project}
+                    initial={details.data.instructions}
+                  />
+                </TabsContent>
+                {details.data.locales
+                  .filter(({ code }) => code !== details.data.sourceLocale)
+                  .map(({ code, instructions }) => (
+                    <TabsContent key={code} value={code} className="pt-4">
+                      <LocaleInstructions
+                        key={`${code}:${instructions}`}
+                        tenant={tenant}
+                        project={project}
+                        code={code}
+                        initial={instructions}
+                      />
+                    </TabsContent>
+                  ))}
+              </Tabs>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       <RepoCard tenant={tenant} project={project} />
       <TokensCard tenant={tenant} project={project} projectId={details.data.id} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{m.settings_locales()}</CardTitle>
-          <CardDescription>{m.settings_locales_body()}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            {details.data.locales.map(({ code }) => (
-              <Badge
-                key={code}
-                variant={code === details.data.sourceLocale ? 'default' : 'outline'}
-                className="h-7 gap-1 pr-1 pl-2.5"
-              >
-                <span className="font-mono">{code}</span>
-                <span className="text-xs opacity-70">{localeName(code)}</span>
-                {code !== details.data.sourceLocale && (
-                  <button
-                    className="hover:bg-muted ml-1 rounded p-0.5"
-                    aria-label={m.action_remove()}
-                    onClick={() => removeLocale.mutate(code)}
-                  >
-                    <X className="size-3" />
-                  </button>
-                )}
-              </Badge>
-            ))}
-          </div>
-          {details.data.locales
-            .filter(({ code }) => code !== details.data.sourceLocale)
-            .map(({ code, instructions }) => (
-              <LocaleInstructions
-                key={`${code}:${instructions}`}
-                tenant={tenant}
-                project={project}
-                code={code}
-                initial={instructions}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <form onSubmit={onAddLocale} className="grid gap-4">
+            <DialogHeader>
+              <DialogTitle>{m.settings_add_locale()}</DialogTitle>
+              <DialogDescription>{m.settings_add_locale_body()}</DialogDescription>
+            </DialogHeader>
+            <Field>
+              <FieldLabel htmlFor="new-locale">{m.settings_locale_code()}</FieldLabel>
+              <LocaleInput
+                id="new-locale"
+                autoFocus
+                value={locale}
+                onChange={(e) => setLocale(e.target.value)}
+                placeholder="fr-CH"
               />
-            ))}
-          <form onSubmit={onAddLocale} className="flex max-w-sm gap-2">
-            <LocaleInput value={locale} onChange={(e) => setLocale(e.target.value)} placeholder="fr-CH" />
-            <Button type="submit" variant="outline" disabled={addLocale.isPending}>
-              <Plus /> {m.action_add()}
-            </Button>
+            </Field>
+            <DialogFooter>
+              <Button type="submit" disabled={addLocale.isPending || !locale.trim()}>
+                <Plus /> {m.action_add()}
+              </Button>
+            </DialogFooter>
           </form>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -220,6 +307,46 @@ function LocaleInstructions({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={m.settings_locale_instructions_placeholder()}
+      />
+      <div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={save.isPending || value.trim() === initial}
+          onClick={() => save.mutate(undefined)}
+        >
+          {m.action_save()}
+        </Button>
+      </div>
+    </Field>
+  )
+}
+
+function ProjectContextInstructions({
+  tenant,
+  project,
+  initial,
+}: {
+  tenant: string
+  project: string
+  initial: string
+}) {
+  const [value, setValue] = useState(initial)
+  const save = useAction(
+    () =>
+      unwrap(t.projects[':project'].$patch({ param: { tenant, project }, json: { instructions: value } })),
+    { invalidate: [queries.project(tenant, project).queryKey], success: m.saved() },
+  )
+  return (
+    <Field>
+      <FieldLabel htmlFor="project-context">{m.settings_project_context()}</FieldLabel>
+      <Textarea
+        id="project-context"
+        rows={5}
+        maxLength={5000}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={m.settings_project_context_placeholder()}
       />
       <div>
         <Button
