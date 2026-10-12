@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { lintProject } from '../src/commands/lint.ts'
-import { detectPatterns, parseRemoteUrl } from '../src/project.ts'
+import { detectPatterns, discoverProject, isLocaleCode, parseRemoteUrl } from '../src/project.ts'
 
 let root: string
 
@@ -42,6 +42,39 @@ describe('detectPatterns', () => {
     )
     expect(found.some((f) => f.path.startsWith('node_modules'))).toBe(false)
     expect(found[0]!.locales.length).toBe(2)
+  })
+
+  it('ignores folders, tooling files and source code that merely look like locales', async () => {
+    await files({
+      'apps/api/package.json': '{}',
+      'apps/web/tsconfig.json': '{}',
+      'apps/web/vite.config.ts': 'export default {}',
+      'apps/web/src/routeTree.gen.ts': 'export const a = 1',
+      'apps/web/src/lib/errors.ts': 'export const a = 1',
+      'apps/web/public/sw.js': '',
+      'apps/api/src/services/db.ts': 'export const a = 1',
+      'packages/ui/src/index.ts': 'export const a = 1',
+      'packages/i18n/src/locales/web.en.ts': "export default { hello: 'Hello' }",
+      'packages/i18n/src/locales/web.de.ts': "export default { hello: 'Hallo' }",
+    })
+    const found = await detectPatterns(root)
+    expect(found.map((f) => f.path)).toEqual(['packages/i18n/src/locales/web.%locale%.ts'])
+    const project = await discoverProject(root)
+    expect(project.locales).toEqual(['de', 'en'])
+    expect(project.sourceLocale).toBe('en')
+  })
+
+  it('still detects a project that only has its source locale', async () => {
+    await files({ 'src/locales/en.json': '{"a":"A"}', 'src/api/index.ts': '' })
+    const found = await detectPatterns(root, 'en')
+    expect(found).toEqual([expect.objectContaining({ path: 'src/locales/%locale%.json', locales: ['en'] })])
+  })
+
+  it('accepts language codes with script and region only', () => {
+    for (const code of ['en', 'de', 'pt-BR', 'zh_Hant', 'fr_CH', 'es-419', 'fil'])
+      expect(isLocaleCode(code)).toBe(true)
+    for (const code of ['api', 'app', 'src', 'lib', 'db', 'web', 'ws', 'use-config', 'EN'])
+      expect(isLocaleCode(code)).toBe(false)
   })
 
   it('normalizes GitHub and Bitbucket remote URLs without retaining credentials', () => {
