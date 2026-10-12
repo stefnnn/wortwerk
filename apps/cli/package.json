@@ -1,6 +1,6 @@
 {
   "name": "wortwerk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Command line client for wortwerk, translation management with git flow",
   "homepage": "https://wortwerk.li",
   "license": "AGPL-3.0-only",
