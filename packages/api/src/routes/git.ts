@@ -96,7 +96,11 @@ export async function installBitbucketWebhook(ctx: Ctx, link: RepoLink) {
 export const tenantGit = new Hono<Env>()
   .get('/connections', async (c) =>
     c.json({
-      connections: await listConnections(c.get('ctx')),
+      connections: (await listConnections(c.get('ctx'))).map(({ externalId, ...connection }) => ({
+        ...connection,
+        // where to change which repositories the connection can see (GitHub App installation settings)
+        accessUrl: repoAccessFixUrl({ ...connection, externalId }),
+      })),
       available: { github: Boolean(providers.github), bitbucket: Boolean(providers.bitbucket) },
     }),
   )

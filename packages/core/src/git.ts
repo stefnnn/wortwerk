@@ -34,6 +34,8 @@ export async function listConnections(ctx: Ctx) {
       id: gitConnection.id,
       provider: gitConnection.provider,
       accountName: gitConnection.accountName,
+      accountType: gitConnection.accountType,
+      externalId: gitConnection.externalId,
       createdAt: gitConnection.createdAt,
     })
     .from(gitConnection)

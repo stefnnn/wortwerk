@@ -138,7 +138,11 @@ function SetupForm({
   const repos = useQuery({
     ...queries.gitRepos(tenant, effectiveConnectionId),
     enabled: Boolean(tenant && effectiveConnectionId),
+    // picks up repositories added in the GitHub App settings while this page stays open
+    staleTime: 0,
+    refetchInterval: 5000,
   })
+  const accessUrl = matchingConnections.find((item) => item.id === effectiveConnectionId)?.accessUrl
   const selectedRepo = repos.data?.find((repo) => repo.fullName === proposal.git?.repo)
   const [repo, setRepo] = useState(proposal.git?.repo ?? '')
   const [branch, setBranch] = useState(proposal.git?.branch ?? '')
@@ -285,6 +289,16 @@ function SetupForm({
                       </option>
                     ))}
                   </NativeSelect>
+                  {accessUrl && (
+                    <a
+                      href={accessUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-muted-foreground hover:text-foreground -mt-2 text-sm underline underline-offset-4"
+                    >
+                      {m.cli_setup_repo_missing()}
+                    </a>
+                  )}
                   <Input
                     value={effectiveBranch}
                     onChange={(event) => setBranch(event.target.value)}
