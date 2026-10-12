@@ -538,5 +538,6 @@
   "auto_translate_point_included": "機械翻訳はプランに含まれており、単語ごとの追加料金はありません",
   "auto_translate_fair_use": "公正利用ポリシーが適用されます。",
   "auto_translate_docs": "自動翻訳の仕組み",
-  "powered_by_claude": "Anthropic Claudeを使用"
+  "powered_by_claude": "Anthropic Claudeを使用",
+  "cli_setup_repo_missing": "リポジトリを追加"
 }

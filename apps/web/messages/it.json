@@ -538,5 +538,6 @@
   "auto_translate_point_included": "La traduzione automatica è inclusa nel tuo piano, senza costi per parola",
   "auto_translate_fair_use": "Si applica una politica di utilizzo corretto.",
   "auto_translate_docs": "Come funziona la traduzione automatica",
-  "powered_by_claude": "Basato su Anthropic Claude"
+  "powered_by_claude": "Basato su Anthropic Claude",
+  "cli_setup_repo_missing": "Aggiungi altri repository"
 }

@@ -225,7 +225,7 @@
   "footer_source": "Source code",
   "footer_tagline": "Translation management that speaks git.",
   "git_connect": "Connect {provider}",
-  "cli_setup_repo_missing": "Repository not listed? Change which repositories wortwerk can access on GitHub",
+  "cli_setup_repo_missing": "Add more repositories",
   "git_connected": "Connected",
   "git_not_configured": "Not configured on this server",
   "git_requested": "Installation requested, an organisation owner needs to approve it.",

@@ -538,5 +538,6 @@
   "auto_translate_point_included": "机器翻译已包含在你的套餐中，不收取按词计费的费用",
   "auto_translate_fair_use": "适用公平使用政策。",
   "auto_translate_docs": "了解自动翻译的工作原理",
-  "powered_by_claude": "由 Anthropic Claude 提供支持"
+  "powered_by_claude": "由 Anthropic Claude 提供支持",
+  "cli_setup_repo_missing": "添加更多仓库"
 }
