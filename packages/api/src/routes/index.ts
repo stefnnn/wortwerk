@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { ZodError, z } from 'zod'
 import { validate } from './validate.ts'
@@ -13,6 +14,7 @@ import { projects } from './projects.ts'
 import { v1 } from './v1/index.ts'
 import { account } from './account.ts'
 import { workspaceSummary } from './workspace.ts'
+import { db } from '../services.ts'
 
 const statusFor = { not_found: 404, conflict: 409, invalid: 400, limit_reached: 402, forbidden: 403 } as const
 
@@ -42,6 +44,15 @@ export const api = new Hono<Env>()
   .basePath('/api')
   .on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
   .get('/health', (c) => c.json({ ok: true }))
+  .get('/health/live', (c) => c.json({ ok: true }))
+  .get('/health/ready', async (c) => {
+    try {
+      await db.execute(sql`SELECT 1`)
+      return c.json({ ok: true })
+    } catch {
+      return c.json({ ok: false, error: 'database_unavailable' }, 503)
+    }
+  })
   .route('/t/:tenant', tenant)
   .route('/admin', admin)
   .route('/webhooks', webhooks)
