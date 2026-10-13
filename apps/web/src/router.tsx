@@ -1,3 +1,4 @@
+import { initAnalytics } from './lib/analytics.ts'
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { QueryClient } from '@tanstack/react-query'
@@ -5,6 +6,7 @@ import { deLocalizeUrl, localizeUrl } from './paraglide/runtime.js'
 import { routeTree } from './routeTree.gen'
 
 export function getRouter() {
+  initAnalytics()
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
   })

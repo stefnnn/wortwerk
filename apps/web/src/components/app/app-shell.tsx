@@ -1,3 +1,4 @@
+import { identifyAnalytics } from '#/lib/analytics.ts'
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -198,6 +199,7 @@ function UserMenu({ viewer, tenant }: { viewer: Viewer; tenant: Tenant }) {
   const initials = (viewer.user.name || viewer.user.email).slice(0, 2).toUpperCase()
   const signOut = async () => {
     await authClient.signOut()
+    identifyAnalytics(null)
     await router.navigate({ to: '/' })
   }
   return (

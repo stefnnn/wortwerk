@@ -5,7 +5,7 @@ import { m } from '#/paraglide/messages.js'
 import { getLocale } from '#/paraglide/runtime.js'
 
 const contact = 'contact@wortwerk.li'
-const updated = '2026-10-06'
+const updated = '2026-10-13'
 
 export const Route = createFileRoute('/privacy')({
   head: () => ({
@@ -90,12 +90,7 @@ const en: Section[] = [
   },
   {
     title: 'Cookies and local storage',
-    body: (
-      <p>
-        We use a session cookie to keep you signed in and a cookie that remembers your language. Your theme
-        choice is stored in your browser. There are no analytics, tracking or advertising cookies.
-      </p>
-    ),
+    body: <p>{m.privacy_analytics()}</p>,
   },
   {
     title: 'How long we keep data',
@@ -202,12 +197,7 @@ const de: Section[] = [
   },
   {
     title: 'Cookies und lokaler Speicher',
-    body: (
-      <p>
-        Wir verwenden ein Sitzungscookie, damit du angemeldet bleibst, und ein Cookie für deine Sprache. Deine
-        Theme-Wahl wird in deinem Browser gespeichert. Es gibt keine Analyse-, Tracking- oder Werbe-Cookies.
-      </p>
-    ),
+    body: <p>{m.privacy_analytics()}</p>,
   },
   {
     title: 'Aufbewahrung',

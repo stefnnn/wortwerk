@@ -1,3 +1,4 @@
+import { trackFeature } from '#/lib/analytics.ts'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Eye, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -43,13 +44,24 @@ export function BulkPanel({ tenant, project, locale, isSource, count, selection,
       unwrap(t.projects[':project'].keys.status.$post({ param, json: { locale, status, selection } })),
     {
       invalidate: [['tenant', tenant, 'project', project, 'keys'], queries.stats(tenant, project).queryKey],
-      onSuccess: (result) =>
-        toast.success(m.editor_bulk_status_done({ updated: result.updated, selected: result.selected })),
+      onSuccess: (result, status) => {
+        toast.success(m.editor_bulk_status_done({ updated: result.updated, selected: result.selected }))
+        trackFeature('translation_status_changed', {
+          project_id: project,
+          locale,
+          status,
+          count: result.updated,
+        })
+      },
     },
   )
   const machine = useAction(
     () => unwrap(t.projects[':project'].machine.$post({ param, json: { locale, selection } })),
-    { invalidate: [queries.runs(tenant, project).queryKey], success: m.machine_queued() },
+    {
+      invalidate: [queries.runs(tenant, project).queryKey],
+      success: m.machine_queued(),
+      onSuccess: () => trackFeature('machine_translation_queued', { project_id: project, locale, count }),
+    },
   )
 
   return (

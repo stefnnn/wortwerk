@@ -1,3 +1,4 @@
+import { trackFeature } from '#/lib/analytics.ts'
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -114,7 +115,12 @@ export function KeyEditor({
   const tenantInfo = useQuery(queries.tenant(tenant))
   const machine = useAction(
     () => unwrap(t.keys[':keyId'].machine.$post({ param: { tenant, keyId: item.id }, json: { locale } })),
-    { onSuccess: (result) => setDraft(result.value) },
+    {
+      onSuccess: (result) => {
+        setDraft(result.value)
+        trackFeature('machine_translation_generated', { project_id: project, locale })
+      },
+    },
   )
   const save = useAction(
     ({ status }: { status?: Status; advance?: boolean }) =>
@@ -126,7 +132,13 @@ export function KeyEditor({
       ),
     {
       invalidate,
-      onSuccess: (_, { advance }) => {
+      onSuccess: (result, { advance }) => {
+        trackFeature('translation_saved', {
+          project_id: project,
+          locale,
+          source: isSource,
+          status: result.status,
+        })
         if (advance) onNext?.()
       },
     },
@@ -375,7 +387,10 @@ function Suggestions({
       {suggestions.data.map((s) => (
         <li key={s.value}>
           <button
-            onClick={() => onUse(s.value)}
+            onClick={() => {
+              onUse(s.value)
+              trackFeature('translation_suggestion_applied', { locale, score: s.score })
+            }}
             className="hover:border-primary/60 grid w-full gap-1 rounded-lg border p-3 text-left text-sm"
           >
             <span className="text-muted-foreground flex items-center justify-between gap-2 text-xs">

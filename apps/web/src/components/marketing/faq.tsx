@@ -10,7 +10,7 @@ export function faqItems() {
     [m.faq_ci_q(), m.faq_ci_a()],
     [m.faq_mt_q(), m.faq_mt_a()],
     [m.faq_keys_q(), m.faq_keys_a()],
-    [m.faq_data_q(), m.faq_data_a()],
+    [m.faq_data_q(), m.faq_data_analytics_a()],
   ] as const
 }
 

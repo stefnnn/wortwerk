@@ -1,3 +1,4 @@
+import { trackFeature } from '#/lib/analytics.ts'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Info, Plus, X } from 'lucide-react'
@@ -62,7 +63,11 @@ function ProjectSettings() {
   })
   const autoTranslate = useAction(
     (value: boolean) => unwrap(t.projects[':project'].$patch({ param, json: { autoTranslate: value } })),
-    { invalidate: [projectKey], success: m.saved() },
+    {
+      invalidate: [projectKey],
+      success: m.saved(),
+      onSuccess: (_, enabled) => trackFeature('auto_translate_changed', { project_id: project, enabled }),
+    },
   )
   const addLocale = useAction(
     () => unwrap(t.projects[':project'].locales.$post({ param, json: { code: locale.trim() } })),

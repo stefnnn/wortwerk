@@ -1,3 +1,4 @@
+import { Analytics } from '#/components/analytics.tsx'
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -36,6 +37,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
+            <Analytics />
             <TooltipProvider>
               {children}
               <Toaster richColors />
