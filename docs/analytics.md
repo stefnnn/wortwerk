@@ -19,7 +19,7 @@ background processing, not completed).
 
 | Event                            | Properties                                 | Product question                                                 |
 | -------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
-| `page_view`                      | Pug page metadata, `surface`               | Which public pages and app screens get used?                     |
+| `page_view`                      | Pug page metadata, `path`, `surface`       | Which public pages and app screens get used?                     |
 | `settings_opened`                | `scope`                                    | How often do people reach workspace/project configuration?       |
 | `auto_translate_changed`         | `project_id`, `enabled`                    | Do people keep automatic translation enabled?                    |
 | `machine_translation_generated`  | `project_id`, `locale`                     | How useful is per-key machine translation?                       |
@@ -27,6 +27,19 @@ background processing, not completed).
 | `translation_suggestion_applied` | `locale`, `score`                          | Are translation memory suggestions useful?                       |
 | `translation_saved`              | `project_id`, `locale`, `source`, `status` | Are people editing source wording, translating, or reviewing?    |
 | `translation_status_changed`     | `project_id`, `locale`, `status`, `count`  | How much bulk review work happens?                               |
+
+Page views include `/docs`, every documentation subpage, and `/self-hosting`,
+on both direct loads and client navigation. Hash-only navigation does not add a
+page view; homepage anchor clicks are recorded separately.
+
+| Event                     | Properties                                                                       | Product question                                          |
+| ------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `faq_opened`              | `faq_id` (`format`, `main`, `removed`, `providers`, `ci`, `mt`, `keys`, `data`)  | Which questions attract interest?                         |
+| `homepage_anchor_clicked` | `section` (`how`, `faq`, `pricing`), `placement` (`header`, `footer`, `content`) | Which homepage sections do visitors seek, and from where? |
+
+FAQ IDs stay the same across languages. Closing an FAQ sends no event; reopening
+it sends another. Anchor tracking includes links to homepage sections from other
+marketing pages and supports localized homepage URLs and keyboard activation.
 
 All events include `surface` (`website` or `app`) and, when signed in, current
 account/workspace context. These are UI usage events, not an audit log: browsers

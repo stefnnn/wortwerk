@@ -18,7 +18,7 @@ export function Analytics() {
     identifyAnalytics(session?.user ?? null, tenant)
     if (lastPage.current === pathname) return
     lastPage.current = pathname
-    trackFeature('page_view')
+    trackFeature('page_view', { path: pathname })
     if (/\/settings\/?$/.test(pathname)) {
       trackFeature('settings_opened', { scope: /\/p\//.test(pathname) ? 'project' : 'workspace' })
     }

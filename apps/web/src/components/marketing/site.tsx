@@ -1,14 +1,31 @@
 import { Link } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Logo } from '#/components/brand.tsx'
 import { LocaleSwitch, ThemeToggle } from '#/components/preferences.tsx'
 import { buttonVariants } from '#/components/ui/button.tsx'
+import { trackFeature } from '#/lib/analytics.ts'
+import { deLocalizeUrl } from '#/paraglide/runtime.js'
 import { competitors } from '#/lib/compare.ts'
 import { m } from '#/paraglide/messages.js'
 
+function trackHomepageAnchor(event: MouseEvent<HTMLDivElement>) {
+  if (!(event.target instanceof Element)) return
+  const link = event.target.closest('a[href]')
+  if (!link) return
+  const destination = new URL(link.getAttribute('href')!, window.location.href)
+  if (destination.origin !== window.location.origin || deLocalizeUrl(destination).pathname !== '/') return
+  const section = destination.hash.slice(1)
+  // Only known homepage sections; arbitrary URL fragments are never sent.
+  if (!['how', 'faq', 'pricing'].includes(section)) return
+  trackFeature('homepage_anchor_clicked', {
+    section,
+    placement: link.closest('header') ? 'header' : link.closest('footer') ? 'footer' : 'content',
+  })
+}
+
 export function MarketingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col" onClick={trackHomepageAnchor}>
       <SiteHeader />
       <main className="flex-1">{children}</main>
       <SiteFooter />
