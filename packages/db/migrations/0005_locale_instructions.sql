@@ -1,0 +1,1 @@
+ALTER TABLE "project_locale" ADD COLUMN "instructions" text DEFAULT '' NOT NULL;

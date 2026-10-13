@@ -1,0 +1,22 @@
+{
+  "name": "@wortwerk/formats",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./icu": "./src/icu.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@formatjs/icu-messageformat-parser": "^3.5.21",
+    "gettext-parser": "^9.1.1",
+    "oxc-parser": "^0.153.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/gettext-parser": "^9.0.0"
+  }
+}

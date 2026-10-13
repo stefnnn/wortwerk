@@ -1,0 +1,14 @@
+{
+  "name": "@wortwerk/git",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  }
+}

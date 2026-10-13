@@ -1,0 +1,74 @@
+import { PgBoss, type ConstructorOptions, type SendOptions } from 'pg-boss'
+import { z } from 'zod'
+
+const base = { tenantId: z.string(), projectId: z.string() }
+
+export const projectJob = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('import'), ...base, syncRunId: z.string() }),
+  z.object({ type: z.literal('pull'), ...base, syncRunId: z.string() }),
+  z.object({ type: z.literal('push'), ...base, syncRunId: z.string().optional() }),
+  z.object({ type: z.literal('machine'), ...base, syncRunId: z.string(), locale: z.string() }),
+])
+export type ProjectJob = z.infer<typeof projectJob>
+
+export const queues = {
+  project: 'project',
+  exportSweep: 'export-sweep',
+  accessSweep: 'access-sweep',
+} as const
+
+export const importParams = z.object({
+  fileId: z.string(),
+  locale: z.string(),
+  storageKey: z.string(),
+  overwrite: z.boolean().default(false),
+})
+export type ImportParams = z.infer<typeof importParams>
+
+export const pullParams = z.object({
+  sha: z.string().optional(),
+  importTranslations: z.boolean().default(false),
+  overwrite: z.boolean().default(false),
+  force: z.boolean().default(false),
+  trigger: z.enum(['manual', 'webhook', 'ci', 'connect']).default('manual'),
+})
+export type PullParams = z.input<typeof pullParams>
+
+export const pushParams = z.object({
+  trigger: z.enum(['manual', 'auto', 'ci', 'pull']).default('manual'),
+})
+export type PushParams = z.input<typeof pushParams>
+
+export const machineParams = z.object({
+  locale: z.string(),
+  keyIds: z.array(z.string()).optional(),
+  // validated by core (keySelection) when the job runs
+  selection: z.record(z.string(), z.unknown()).optional(),
+  trigger: z.enum(['manual', 'auto']).default('manual'),
+})
+export type MachineParams = z.input<typeof machineParams>
+
+export function createBoss(options: Partial<ConstructorOptions> = {}) {
+  const connectionString = options.connectionString ?? process.env.DATABASE_URL
+  if (!connectionString) throw new Error('DATABASE_URL is not set')
+  return new PgBoss({ schema: 'pgboss', ...options, connectionString })
+}
+
+export async function ensureQueues(boss: PgBoss) {
+  // heartbeats let pg-boss retry a job within a minute when its worker died (e.g. on a deploy),
+  // instead of waiting for the default 15 minute expiry
+  const options = { retryLimit: 2, retryBackoff: true, expireInSeconds: 1800, heartbeatSeconds: 60 }
+  for (const name of Object.values(queues)) {
+    if (await boss.getQueue(name)) await boss.updateQueue(name, options)
+    else await boss.createQueue(name, options)
+  }
+}
+
+export async function enqueueProjectJob(boss: PgBoss, job: ProjectJob, options: SendOptions = {}) {
+  // git and import jobs are serialized per project. Machine translation only writes its own locale's
+  // translations, so it is grouped per locale and different locales can run in parallel.
+  const group = job.type === 'machine' ? `${job.projectId}:machine:${job.locale}` : job.projectId
+  return boss.send(queues.project, projectJob.parse(job), { ...options, group: { id: group } })
+}
+
+export type { PgBoss }

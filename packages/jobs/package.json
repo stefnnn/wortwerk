@@ -1,0 +1,15 @@
+{
+  "name": "@wortwerk/jobs",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "pg-boss": "^12.37.0",
+    "zod": "^4.6.5"
+  }
+}
