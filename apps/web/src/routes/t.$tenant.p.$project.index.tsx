@@ -138,7 +138,9 @@ function ProjectOverview() {
         )}
       </div>
       {repo.data?.accessLostAt && <RepoAccessAlert tenant={tenant} project={project} repo={repo.data} />}
-      {repo.data?.exportState && <ExportStatus repo={repo.data} state={repo.data.exportState} />}
+      {repo.data?.exportState && (
+        <ExportStatus tenant={tenant} project={project} repo={repo.data} state={repo.data.exportState} />
+      )}
       <div className="grid gap-3">
         {locales.map((s) => {
           const isSource = s.locale === details.data.sourceLocale
@@ -263,9 +265,13 @@ function StatusLink({
 }
 
 function ExportStatus({
+  tenant,
+  project,
   repo,
   state,
 }: {
+  tenant: string
+  project: string
   repo: { lastPushedAt: string | Date | null; pullRequestUrl: string | null }
   state: 'synced' | 'pending' | 'pr'
 }) {
@@ -278,7 +284,7 @@ function ExportStatus({
   )
   const className = 'flex items-center gap-1.5 text-sm'
   return (
-    <div className="-mb-3 flex justify-end">
+    <div className="-mb-3 flex items-center justify-end gap-3">
       <Tooltip>
         <TooltipTrigger
           render={
@@ -300,6 +306,16 @@ function ExportStatus({
           {repo.lastPushedAt ? m.export_last({ date: formatDateTime(repo.lastPushedAt) }) : m.export_never()}
         </TooltipContent>
       </Tooltip>
+      {state !== 'synced' && (
+        <Link
+          to="/t/$tenant/p/$project/editor"
+          params={{ tenant, project }}
+          search={{ locale: 'all', sync: 'pending' }}
+          className="text-primary text-sm hover:underline"
+        >
+          {m.export_changes()}
+        </Link>
+      )}
     </div>
   )
 }

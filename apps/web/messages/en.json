@@ -521,6 +521,7 @@
   "tokens_used": "last used {date}",
   "export_synced": "In sync with repository",
   "export_pending": "Changes not in a pull request yet",
+  "export_changes": "Changes",
   "export_pr_open": "Pull request submitted",
   "export_last": "Last export: {date}",
   "export_never": "Not exported yet",

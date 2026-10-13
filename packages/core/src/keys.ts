@@ -40,7 +40,7 @@ export const listKeysInput = z.object({
   // The editor can opt in to showing the source alongside target rows.
   includeSource: z.coerce.boolean().default(false),
   status: z.enum(translationStatuses).optional(),
-  // source sync state: wording not in the repo yet, or an open conflict with the repo
+  // Per-locale values not in the repo yet, or an open source conflict with the repo
   sync: z.enum(['pending', 'conflict']).optional(),
   search: z.string().trim().max(200).optional(),
   // exact key name, for API clients that address keys by name
@@ -78,7 +78,8 @@ function keyFilter(
   ]
   if (q.status === 'untranslated') filters.push(or(isNull(tgt.id), eq(tgt.status, 'untranslated')))
   else if (q.status) filters.push(eq(tgt.status, q.status))
-  if (q.sync === 'pending') filters.push(isNotNull(src.repoValue), sql`${src.value} <> ${src.repoValue}`)
+  if (q.sync === 'pending')
+    filters.push(sql`${tgt.value} <> ''`, sql`${tgt.repoValue} is distinct from ${tgt.value}`)
   if (q.sync === 'conflict') filters.push(sql`exists ${openConflict}`)
   if (q.search) {
     const pattern = `%${q.search.replace(/[%_\\]/g, '\\$&')}%`

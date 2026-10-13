@@ -46,6 +46,38 @@ async function setup(source: Record<string, string>) {
 }
 
 describe('source text sync', () => {
+  it('lists pending changes per locale until they are merged and pulled', async () => {
+    const s = await setup({ title: 'Welcome', save: 'Save', empty: 'Empty' })
+    const pending = (locale = 'all') =>
+      listKeys(s.ctx, s.project.id, { locale, includeSource: true, sync: 'pending' })
+    expect((await pending()).total).toBe(0)
+
+    await s.edit('title', 'Welcome back')
+    await s.translate('save', 'Speichern')
+    await s.translate('empty', '')
+    const rows = (await pending()).items.map(({ name, locale }) => ({ name, locale }))
+    expect(rows).toEqual([
+      { name: 'title', locale: 'en' },
+      { name: 'save', locale: 'de' },
+    ])
+    expect((await pending('de')).items.map((r) => r.name)).toEqual(['save'])
+    expect((await pending('en')).items.map((r) => r.name)).toEqual(['title'])
+
+    await s.push()
+    expect((await pending()).total).toBe(2)
+    s.repo.push({
+      'locales/en.json': s.repo.file('wortwerk/translations', 'locales/en.json')!,
+      'locales/de.json': s.repo.file('wortwerk/translations', 'locales/de.json')!,
+    })
+    await s.pull()
+    expect((await pending()).total).toBe(0)
+
+    await s.translate('save', 'Jetzt speichern')
+    expect((await pending('de')).total).toBe(1)
+    await s.translate('save', 'Speichern')
+    expect((await pending()).total).toBe(0)
+  })
+
   it('keeps wortwerk wording through unrelated pulls, pushes it and settles after the merge', async () => {
     const s = await setup({ title: 'Welcome', save: 'Save' })
     await s.translate('title', 'Willkommen')
