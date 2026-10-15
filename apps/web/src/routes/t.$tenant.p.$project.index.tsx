@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, FileUp, GitMerge, GitPullRequestArrow, Upload, WandSparkles } from 'lucide-react'
+import {
+  Check,
+  FileUp,
+  GitCompareArrows,
+  GitMerge,
+  GitPullRequestArrow,
+  Upload,
+  WandSparkles,
+} from 'lucide-react'
 import { useEffect } from 'react'
 import { EmptyState, PageBody } from '#/components/app/page.tsx'
 import { RepoAccessAlert } from '#/components/app/repo-settings.tsx'
@@ -311,9 +319,11 @@ function ExportStatus({
           to="/t/$tenant/p/$project/editor"
           params={{ tenant, project }}
           search={{ locale: 'all', sync: 'pending' }}
-          className="text-primary text-sm hover:underline"
+          className="text-primary inline-flex items-center"
+          aria-label={m.export_changes()}
+          title={m.export_changes()}
         >
-          {m.export_changes()}
+          <GitCompareArrows className="size-4" />
         </Link>
       )}
     </div>

@@ -8,7 +8,7 @@ import {
   Eye,
   GitMerge,
   ImagePlus,
-  Sparkles,
+  WandSparkles,
   Trash2,
   Undo2,
 } from 'lucide-react'
@@ -48,6 +48,7 @@ export type EditorItem = {
   status: string
   // source sync: the value last seen in the repo, and whether an open conflict exists
   repoValue?: string | null
+  sourceRepoValue?: string | null
   conflict?: boolean
 }
 
@@ -90,9 +91,9 @@ export function KeyEditor({
 
   const issue = draft ? validateIcu(draft) : null
   // source text from the repo: wording is editable, structure is not
-  const fromRepo = isSource && item.repoValue != null
+  const fromRepo = isSource && item.sourceRepoValue != null
   const structure =
-    fromRepo && draft && !issue ? structureIssue(item.repoValue!, draft, locale, 'source') : null
+    fromRepo && draft && !issue ? structureIssue(item.sourceRepoValue!, draft, locale, 'source') : null
   const blocked = !!issue || !!structure || (fromRepo && !draft)
   const [minor, setMinor] = useState(false)
   const placeholders = useMemo(() => {
@@ -113,21 +114,12 @@ export function KeyEditor({
     queries.conflicts(tenant, item.id).queryKey,
   ]
   const tenantInfo = useQuery(queries.tenant(tenant))
-  const machine = useAction(
-    () => unwrap(t.keys[':keyId'].machine.$post({ param: { tenant, keyId: item.id }, json: { locale } })),
-    {
-      onSuccess: (result) => {
-        setDraft(result.value)
-        trackFeature('machine_translation_generated', { project_id: project, locale })
-      },
-    },
-  )
   const save = useAction(
-    ({ status }: { status?: Status; advance?: boolean }) =>
+    ({ value = draft, status }: { value?: string; status?: Status; advance?: boolean }) =>
       unwrap(
         t.keys[':keyId'].translations[':locale'].$put({
           param: { tenant, keyId: item.id, locale },
-          json: { value: draft, status, minor: isSource && minor ? true : undefined },
+          json: { value, status, minor: isSource && minor ? true : undefined },
         }),
       ),
     {
@@ -140,6 +132,16 @@ export function KeyEditor({
           status: result.status,
         })
         if (advance) onNext?.()
+      },
+    },
+  )
+  const machine = useAction(
+    () => unwrap(t.keys[':keyId'].machine.$post({ param: { tenant, keyId: item.id }, json: { locale } })),
+    {
+      onSuccess: (result) => {
+        setDraft(result.value)
+        trackFeature('machine_translation_generated', { project_id: project, locale })
+        save.mutate({ value: result.value })
       },
     },
   )
@@ -200,7 +202,7 @@ export function KeyEditor({
         </div>
       )}
 
-      {isSource && (item.conflict || (fromRepo && item.value !== item.repoValue)) && (
+      {isSource && (item.conflict || (fromRepo && item.value !== item.sourceRepoValue)) && (
         <SourceSync
           tenant={tenant}
           item={item}
@@ -320,7 +322,7 @@ export function KeyEditor({
                   disabled={machine.isPending}
                   onClick={() => machine.mutate(undefined)}
                 >
-                  <Sparkles className={cn(machine.isPending && 'animate-pulse')} /> {m.editor_machine()}
+                  <WandSparkles className={cn(machine.isPending && 'animate-pulse')} /> {m.editor_machine()}
                 </Button>
               )}
             </>

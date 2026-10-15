@@ -410,7 +410,7 @@ function Editor() {
 function SyncBadge({
   item,
 }: {
-  item: { conflict: boolean; source: string | null; repoValue: string | null }
+  item: { conflict: boolean; value: string | null; repoValue: string | null }
 }) {
   if (item.conflict)
     return (
@@ -418,10 +418,20 @@ function SyncBadge({
         <GitMerge /> {m.editor_sync_conflict()}
       </Badge>
     )
-  if (item.repoValue !== null && item.source !== item.repoValue)
+  if (item.value && item.repoValue !== null && item.value !== item.repoValue)
     return (
-      <Badge variant="outline" className="font-normal" title={m.editor_pending_title()}>
-        <GitPullRequestArrow /> {m.editor_sync_pending()}
+      <Badge
+        variant="outline"
+        className="absolute right-3 bottom-3 font-normal"
+        title={m.editor_pending_title()}
+      >
+        <GitPullRequestArrow /> {m.editor_sync_changed()}
+      </Badge>
+    )
+  if (item.repoValue === null && item.value)
+    return (
+      <Badge variant="outline" className="absolute right-3 bottom-3 font-normal">
+        {m.editor_sync_new()}
       </Badge>
     )
   return null

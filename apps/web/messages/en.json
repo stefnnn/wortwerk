@@ -167,6 +167,8 @@
   "editor_sync_conflict": "Conflicts",
   "editor_sync_group": "Repository sync",
   "editor_sync_pending": "Not in repository yet",
+  "editor_sync_changed": "Changed",
+  "editor_sync_new": "New",
   "editor_system": "System",
   "editor_tab_comments": "Comments",
   "editor_tab_history": "History",
