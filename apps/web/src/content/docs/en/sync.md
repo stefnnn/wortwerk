@@ -12,12 +12,12 @@ Both run as background jobs, one at a time per project, so a pull and an export 
 
 ## Who owns what
 
-|                                                       | Owner      | Direction                 |
-| ----------------------------------------------------- | ---------- | ------------------------- |
-| Keys: which messages exist                            | repository | repo → wortwerk           |
-| Message structure: placeholders, markup, plural forms | repository | repo → wortwerk           |
-| Source wording                                        | shared     | both ways, merged per key |
-| Translations                                          | wortwerk   | wortwerk → repo           |
+|                                                       | Owner      | Direction                                  |
+| ----------------------------------------------------- | ---------- | ------------------------------------------ |
+| Keys: which messages exist                            | repository | repo → wortwerk                            |
+| Message structure: placeholders, markup, plural forms | repository | repo → wortwerk                            |
+| Source wording                                        | shared     | both ways, merged per key                  |
+| Translations                                          | wortwerk   | wortwerk → repo, developer fixes are taken |
 
 Keys of a connected project are only ever added by developers in the repository, never in wortwerk. That keeps the code and the translation files consistent: a key exists exactly when some code can use it.
 
@@ -41,12 +41,12 @@ For each file pattern, wortwerk reads the **source language file** at that commi
 2. **Keys missing from the file** become _obsolete_. They disappear from the editor, but their translations are kept, and if the key comes back later, everything is restored. Obsolete keys are only deleted when you click **Purge obsolete keys** in the project settings.
 3. **Source texts** are merged per key (see below). When the wording changes, the translations of that key move to _needs review_.
 
-Then the **target language files** are read. Translations in the repository only fill gaps, they never overwrite work done in wortwerk:
+Then the **target language files** are read:
 
-- on the **first pull** of a file or language, every translation from the repository is imported,
-- afterwards, only translations of **keys that are new** in this pull are imported.
+- on the **first pull** of a file or language, every translation from the repository fills the gaps; existing translations in wortwerk are kept,
+- afterwards, translations are [merged per key](#merging-translations): a developer's quick fix in the repository is taken, work done in wortwerk is never overwritten.
 
-Imported translations are marked _needs review_.
+Translations taken from the repository are marked _needs review_.
 
 ### Auto-translate new keys
 
@@ -65,6 +65,20 @@ Developers change wording in code reviews, and copywriters fix texts in wortwerk
 | changed    | changed   | **conflict**: the repository wins                         |
 
 In a conflict, the wording from wortwerk isn't lost. The editor shows the key with _Before_, _Repository now_ and _Wording from wortwerk_. Choose **Use my wording** to re-apply your edit (it then goes out with the next export), or **Keep repository version** to dismiss it.
+
+## Merging translations
+
+Translations belong to the translators, but a developer sometimes fixes one directly in the repository. wortwerk merges translations three-way as well, except that **wortwerk wins** a conflict:
+
+| Repository | wortwerk  | Result                                                                  |
+| ---------- | --------- | ----------------------------------------------------------------------- |
+| changed    | unchanged | the repository's translation is taken, marked _needs review_            |
+| unchanged  | changed   | wortwerk's translation is kept and goes out with the next export        |
+| changed    | changed   | **conflict**: wortwerk's translation stays, the next export restores it |
+
+A translation from the repository that breaks the placeholders, markup or plural forms of the source text is treated as a conflict too. A translation removed from the repository file, or one you cleared in wortwerk, stays as it is in wortwerk.
+
+In a conflict, the editor shows the repository's translation. Choose **Use repository translation** to take it over, or **Keep this translation** to dismiss it. The project overview links to all open conflicts.
 
 ### Only wording, never structure
 

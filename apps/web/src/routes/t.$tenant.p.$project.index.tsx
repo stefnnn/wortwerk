@@ -133,6 +133,17 @@ function ProjectOverview() {
             {m.overview_source_conflicts({ count: formatNumber(sourceSync.data.conflicts) })}
           </Link>
         )}
+        {!!sourceSync.data?.targetConflicts && (
+          <Link
+            to="/t/$tenant/p/$project/editor"
+            params={{ tenant, project }}
+            search={{ locale: 'all', sync: 'conflict' }}
+            className="text-warning flex items-center gap-1.5 hover:underline"
+          >
+            <GitMerge className="size-4" />
+            {m.overview_target_conflicts({ count: formatNumber(sourceSync.data.targetConflicts) })}
+          </Link>
+        )}
         {!!sourceSync.data?.pending && (
           <Link
             to="/t/$tenant/p/$project/editor"

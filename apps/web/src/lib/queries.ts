@@ -60,10 +60,10 @@ export const queries = {
       queryKey: ['tenant', tenant, 'project', project, 'source-sync'],
       queryFn: () => unwrap(t.projects[':project']['source-sync'].$get({ param: { tenant, project } })),
     }),
-  conflicts: (tenant: string, keyId: string) =>
+  conflicts: (tenant: string, keyId: string, locale: string) =>
     queryOptions({
-      queryKey: ['tenant', tenant, 'key', keyId, 'conflicts'],
-      queryFn: () => unwrap(t.keys[':keyId'].conflicts.$get({ param: { tenant, keyId } })),
+      queryKey: ['tenant', tenant, 'key', keyId, 'conflicts', locale],
+      queryFn: () => unwrap(t.keys[':keyId'].conflicts[':locale'].$get({ param: { tenant, keyId, locale } })),
     }),
   keys: (tenant: string, project: string, filters: KeyFilters) =>
     queryOptions({

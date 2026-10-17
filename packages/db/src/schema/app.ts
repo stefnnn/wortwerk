@@ -14,7 +14,8 @@ const createdAt = () => timestamp({ withTimezone: true }).defaultNow().notNull()
 const updatedAt = () =>
   timestamp({ withTimezone: true })
     .defaultNow()
-    .$onUpdate(() => new Date())
+    // the database clock, like the default: export state compares these with other db timestamps
+    .$onUpdate(() => sql`now()`)
     .notNull()
 const userRef = () => text().references(() => user.id, { onDelete: 'set null' })
 
@@ -180,7 +181,8 @@ export const translationRevision = pgTable(
   (t) => [index().on(t.translationId, t.createdAt)],
 )
 
-export const conflictResolution = pgEnum('conflict_resolution', ['repo', 'edited'])
+// which version stayed: the repo's, wortwerk's, or a new edit
+export const conflictResolution = pgEnum('conflict_resolution', ['repo', 'wortwerk', 'edited'])
 
 // a pull changed source text that was also edited in wortwerk; the repo value won, `mine` is kept
 export const sourceConflict = pgTable(
@@ -191,6 +193,8 @@ export const sourceConflict = pgTable(
     keyId: text()
       .notNull()
       .references(() => translationKey.id, { onDelete: 'cascade' }),
+    // source conflicts keep the repo's text, target conflicts keep wortwerk's
+    locale: text().notNull(),
     mine: text().notNull(),
     base: text(),
     // null when the key was removed from the repo
@@ -200,7 +204,7 @@ export const sourceConflict = pgTable(
     resolvedById: userRef(),
     resolution: conflictResolution(),
   },
-  (t) => [index().on(t.keyId), index().on(t.tenantId, t.resolvedAt)],
+  (t) => [index().on(t.keyId, t.locale), index().on(t.tenantId, t.resolvedAt)],
 )
 
 export const keyComment = pgTable(

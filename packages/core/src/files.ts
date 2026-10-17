@@ -1,6 +1,13 @@
 import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
-import { parseFile, patchFile, serializeFile, type Entry, type FileFormat } from '@wortwerk/formats'
+import {
+  parseFile,
+  patchFile,
+  serializeFile,
+  structureIssue,
+  type Entry,
+  type FileFormat,
+} from '@wortwerk/formats'
 import { chunks, type Ctx } from './context.ts'
 import { assertKeyCapacity } from './limits.ts'
 import { addLocale, filePathFor, getFile, getProject } from './projects.ts'
@@ -31,15 +38,17 @@ export async function importFileContent(
     overwrite?: boolean
     source?: 'import' | 'git'
     status?: TranslationStatus
-    keyIds?: ReadonlySet<string>
+    // git target files: merge three-way instead of only filling gaps
+    merge?: boolean
   },
 ): Promise<ImportResult> {
   const project = await getProject(ctx, { id: input.projectId })
   const file = await getFile(ctx, input.fileId)
   const isSource = input.locale === project.sourceLocale
-  // source text from git is merged three-way against the value last seen in the repo, so wording
-  // edited in wortwerk survives pulls that did not touch it
-  const threeWay = isSource && input.source === 'git'
+  // text from git is merged three-way against the value last seen in the repo, so edits made in
+  // wortwerk survive pulls that did not touch them. When both sides changed, the repo wins for
+  // source text and wortwerk wins for translations
+  const threeWay = input.source === 'git' && (isSource || !!input.merge)
   const parsed = parseFile(file.format as FileFormat, input.content, {
     locale: input.locale,
     isSource,
@@ -131,6 +140,7 @@ export async function importFileContent(
             pending.map((p) => ({
               tenantId: ctx.tenantId,
               keyId: p.keyId,
+              locale: input.locale,
               mine: p.value,
               base: p.repoValue,
               theirs: null,
@@ -167,7 +177,6 @@ export async function importFileContent(
         result.skipped++
         continue
       }
-      if (input.keyIds && !input.keyIds.has(k.id)) continue
       const status: TranslationStatus = isSource
         ? 'approved'
         : entry.needsReview
@@ -196,25 +205,60 @@ export async function importFileContent(
           ),
         )
       const current = new Map(existing.map((t) => [t.keyId, t]))
+      const sources =
+        threeWay && !isSource
+          ? new Map(
+              (
+                await tx
+                  .select({ keyId: translation.keyId, value: translation.value })
+                  .from(translation)
+                  .where(
+                    and(
+                      inArray(
+                        translation.keyId,
+                        batch.map((w) => w.keyId),
+                      ),
+                      eq(translation.locale, project.sourceLocale),
+                    ),
+                  )
+              ).map((t) => [t.keyId, t.value]),
+            )
+          : null
       const changed: typeof batch = []
       // three-way only: keys whose repo base moves without changing the value
       const rebased: typeof batch = []
-      const conflicts: Array<{ keyId: string; mine: string; base: string | null; theirs: string }> = []
+      const conflicts: Array<{
+        keyId: string
+        locale: string
+        mine: string
+        base: string | null
+        theirs: string
+      }> = []
 
       for (const w of batch) {
         const t = current.get(w.keyId)
-        if (!t || t.status === 'untranslated' || !t.value) {
+        if (threeWay && !isSource && t && !t.value && t.repoValue === w.value) {
+          // cleared in wortwerk, unchanged in the repo: stays cleared
+        } else if (!t || t.status === 'untranslated' || !t.value) {
           changed.push(w)
         } else if (threeWay) {
-          // rows from before base tracking have no base; the repo wins for them, as it used to
-          const base = t.repoValue ?? t.value
+          // source rows from before base tracking have no base; the repo wins for them, as it used to
+          const base = t.repoValue ?? (isSource ? t.value : null)
           if (w.value === t.value) {
             if (t.repoValue !== w.value) rebased.push(w)
           } else if (w.value !== base) {
-            // the repo changed; if wortwerk changed it too, the repo wins and the wording is kept
-            if (t.value !== base)
-              conflicts.push({ keyId: w.keyId, mine: t.value, base: t.repoValue, theirs: w.value })
-            changed.push(w)
+            const conflict = { keyId: w.keyId, locale: input.locale, base: t.repoValue }
+            const source = sources?.get(w.keyId)
+            if (isSource) {
+              // the wording edited in wortwerk is kept on the conflict
+              if (t.value !== base) conflicts.push({ ...conflict, mine: t.value, theirs: w.value })
+              changed.push(w)
+            } else if (t.value !== base || (source && structureIssue(source, w.value, input.locale))) {
+              // wortwerk's translation stays and the next push restores it; the repo's is kept on the conflict
+              conflicts.push({ ...conflict, mine: t.value, theirs: w.value })
+            } else {
+              changed.push(w)
+            }
           }
           // otherwise only wortwerk changed it: keep the edit, the next push sends it
         } else if (t.value !== w.value && (isSource || input.overwrite)) {
@@ -238,8 +282,12 @@ export async function importFileContent(
       }
       if (threeWay) {
         // a newer repo value supersedes conflicts that are still open for the key
-        const superseded = changed.filter((w) => current.get(w.keyId)?.value).map((w) => w.keyId)
-        await resolveConflicts(tx, ctx, superseded, 'repo')
+        const superseded = [
+          ...changed.filter((w) => current.get(w.keyId)?.value),
+          ...rebased,
+          ...conflicts,
+        ].map((w) => w.keyId)
+        await resolveConflicts(tx, ctx, superseded, input.locale, 'repo')
       }
       if (conflicts.length) {
         await tx.insert(sourceConflict).values(conflicts.map((c) => ({ tenantId: ctx.tenantId, ...c })))
@@ -257,7 +305,7 @@ export async function importFileContent(
             locale: input.locale,
             value: w.value,
             status: w.status,
-            repoValue: threeWay ? w.value : undefined,
+            repoValue: input.source === 'git' ? w.value : undefined,
             updatedById: ctx.userId,
           })),
         )
@@ -266,9 +314,9 @@ export async function importFileContent(
           set: {
             value: sql`excluded.value`,
             status: sql`excluded.status`,
-            ...(threeWay ? { repoValue: sql`excluded.repo_value` } : {}),
+            ...(input.source === 'git' ? { repoValue: sql`excluded.repo_value` } : {}),
             updatedById: sql`excluded.updated_by_id`,
-            updatedAt: new Date(),
+            updatedAt: sql`now()`,
           },
         })
         .returning({ id: translation.id, value: translation.value, status: translation.status })
@@ -284,13 +332,22 @@ export async function importFileContent(
       )
     }
 
-    // target values from git are never merged, but what the repo holds is recorded so that
-    // "db differs from repo" stays answerable (export status)
+    // what the repo holds is recorded for every target value, merged or not, so that "db differs
+    // from repo" stays answerable (export status)
     if (!isSource && input.source === 'git') {
       const seen = parsed.entries.flatMap((e) => {
         const k = keyById.get(identity(e.context, e.key))
         return k && !k.obsoleteAt ? [{ keyId: k.id, value: e.value }] : []
       })
+      const seenIds = new Set(seen.map((w) => w.keyId))
+      const absent = keys.filter((k) => !k.obsoleteAt && !seenIds.has(k.id)).map((k) => k.id)
+      for (const batch of chunks(absent)) {
+        await tx.execute(sql`
+          update ${translation} set repo_value = null
+          where ${inArray(translation.keyId, batch)} and ${translation.locale} = ${input.locale}
+            and ${translation.repoValue} is not null
+        `)
+      }
       for (const batch of chunks(seen)) {
         const values = sql.join(
           batch.map((w) => sql`(${w.keyId}, ${w.value})`),

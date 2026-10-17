@@ -12,6 +12,7 @@ import {
   or,
   sql,
   type SQL,
+  type SQLWrapper,
 } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { schema } from '@wortwerk/db'
@@ -51,7 +52,8 @@ export const listKeysInput = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 })
 
-const openConflict = sql`(select 1 from ${sourceConflict} where ${sourceConflict.keyId} = ${translationKey.id} and ${sourceConflict.resolvedAt} is null)`
+const openConflict = (locale: SQLWrapper | string) =>
+  sql`(select 1 from ${sourceConflict} where ${sourceConflict.keyId} = ${translationKey.id} and ${sourceConflict.locale} = ${locale} and ${sourceConflict.resolvedAt} is null)`
 
 export const keyFilterInput = listKeysInput.omit({ limit: true, offset: true })
 
@@ -80,7 +82,7 @@ function keyFilter(
   else if (q.status) filters.push(eq(tgt.status, q.status))
   if (q.sync === 'pending')
     filters.push(sql`${tgt.value} <> ''`, sql`${tgt.repoValue} is distinct from ${tgt.value}`)
-  if (q.sync === 'conflict') filters.push(sql`exists ${openConflict}`)
+  if (q.sync === 'conflict') filters.push(sql`exists ${openConflict(tgt.locale)}`)
   if (q.search) {
     const pattern = `%${q.search.replace(/[%_\\]/g, '\\$&')}%`
     filters.push(
@@ -121,7 +123,7 @@ export async function listKeys(ctx: Ctx, projectId: string, input: z.input<typeo
         updatedAt: tgt.updatedAt,
         sourceRepoValue: src.repoValue,
         repoValue: tgt.repoValue,
-        conflict: sql<boolean>`exists ${openConflict}`,
+        conflict: sql<boolean>`exists ${openConflict(projectLocale.code)}`,
         comments: sql<number>`(select count(*)::int from ${keyComment} where ${keyComment.keyId} = ${translationKey.id})`,
         screenshots: sql<number>`(select count(*)::int from ${keyScreenshot} where ${keyScreenshot.keyId} = ${translationKey.id})`,
       })
@@ -381,7 +383,7 @@ export async function setTranslationStatusBulk(
     await ctx.db.transaction(async (tx) => {
       const rows = await tx
         .update(translation)
-        .set({ status: status satisfies TranslationStatus, updatedById: ctx.userId, updatedAt: new Date() })
+        .set({ status: status satisfies TranslationStatus, updatedById: ctx.userId, updatedAt: sql`now()` })
         .where(
           and(
             eq(translation.tenantId, ctx.tenantId),
@@ -414,7 +416,7 @@ export async function sourceSyncCounts(ctx: Ctx, projectId: string) {
   const [row] = await ctx.db
     .select({
       pending: sql<number>`count(*) filter (where ${translation.repoValue} is not null and ${translation.value} <> ${translation.repoValue} and ${translationKey.obsoleteAt} is null)::int`,
-      conflicts: sql<number>`count(*) filter (where exists ${openConflict})::int`,
+      conflicts: sql<number>`count(*) filter (where exists ${openConflict(project.sourceLocale)})::int`,
     })
     .from(translationKey)
     .leftJoin(
@@ -422,5 +424,21 @@ export async function sourceSyncCounts(ctx: Ctx, projectId: string) {
       and(eq(translation.keyId, translationKey.id), eq(translation.locale, project.sourceLocale)),
     )
     .where(and(eq(translationKey.tenantId, ctx.tenantId), eq(translationKey.projectId, project.id)))
-  return { pending: row?.pending ?? 0, conflicts: row?.conflicts ?? 0 }
+  const [targets] = await ctx.db
+    .select({ conflicts: count() })
+    .from(sourceConflict)
+    .innerJoin(translationKey, eq(translationKey.id, sourceConflict.keyId))
+    .where(
+      and(
+        eq(sourceConflict.tenantId, ctx.tenantId),
+        eq(translationKey.projectId, project.id),
+        ne(sourceConflict.locale, project.sourceLocale),
+        isNull(sourceConflict.resolvedAt),
+      ),
+    )
+  return {
+    pending: row?.pending ?? 0,
+    conflicts: row?.conflicts ?? 0,
+    targetConflicts: targets?.conflicts ?? 0,
+  }
 }

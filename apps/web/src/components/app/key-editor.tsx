@@ -111,7 +111,7 @@ export function KeyEditor({
     queries.stats(tenant, project).queryKey,
     queries.revisions(tenant, item.id, locale).queryKey,
     queries.sourceSync(tenant, project).queryKey,
-    queries.conflicts(tenant, item.id).queryKey,
+    queries.conflicts(tenant, item.id, locale).queryKey,
   ]
   const tenantInfo = useQuery(queries.tenant(tenant))
   const save = useAction(
@@ -202,11 +202,12 @@ export function KeyEditor({
         </div>
       )}
 
-      {isSource && (item.conflict || (fromRepo && item.value !== item.sourceRepoValue)) && (
-        <SourceSync
+      {(item.conflict || (fromRepo && item.value !== item.sourceRepoValue)) && (
+        <RepoSync
           tenant={tenant}
           item={item}
           locale={locale}
+          isSource={isSource}
           invalidate={invalidate}
           onUseWording={(value) => {
             setRaw(true)
@@ -579,23 +580,28 @@ function structureMessage(issue: StructureIssue) {
   }
 }
 
-function SourceSync({
+function RepoSync({
   tenant,
   item,
   locale,
+  isSource,
   invalidate,
   onUseWording,
 }: {
   tenant: string
   item: EditorItem
   locale: string
+  isSource: boolean
   invalidate: QueryKey[]
   onUseWording: (value: string) => void
 }) {
-  const conflicts = useQuery({ ...queries.conflicts(tenant, item.id), enabled: !!item.conflict })
+  const conflicts = useQuery({ ...queries.conflicts(tenant, item.id, locale), enabled: !!item.conflict })
   const [conflict] = conflicts.data ?? []
-  const keepRepo = useAction(
-    () => unwrap(t.keys[':keyId'].conflicts['keep-repo'].$post({ param: { tenant, keyId: item.id } })),
+  const dismiss = useAction(
+    () =>
+      unwrap(
+        t.keys[':keyId'].conflicts[':locale'].dismiss.$post({ param: { tenant, keyId: item.id, locale } }),
+      ),
     { invalidate },
   )
   const revert = useAction(
@@ -611,6 +617,40 @@ function SourceSync({
 
   if (item.conflict) {
     if (!conflict) return null
+    if (!isSource)
+      return (
+        <div className="bg-warning-surface grid gap-3 rounded-lg px-3.5 py-3 text-sm">
+          <p className="text-warning flex gap-1.5 font-medium">
+            <GitMerge className="size-4 shrink-0" />
+            {m.editor_conflict_target_title()}
+          </p>
+          <dl className="grid gap-2">
+            <div>
+              <dt className="text-muted-foreground text-xs">{m.editor_conflict_target_theirs()}</dt>
+              <dd className="whitespace-pre-wrap">{conflict.theirs}</dd>
+            </div>
+            {conflict.base !== null && (
+              <div>
+                <dt className="text-muted-foreground text-xs">{m.editor_conflict_base()}</dt>
+                <dd className="text-muted-foreground whitespace-pre-wrap line-through">{conflict.base}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => onUseWording(conflict.theirs ?? '')}>
+              {m.editor_conflict_use_repo()}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={dismiss.isPending}
+              onClick={() => dismiss.mutate(undefined)}
+            >
+              {m.editor_conflict_keep_mine()}
+            </Button>
+          </div>
+        </div>
+      )
     return (
       <div className="bg-warning-surface grid gap-3 rounded-lg px-3.5 py-3 text-sm">
         <p className="text-warning flex gap-1.5 font-medium">
@@ -644,8 +684,8 @@ function SourceSync({
           <Button
             size="sm"
             variant="ghost"
-            disabled={keepRepo.isPending}
-            onClick={() => keepRepo.mutate(undefined)}
+            disabled={dismiss.isPending}
+            onClick={() => dismiss.mutate(undefined)}
           >
             {conflict.theirs === null ? m.editor_conflict_dismiss() : m.editor_conflict_keep_repo()}
           </Button>

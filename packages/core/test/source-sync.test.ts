@@ -3,7 +3,7 @@ import { createMemoryRepo } from '@wortwerk/git'
 import { pullFromRepo, pushToRepo, saveConnection, saveRepoLink } from '../src/git.ts'
 import { createProject, upsertFile } from '../src/projects.ts'
 import { createKey, listKeys, sourceSyncCounts } from '../src/keys.ts'
-import { keepRepoVersion, listOpenConflicts, setTranslation } from '../src/translations.ts'
+import { dismissConflict, listOpenConflicts, setTranslation } from '../src/translations.ts'
 import { createTenant, db } from './helpers.ts'
 
 afterAll(() => db.pool.end())
@@ -83,7 +83,11 @@ describe('source text sync', () => {
     await s.translate('title', 'Willkommen')
     await s.edit('title', 'Welcome back')
     expect(await s.key('title')).toMatchObject({ status: 'needs_review' })
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 1, conflicts: 0 })
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 1,
+      conflicts: 0,
+      targetConflicts: 0,
+    })
 
     // a developer changes another key
     s.repo.push({ 'locales/en.json': en({ title: 'Welcome', save: 'Save changes' }) })
@@ -102,7 +106,11 @@ describe('source text sync', () => {
     await s.translate('title', 'Willkommen zurück')
     s.merge()
     await s.pull()
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 0, conflicts: 0 })
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 0,
+      conflicts: 0,
+      targetConflicts: 0,
+    })
     expect(await s.key('title')).toMatchObject({ value: 'Willkommen zurück', status: 'translated' })
   })
 
@@ -125,17 +133,25 @@ describe('source text sync', () => {
 
     const hello = await s.source('hello')
     expect(hello).toMatchObject({ source: 'Hello {name}', repoValue: 'Hello {name}', conflict: true })
-    expect(await listOpenConflicts(s.ctx, hello!.id)).toEqual([
+    expect(await listOpenConflicts(s.ctx, hello!.id, 'en')).toEqual([
       expect.objectContaining({ mine: 'Hi there', base: 'Hello', theirs: 'Hello {name}' }),
     ])
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 0, conflicts: 1 })
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 0,
+      conflicts: 1,
+      targetConflicts: 0,
+    })
     expect((await listKeys(s.ctx, s.project.id, { locale: 'en', sync: 'conflict' })).total).toBe(1)
 
     // re-applying the wording must keep the developer's placeholder, and closes the conflict
     await expect(s.edit('hello', 'Hi there')).rejects.toThrow(/placeholders changed/)
     await s.edit('hello', 'Hi there {name}')
-    expect(await listOpenConflicts(s.ctx, hello!.id)).toEqual([])
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 1, conflicts: 0 })
+    expect(await listOpenConflicts(s.ctx, hello!.id, 'en')).toEqual([])
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 1,
+      conflicts: 0,
+      targetConflicts: 0,
+    })
   })
 
   it('closes an open conflict when the repo changes the key again', async () => {
@@ -147,7 +163,11 @@ describe('source text sync', () => {
     await s.pull()
     const hello = await s.source('hello')
     expect(hello).toMatchObject({ source: 'Hello again {name}', conflict: false })
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 0, conflicts: 0 })
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 0,
+      conflicts: 0,
+      targetConflicts: 0,
+    })
   })
 
   it('records a conflict when the repo removes a key with unpushed wording', async () => {
@@ -163,11 +183,15 @@ describe('source text sync', () => {
     const conflicts = await listKeys(s.ctx, s.project.id, { locale: 'en', sync: 'conflict' })
     expect(conflicts.items).toEqual([expect.objectContaining({ name: 'intro', conflict: true })])
     expect(conflicts.items[0]!.obsoleteAt).not.toBeNull()
-    expect(await listOpenConflicts(s.ctx, conflicts.items[0]!.id)).toEqual([
+    expect(await listOpenConflicts(s.ctx, conflicts.items[0]!.id, 'en')).toEqual([
       expect.objectContaining({ mine: 'Please read and accept the terms', theirs: null }),
     ])
-    await keepRepoVersion(s.ctx, conflicts.items[0]!.id)
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 0, conflicts: 0 })
+    await dismissConflict(s.ctx, conflicts.items[0]!.id, 'en')
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 0,
+      conflicts: 0,
+      targetConflicts: 0,
+    })
     // obsolete keys are never pushed
     expect(await s.push()).toMatchObject({ sourceChanges: 0, diff: false })
   })
@@ -177,7 +201,11 @@ describe('source text sync', () => {
     await s.edit('hello', 'Hello!')
     s.repo.push({ 'locales/en.json': en({ hello: 'Hello!' }) })
     expect((await s.pull()).files[0]).toMatchObject({ conflicts: 0, translationsChanged: 0 })
-    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({ pending: 0, conflicts: 0 })
+    expect(await sourceSyncCounts(s.ctx, s.project.id)).toEqual({
+      pending: 0,
+      conflicts: 0,
+      targetConflicts: 0,
+    })
   })
 
   it('pulls before pushing so a stale base never reverts developer changes', async () => {

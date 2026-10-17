@@ -55,6 +55,8 @@ const guestRoutes: Array<[method: string, path: RegExp]> = [
   ['GET', /^\/keys\/[^/]+\/translations\/[^/]+\/revisions$/],
   ['GET', /^\/keys\/[^/]+\/suggestions$/],
   ['POST', /^\/keys\/[^/]+\/machine$/],
+  ['GET', /^\/keys\/[^/]+\/conflicts\/[^/]+$/],
+  ['POST', /^\/keys\/[^/]+\/conflicts\/[^/]+\/dismiss$/],
   ['GET', /^\/keys\/[^/]+\/(comments|screenshots)$/],
   ['POST', /^\/keys\/[^/]+\/(comments|screenshots)$/],
   ['DELETE', /^\/comments\/[^/]+$/],

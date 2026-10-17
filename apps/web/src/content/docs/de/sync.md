@@ -12,12 +12,12 @@ Beides läuft als Hintergrund-Job, pro Projekt immer nur einer gleichzeitig. Ein
 
 ## Wem was gehört
 
-|                                             | Gehört     | Richtung                                     |
-| ------------------------------------------- | ---------- | -------------------------------------------- |
-| Keys: welche Texte es gibt                  | Repository | Repo → wortwerk                              |
-| Struktur: Platzhalter, Markup, Pluralformen | Repository | Repo → wortwerk                              |
-| Formulierung der Quelltexte                 | gemeinsam  | in beide Richtungen, pro Key zusammengeführt |
-| Übersetzungen                               | wortwerk   | wortwerk → Repo                              |
+|                                             | Gehört     | Richtung                                                    |
+| ------------------------------------------- | ---------- | ----------------------------------------------------------- |
+| Keys: welche Texte es gibt                  | Repository | Repo → wortwerk                                             |
+| Struktur: Platzhalter, Markup, Pluralformen | Repository | Repo → wortwerk                                             |
+| Formulierung der Quelltexte                 | gemeinsam  | in beide Richtungen, pro Key zusammengeführt                |
+| Übersetzungen                               | wortwerk   | wortwerk → Repo, Korrekturen aus dem Repo werden übernommen |
 
 Keys eines verbundenen Projekts werden ausschliesslich von Entwicklern im Repository angelegt, nie in wortwerk. So bleiben Code und Übersetzungsdateien konsistent: Ein Key existiert genau dann, wenn Code ihn verwenden kann.
 
@@ -41,12 +41,12 @@ Für jedes Dateimuster liest wortwerk die **Datei der Quellsprache** bei diesem 
 2. **Keys, die in der Datei fehlen,** werden _veraltet_. Sie verschwinden aus dem Editor, ihre Übersetzungen bleiben aber erhalten, und taucht der Key später wieder auf, ist alles wieder da. Veraltete Keys werden erst gelöscht, wenn du in den Projekteinstellungen auf **Veraltete Keys löschen** klickst.
 3. **Quelltexte** werden pro Key zusammengeführt (siehe unten). Ändert sich die Formulierung, wechseln die Übersetzungen dieses Keys auf _Zu prüfen_.
 
-Danach werden die **Dateien der Zielsprachen** gelesen. Übersetzungen aus dem Repository füllen nur Lücken und überschreiben nie Arbeit, die in wortwerk gemacht wurde:
+Danach werden die **Dateien der Zielsprachen** gelesen:
 
-- beim **ersten Pull** einer Datei oder Sprache werden alle Übersetzungen aus dem Repository importiert,
-- danach nur noch Übersetzungen von **Keys, die in diesem Pull neu sind**.
+- beim **ersten Pull** einer Datei oder Sprache füllen die Übersetzungen aus dem Repository die Lücken, bestehende Übersetzungen in wortwerk bleiben,
+- danach werden Übersetzungen [pro Key zusammengeführt](#ubersetzungen-zusammenfuhren): Schnelle Korrekturen aus der Entwicklung im Repository werden übernommen, Arbeit aus wortwerk wird nie überschrieben.
 
-Importierte Übersetzungen sind als _Zu prüfen_ markiert.
+Übersetzungen aus dem Repository sind als _Zu prüfen_ markiert.
 
 ### Neue Keys automatisch übersetzen
 
@@ -65,6 +65,20 @@ Entwickler ändern Formulierungen im Code Review, Texterinnen korrigieren Texte 
 | geändert    | geändert    | **Konflikt**: das Repository gewinnt                               |
 
 Bei einem Konflikt geht die Formulierung aus wortwerk nicht verloren. Der Editor zeigt den Key mit _Vorher_, _Jetzt im Repository_ und _Formulierung aus wortwerk_. Wähle **Meine Formulierung verwenden**, um deine Änderung erneut anzuwenden (sie geht dann mit dem nächsten Export raus), oder **Version aus dem Repository behalten**, um sie zu verwerfen.
+
+## Übersetzungen zusammenführen
+
+Übersetzungen gehören den Übersetzenden, aber manchmal korrigiert jemand aus der Entwicklung eine direkt im Repository. wortwerk führt auch Übersetzungen dreifach zusammen, nur gewinnt bei einem Konflikt **wortwerk**:
+
+| Repository  | wortwerk    | Ergebnis                                                                                    |
+| ----------- | ----------- | ------------------------------------------------------------------------------------------- |
+| geändert    | unverändert | die Übersetzung aus dem Repository wird übernommen, markiert als _Zu prüfen_                |
+| unverändert | geändert    | die Übersetzung aus wortwerk bleibt und geht mit dem nächsten Export raus                   |
+| geändert    | geändert    | **Konflikt**: die Übersetzung aus wortwerk bleibt, der nächste Export stellt sie wieder her |
+
+Eine Übersetzung aus dem Repository, die Platzhalter, Markup oder Pluralformen des Quelltexts verletzt, gilt ebenfalls als Konflikt. Eine Übersetzung, die aus der Datei im Repository entfernt wurde oder die du in wortwerk geleert hast, bleibt in wortwerk, wie sie ist.
+
+Bei einem Konflikt zeigt der Editor die Übersetzung aus dem Repository. Wähle **Übersetzung aus dem Repository verwenden**, um sie zu übernehmen, oder **Diese Übersetzung behalten**, um sie zu verwerfen. Die Projektübersicht verlinkt alle offenen Konflikte.
 
 ### Nur Formulierung, nie Struktur
 

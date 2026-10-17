@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { schema } from '@wortwerk/db'
 import { describeStructureIssue, parsePluralIcu, structureIssue, validateIcu } from '@wortwerk/formats'
 import { z } from 'zod'
@@ -70,7 +70,7 @@ export async function setTranslation(
       .values({ tenantId: ctx.tenantId, keyId, locale, value: data.value, status, updatedById: ctx.userId })
       .onConflictDoUpdate({
         target: [translation.keyId, translation.locale],
-        set: { value: data.value, status, updatedById: ctx.userId, updatedAt: new Date() },
+        set: { value: data.value, status, updatedById: ctx.userId, updatedAt: sql`now()` },
       })
       .returning()
 
@@ -89,8 +89,9 @@ export async function setTranslation(
         await tx.update(translationKey).set({ isPlural }).where(eq(translationKey.id, keyId))
       if (existing && existing.value !== data.value && !data.minor)
         await flagDependentsForReview(tx, ctx.tenantId, [keyId], locale)
-      if (source === 'editor') await resolveConflicts(tx, ctx, [keyId], 'edited')
     }
+    if (source === 'editor' && existing?.value !== data.value)
+      await resolveConflicts(tx, ctx, [keyId], locale, 'edited')
     return row!
   })
 }
@@ -104,7 +105,7 @@ export async function flagDependentsForReview(
   if (!keyIds.length) return
   await db
     .update(translation)
-    .set({ status: 'needs_review', updatedAt: new Date() })
+    .set({ status: 'needs_review', updatedAt: sql`now()` })
     .where(
       and(
         eq(translation.tenantId, tenantId),
@@ -155,7 +156,8 @@ export async function resolveConflicts(
   db: Ctx['db'],
   ctx: Ctx,
   keyIds: string[],
-  resolution: 'repo' | 'edited',
+  locale: string,
+  resolution: (typeof schema.conflictResolution.enumValues)[number],
 ) {
   if (!keyIds.length) return 0
   const rows = await db
@@ -165,6 +167,7 @@ export async function resolveConflicts(
       and(
         eq(sourceConflict.tenantId, ctx.tenantId),
         inArray(sourceConflict.keyId, keyIds),
+        eq(sourceConflict.locale, locale),
         isNull(sourceConflict.resolvedAt),
       ),
     )
@@ -172,7 +175,7 @@ export async function resolveConflicts(
   return rows.length
 }
 
-export async function listOpenConflicts(ctx: Ctx, keyId: string) {
+export async function listOpenConflicts(ctx: Ctx, keyId: string, locale: string) {
   await getKeyInTenant(ctx, keyId)
   return ctx.db
     .select()
@@ -181,14 +184,17 @@ export async function listOpenConflicts(ctx: Ctx, keyId: string) {
       and(
         eq(sourceConflict.tenantId, ctx.tenantId),
         eq(sourceConflict.keyId, keyId),
+        eq(sourceConflict.locale, locale),
         isNull(sourceConflict.resolvedAt),
       ),
     )
     .orderBy(desc(sourceConflict.createdAt))
 }
 
-/** "Keep the repo version": the current source text already is the repo's, so just close the conflict. */
-export async function keepRepoVersion(ctx: Ctx, keyId: string) {
-  await getKeyInTenant(ctx, keyId)
-  await resolveConflicts(ctx.db, ctx, [keyId], 'repo')
+/** Keeps the version in use (the repo's for source text, wortwerk's for translations) and closes the conflict. */
+export async function dismissConflict(ctx: Ctx, keyId: string, locale: string) {
+  const key = await getKeyInTenant(ctx, keyId)
+  assertLocaleEditable(ctx, key.projectId, locale)
+  const resolution = locale === key.project.sourceLocale ? 'repo' : 'wortwerk'
+  await resolveConflicts(ctx.db, ctx, [keyId], locale, resolution)
 }

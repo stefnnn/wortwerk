@@ -332,7 +332,7 @@ export async function pullFromRepo(
   const pull = async (
     file: (typeof project.files)[number],
     locale: string,
-    options: { status?: 'needs_review'; keyIds?: ReadonlySet<string> } = {},
+    options: { status?: 'needs_review'; merge?: boolean } = {},
   ) => {
     const path = filePathFor(file.path, repoLocale(link, locale))
     const content = await client.readFile(link.repo, sha, path)
@@ -354,17 +354,15 @@ export async function pullFromRepo(
 
   for (const file of project.files) await pull(file, project.sourceLocale)
 
-  // Repo values only fill gaps: on the first pull (or an explicit import) for every key, later only
-  // for keys that appeared in this pull. Translations wortwerk already has are never touched.
   // keys of the first pull are not "new": they are the project's whole existing backlog
   const newKeyIds = knownKeys
     ? [...(await projectKeyIds(ctx, project.id))].filter((id) => !knownKeys.has(id))
     : []
-  const keyIds = allTargets ? undefined : new Set(newKeyIds)
-  // target files are always read: values are only filled for `keyIds`, but the repo's values are tracked
+  // The first pull (or an explicit import) only fills gaps. Later pulls merge three-way: translations
+  // the repo changed while wortwerk did not are taken, wortwerk's win when both changed.
   const targets = project.locales.map((l) => l.code).filter((l) => l !== project.sourceLocale)
   for (const file of project.files) {
-    for (const locale of targets) await pull(file, locale, { status: 'needs_review', keyIds })
+    for (const locale of targets) await pull(file, locale, { status: 'needs_review', merge: !allTargets })
   }
   if (files.every((f) => f.missing)) {
     throw new DomainError(
@@ -398,7 +396,9 @@ export async function pushToRepo(ctx: Ctx, client: GitClient, input: { projectId
   }
 
   // taken after the pull above, which may touch rows itself; edits after this moment are not in the export
-  const startedAt = new Date()
+  // the database clock in full precision, as updated_at is compared against it
+  const { rows } = await ctx.db.execute<{ now: string }>(sql`select now()::text as now`)
+  const startedAt = sql`${rows[0]!.now}::timestamptz`
   const changes: Array<FileChange & { locale: string; count: number }> = []
   const pending = await pendingSourceChanges(ctx, project.id)
   for (const file of project.files) {
