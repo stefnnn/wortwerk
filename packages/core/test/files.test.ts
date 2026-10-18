@@ -91,6 +91,31 @@ describe('file import / export', () => {
     expect(exported.content).toBe(bg)
   })
 
+  it('keeps an empty translation of an empty source text in a script file', async () => {
+    const ctx = await createTenant()
+    const project = await createProject(ctx, {
+      name: 'Web',
+      slug: 'web',
+      sourceLocale: 'en',
+      locales: ['de'],
+    })
+    const file = await upsertFile(ctx, project.id, { path: 'src/%locale%.ts', format: 'script' })
+    const input = { projectId: project.id, fileId: file.id }
+    await importFileContent(ctx, {
+      ...input,
+      locale: 'en',
+      content: `export const en = {\n  home: "Home",\n  note: "",\n  save: "Save",\n};\n`,
+    })
+    await importFileContent(ctx, {
+      ...input,
+      locale: 'de',
+      content: `export const de = {\n  home: "Start",\n  note: "",\n  save: "",\n};\n`,
+    })
+
+    const exported = await exportFileContent(ctx, { fileId: file.id, locale: 'de' })
+    expect(exported.content).toBe(`export const de = {\n  home: "Start",\n  note: "",\n};\n`)
+  })
+
   it("exports a yaml file by patching the locale's own file, not the source", async () => {
     const ctx = await createTenant()
     const project = await createProject(ctx, {

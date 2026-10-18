@@ -390,7 +390,6 @@ export async function exportFileContent(ctx: Ctx, input: { fileId: string; local
         eq(translation.keyId, translationKey.id),
         inArray(translation.locale, [...new Set([input.locale, project.sourceLocale])]),
         ne(translation.status, 'untranslated'),
-        ne(translation.value, ''),
       ),
     )
     .where(
@@ -415,6 +414,8 @@ export async function exportFileContent(ctx: Ctx, input: { fileId: string; local
       description: r.description || undefined,
       source: sources.get(identity(r.context, r.name)),
     }))
+    // an empty value is a gap, unless the source text is empty too
+    .filter((e) => e.value !== '' || e.source === '')
 
   const snapshots = await ctx.db
     .select()
