@@ -5,5 +5,7 @@ cd "$(dirname "$0")/.."
 git fetch --quiet origin main
 git reset --quiet --hard "${1:-origin/main}"
 docker compose -f docker-compose.prod.yml up -d --build --remove-orphans --wait
+docker compose -f docker-compose.prod.yml exec -T web node --version
+docker compose -f docker-compose.prod.yml exec -T worker node --version
 docker image prune -f >/dev/null
 echo "deployed $(git rev-parse --short HEAD)"
